@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SportsManager</title>
+    <link rel="stylesheet" href="src/assets/main.css">
+    <link rel="stylesheet " href="main.js">
+    <script src="https://kit.fontawesome.com/a076d05399.js" crossorigin="anonymous"></script>
+</head>
+<body>
+
+    <!-- Navigation -->
+
+    <header>
+        <nav>
+            <ul id = "pc">
+                <li><a href="#" onclick="navigateTo('home.html')">Home</a></li>
+                <li><a href="#" onclick="navigateTo('about.html')">About</a></li>
+                <li class="dropdown">
+                    <a href="#">Services</a>
+                    <ul class="dropdown-content">
+                        <li><a href="#">Team Management</a></li>
+                        <li><a href="#">Schedule Organization</a></li>
+                        <li><a href="#">Player Statistics</a></li>
+                    </ul>
+                </li>
+                <li><a href="#" onclick="navigateTo('contact.html')">Contact</a></li>
+                <li><a href="#" onclick="navigateTo('registration.html')">Registration</a></li>
+                <li><a href="#" onclick="navigateTo('login.html')">Login</a></li>
+            </ul>
+        
+            <button class="toggle-dark-mode">Toggle Dark Mode</button>
+           
+            <div id="hamburger" class="hamburger" onclick="toggleMenu()"&#9776>
+
+                
+        </nav>
+
+    <!-- Main Section -->
+    <main>
+        <h1>Welcome to SportsManager</h1>
+        <h2>Manage Your Team Effectively</h2>
+        <p>SportsManager allows you to organize schedules, track player statistics, and communicate with your team in one platform.</p>
+        <img src="src/images/sport_system_logo.png" alt="Sports Logo">
+
+        <!-- Card Container -->
+        <div class="card-container">
+            <div class="card" id="card1">
+                <img src="src/images/login_image.png" alt="Login">
+                <h3>Login</h3>
+                <button class="btn" onclick="navigateTo('Login.html')">Login</button>
+                <button class="btn" onclick="navigateTo('Registration.html')">Registration</button>
+            </div>
+           
+        </div>
+    </main>
+
+    <!-- Modal -->
+    <div id="modal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn" onclick="closeModal()">&times;</span>
+        </div>
+    </div>
+
+    
+
+    <!-- Sidebar -->
+    <aside>
+        <h3>Related Articles</h3>
+        <ul>
+            <li><a href="#">How to manage a sports team</a></li>
+            <li><a href="#">Benefits of team collaboration</a></li>
+            <li><a href="#">Tips for organizing schedules</a></li>
+        </ul>
+    </aside>
+
+    <!-- Footer -->
+    <footer>
+        <p>&copy; 2024 SportsManager. All rights reserved.</p>
+        <ul class="footer-links">
+            <li><a href="#">Privacy Policy</a></li>
+            <li><a href="#">Terms of Service</a></li>
+            <li><a href="#">Contact Us</a></li>
+        </ul>
+    </footer>
+
+    <script src="src/main.js"></script>
+    </script>
+</body>
+</html>
