@@ -32,22 +32,51 @@ document.addEventListener("DOMContentLoaded", function() {
     updateToggleText(); // Ensure correct button text on page load
 });
 
-// Modal logic
-function openModal(content) {
-    document.getElementById('modalText').innerText = content;
-    document.getElementById('modal').style.display = 'flex';
-}
+document.addEventListener("DOMContentLoaded", function () {
+    
 
-function closeModal() {
-    document.getElementById('modal').style.display = 'none';
-}
+    // Login Modal Functionality
+    const loginModal = document.getElementById("loginModal");
+    const loginBtn = document.querySelector(".login-btn");
+    const closeBtn = document.querySelector(".close-btn");
 
-// Hamburger menu
-function toggleMenu() {
-    var mobileMenu = document.getElementById('mobileMenu');
-    if (mobileMenu.style.display === "block") {
-        mobileMenu.style.display = "none";
-    } else {
-        mobileMenu.style.display = "block";
+    // Open Login Modal
+    loginBtn.addEventListener("click", function () {
+        loginModal.style.display = "flex";
+    });
+
+    // Close Login Modal
+    closeBtn.addEventListener("click", function () {
+        loginModal.style.display = "none";
+    });
+
+    // Close modal when clicking outside the content
+    window.addEventListener("click", function (event) {
+        if (event.target === loginModal) {
+            loginModal.style.display = "none";
+        }
+    });
+});
+
+const loginModal = document.getElementById("loginModal");
+    const loginBtns = document.querySelectorAll(".login-btn"); // Get all login buttons
+    const closeBtn = document.querySelector(".close-btn");
+
+    loginBtns.forEach(btn => {
+        btn.addEventListener("click", function () {
+            loginModal.style.display = "flex";
+        });
+    });
+
+    if (closeBtn) {
+        closeBtn.addEventListener("click", function () {
+            loginModal.style.display = "none";
+        });
     }
-}
+
+    window.addEventListener("click", function (event) {
+        if (event.target === loginModal) {
+            loginModal.style.display = "none";
+        }
+    });
+
