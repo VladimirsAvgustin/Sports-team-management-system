@@ -10,3 +10,12 @@ The functions will include:
   4) Management of the roster and statistics of players
   5) Communication within the team
   6) Analysis and reporting
+
+Current Implementation:
+Design: The website features a clean and modern design, with a responsive layout and dark mode toggle
+Navigation System: A well-structured navigation bar with dropdowns for different services, allowing seamless access to key sections.(not working yet)
+Hero Section: A visually appealing welcome section introducing users to the platform.
+Login form: Interactive login form to manage user access.
+Card-Based: Intuitive cards for quick actions like login and registration.
+Sidebar with Articles: Additional resources and tips for sports management.
+Footer Section: Informative footer with privacy policies, terms of service, and contact options.
