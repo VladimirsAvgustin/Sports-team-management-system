@@ -385,3 +385,133 @@ img:hover {
       height: auto;
   }
 }
+
+/* Login Modal */
+.modal {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: white;
+  padding: 25px;
+  border-radius: 10px;
+  width: 350px;
+  text-align: center;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+  position: relative;
+  animation: fadeIn 0.3s;
+}
+
+.dark-mode .modal-content {
+  background: #222;
+  color: white;
+  box-shadow: 0 4px 15px rgba(255, 255, 255, 0.2);
+}
+
+.modal-content h2 {
+  margin-bottom: 15px;
+  font-size: 22px;
+}
+
+/* Close Button */
+.close-btn {
+  position: absolute;
+  top: 10px;
+  right: 15px;
+  color: red;
+  font-size: 24px;
+  cursor: pointer;
+}
+
+.close-btn:hover {
+  color: darkred;
+}
+
+/* Login Form Fields */
+.modal-content form {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.modal-content label {
+  align-self: flex-start;
+  font-size: 14px;
+  margin-bottom: 5px;
+  color: #333;
+}
+
+.dark-mode .modal-content label {
+  color: white;
+}
+
+.modal-content input {
+  width: 100%;
+  padding: 10px;
+  margin-bottom: 10px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  font-size: 16px;
+}
+
+.dark-mode .modal-content input {
+  background: #333;
+  color: white;
+  border: 1px solid #555;
+}
+
+/* Login Button */
+.modal-content .btn {
+  background: #013569;
+  color: white;
+  padding: 10px 15px;
+  border: none;
+  cursor: pointer;
+  border-radius: 5px;
+  font-size: 16px;
+  width: 100%;
+  transition: background 0.3s;
+}
+
+.modal-content .btn:hover {
+  background: #005bb5;
+}
+
+/* Dark Mode Login Button */
+.dark-mode .modal-content .btn {
+  background: #ff9800;
+}
+
+.dark-mode .modal-content .btn:hover {
+  background: #e68900;
+}
+
+/* Fade-in Animation */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Responsive Login Modal */
+@media (max-width: 480px) {
+  .modal-content {
+    width: 90%;
+  }
+}
+
