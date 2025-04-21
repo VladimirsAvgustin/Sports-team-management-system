@@ -5,8 +5,9 @@ import ContactPage from "../views/ContactPage.vue";
 import RegisterPage from "../views/RegisterPage.vue";
 import ServicesPage from "../views/ServicesPage.vue";
 
+
 const routes = [
-  { path: "/", component: HomePage },
+  { path: "/", component: () => import("../views/HomePage.vue") },
   { path: "/about", component: AboutPage },
   { path: "/contact", component: ContactPage },
   { path: "/register", component: RegisterPage },

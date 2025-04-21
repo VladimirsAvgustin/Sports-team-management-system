@@ -1,22 +1,14 @@
 
 
 <template>
- <!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TeamFlow</title>
 
-</head>
-<body>
+
 
     <!-- Navigation -->
     <header>
         <nav>
             <ul id="pc">
-                <li><a href="#" onclick="navigateTo('home.html')">Home</a></li>
-                <li><a href="#" onclick="navigateTo('about.html')">About</a></li>
+                <li><router-link to="HomePage">Home</router-link></li>
                 <li class="dropdown">
                     <a href="#">Services</a>
                     <ul class="dropdown-content">
@@ -25,172 +17,58 @@
                         <li><a href="#">Player Statistics</a></li>
                     </ul>
                 </li>
-                <li><a href="#" onclick="navigateTo('contact.html')">Contact</a></li>
-                <li><a href="#" onclick="navigateTo('registration.html')">Registration</a></li>
-                <li><a class="btn login-btn" style="position: relative; left: 1500px; background-color: rgb(3, 99, 19);" >Login</a></li>
+                <li><router-link to="Contact">Contact</router-link></li>
+                <li><router-link to="register">Registration</router-link></li>
+                <li><a class="btn login-btn" style="position: relative; left: 1400px; background-color: rgb(3, 99, 19);" >Login</a></li>
             </ul>
 
             <button class="toggle-dark-mode">Toggle Dark Mode</button>
 
             <div id="hamburger" class="hamburger" onclick="toggleMenu()">&#9776;</div>
+            
         </nav>
     </header>
 
-    <!-- Main Section -->
-    <main>
-        <h1>Welcome to TeamFlow</h1>
-        <h2>Manage Your Team Effectively</h2>
-        <p>TeamFlow allows you to organize schedules, track player statistics, and communicate with your team in one platform.</p>
-        <img src="./images/sport_system_logo.png" alt="Sports Logo">
-
-        <!-- Card Container -->
-        <div class="card-container">
-            <div class="card" id="card1">
-                <img src="./images/login_image.png" alt="Login">
-                <h3>Login</h3>
-                <p>Sign in to your account to access team information and manage schedules.</p>
-                <button class="btn login-btn">Login</button>
-            </div>
-            <div class="card">
-                <img src="./images/schedule.png" alt="Schedule">
-                <h3>Team Schedule</h3>
-                <p>View and manage training sessions and match schedules easily.</p>
-            </div>
-
-            <div class="card">
-                <img src="./images/registration.png" alt="Registration">
-                <h3>Registration</h3>
-                <p>Register your team and players to get started with TeamFlow.</p>
-                <button class="btn" onclick="navigateTo('registration.html')">Registration</button>
-            </div>
-        </div>
-    </main>
-
-    <!-- Login Modal (FIXED) -->
-    <div id="loginModal" class="modal" style="display: none;">
-        <div class="modal-content">
-            <span class="close-btn">&times;</span>
-            <h2>Login</h2>
-            <form>
-                <label for="username">Username:</label>
-                <input type="text" id="username" required>
-                <label for="password">Password:</label>
-                <input type="password" id="password" required>
-                <button type="submit" class="btn">Login</button>
-            </form>
-        </div>
-    </div>
-
-    <!-- Sidebar -->
-    <aside>
-        <h3>Related Articles</h3>
-        <ul>
-            <li><a href="#">How to manage a sports team</a></li>
-            <li><a href="#">Benefits of team collaboration</a></li>
-            <li><a href="#">Tips for organizing schedules</a></li>
-        </ul>
-    </aside>
-
-    <!-- Footer -->
-    <footer>
-        <p>&copy; 2025 TeamFlow. All rights reserved.</p>
-        <ul class="footer-links">
-            <li><a href="#">Privacy Policy</a></li>
-            <li><a href="#">Terms of Service</a></li>
-            <li><a href="#">Contact Us</a></li>
-        </ul>
-    </footer>
 
 
-</body>
-</html>
+
+
 
 </template>
 
 <script>
-document.addEventListener("DOMContentLoaded", function() {
-    const darkModeToggle = document.querySelector('.toggle-dark-mode');
-    const body = document.body;
-
-    // Function to update button text
-    function updateToggleText() {
-        if (body.classList.contains('dark-mode')) {
-            darkModeToggle.textContent = "Light Mode";
-        } else {
-            darkModeToggle.textContent = "Dark Mode";
-        }
-    }
-
-    // Toggle Dark Mode
-    darkModeToggle.addEventListener('click', () => {
-        body.classList.toggle('dark-mode');
-
-        if (body.classList.contains('dark-mode')) {
-            localStorage.setItem('darkMode', 'enabled');
-        } else {
-            localStorage.setItem('darkMode', 'disabled');
-        }
-
-        updateToggleText(); // Update button text
-    });
-
-    // Load dark mode preference
+import LoginModal from './views/LoginModal.vue';
+export default {
+  data() {
+    return {
+      showLoginModal: false,
+      username: '',
+      password: '',
+    };
+  },
+  mounted() {
     if (localStorage.getItem('darkMode') === 'enabled') {
-        body.classList.add('dark-mode');
+      document.body.classList.add('dark-mode');
     }
-
-    updateToggleText(); // Ensure correct button text on page load
-});
-
-document.addEventListener("DOMContentLoaded", function () {
-    
-
-    // Login Modal Functionality
-    const loginModal = document.getElementById("loginModal");
-    const loginBtn = document.querySelector(".login-btn");
-    const closeBtn = document.querySelector(".close-btn");
-
-    // Open Login Modal
-    loginBtn.addEventListener("click", function () {
-        loginModal.style.display = "flex";
-    });
-
-    // Close Login Modal
-    closeBtn.addEventListener("click", function () {
-        loginModal.style.display = "none";
-    });
-
-    // Close modal when clicking outside the content
-    window.addEventListener("click", function (event) {
-        if (event.target === loginModal) {
-            loginModal.style.display = "none";
-        }
-    });
-});
-
-const loginModal = document.getElementById("loginModal");
-    const loginBtns = document.querySelectorAll(".login-btn"); // Get all login buttons
-    const closeBtn = document.querySelector(".close-btn");
-
-    loginBtns.forEach(btn => {
-        btn.addEventListener("click", function () {
-            loginModal.style.display = "flex";
-        });
-    });
-
-    if (closeBtn) {
-        closeBtn.addEventListener("click", function () {
-            loginModal.style.display = "none";
-        });
-    }
-
-    window.addEventListener("click", function (event) {
-        if (event.target === loginModal) {
-            loginModal.style.display = "none";
-        }
-    });
-
-
+  },
+  methods: {
+    toggleDarkMode() {
+      const isDark = document.body.classList.toggle('dark-mode');
+      localStorage.setItem('darkMode', isDark ? 'enabled' : 'disabled');
+    },
+    openLoginModal() {
+      this.showLoginModal = true;
+    },
+    closeLoginModal() {
+      this.showLoginModal = false;
+    },
+    submitLogin() {
+      // Заглушка
+      alert(`Logged in as ${this.username}`);
+      this.closeLoginModal();
+    },
+  },
+};
 </script>
 <style>
 /* General Reset */
