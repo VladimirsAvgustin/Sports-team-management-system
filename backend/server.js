@@ -1,34 +1,65 @@
 const express = require('express');
 const cors = require('cors');
-const db = require('./db');
+const sqlite3 = require('sqlite3').verbose();
+const bcrypt = require('bcrypt');
+const bodyParser = require('body-parser');
 
 const app = express();
 const PORT = 3000;
+const authRoutes = require('auth');
+ // если auth.js в папке routes
+app.use('/api', authRoutes);
+// База данных
+const db = new sqlite3.Database('./database.sqlite');
 
+// Middleware
 app.use(cors());
-app.use(express.json());
+app.use(bodyParser.json());
 
-// GET всех пользователей
-app.get('/users', (req, res) => {
-  db.all('SELECT * FROM users', [], (err, rows) => {
-    if (err) {
-      res.status(500).json({ error: err.message });
-    } else {
-      res.json(rows);
-    }
-  });
-});
+// Создание таблицы пользователей
+db.run(`
+  CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT UNIQUE,
+    email TEXT UNIQUE,
+    password TEXT,
+    role TEXT
+  )
+`);
 
-// POST: добавить пользователя
-app.post('/users', (req, res) => {
-  const { username, role } = req.body;
-  db.run('INSERT INTO users (username, role) VALUES (?, ?)', [username, role], function (err) {
-    if (err) {
-      res.status(500).json({ error: err.message });
-    } else {
-      res.json({ id: this.lastID, username, role });
-    }
-  });
+app.post('/register', async (req, res) => {
+  console.log('POST /register', req.body);
+
+  const { username, email, password, role } = req.body;
+
+  if (!username || !email || !password || !role) {
+    return res.status(400).json({ error: 'Все поля обязательны' });
+  }
+
+  try {
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const stmt = db.prepare(`
+      INSERT INTO users (username, email, password, role)
+      VALUES (?, ?, ?, ?)
+    `);
+
+    stmt.run(username, email, hashedPassword, role, function(err) {
+      if (err) {
+        if (err.message.includes('UNIQUE')) {
+          return res.status(400).json({ error: 'Пользователь с таким логином или email уже существует' });
+        }
+        return res.status(500).json({ error: 'Ошибка сервера' });
+      }
+
+      res.json({ success: true, message: 'Регистрация прошла успешно' });
+    });
+
+    stmt.finalize();
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Ошибка при обработке запроса' });
+  }
 });
 
 app.listen(PORT, () => {
