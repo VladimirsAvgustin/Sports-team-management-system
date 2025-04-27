@@ -1,110 +1,96 @@
-
 <script setup>
-import { ref, onMounted } from 'vue';
-import LoginModal from './components/LoginModal.vue';
-import { useRouter } from 'vue-router';
+import { ref, onMounted, computed } from 'vue'
+import { useAuthStore } from './stores/auth'
+import LoginModal from './components/LoginModal.vue'
 
-const isDarkMode = ref(false);
-const showLoginModal = ref(false);
-const username = ref('');
-const password = ref('');
+// Стор для аутентификации
+const auth = useAuthStore()
 
-// Проверка предпочтений темной темы при монтировании компонента
+// Состояния
+const showLoginModal = ref(false)
+const isDarkMode = ref(false)
+
+// При монтировании подгружаем пользователя и тему
 onMounted(() => {
-  isDarkMode.value = localStorage.getItem('darkMode') === 'enabled';
-  updateBodyClass();
-});
+  auth.fetchUser()
+  isDarkMode.value = localStorage.getItem('darkMode') === 'enabled'
+  document.documentElement.classList.toggle('dark-mode', isDarkMode.value)
+})
 
-// Функция переключения темной темы
-function toggleDarkMode() {
-  isDarkMode.value = !isDarkMode.value;
-  localStorage.setItem('darkMode', isDarkMode.value ? 'enabled' : 'disabled');
-  updateBodyClass();
-}
+// Открыть/закрыть модалку входа
+const openLoginModal  = () => showLoginModal.value = true
+const closeLoginModal = () => showLoginModal.value = false
 
-// Обновление класса тела документа в зависимости от темы
-function updateBodyClass() {
-  document.documentElement.classList.toggle('dark-mode', isDarkMode.value);
-
-}
-
-// Открытие модального окна входа
-function openLoginModal() {
-  showLoginModal.value = true;
-}
-
-// Закрытие модального окна входа
-function closeLoginModal() {
-  showLoginModal.value = false;
-}
-const showModal = ref(false);
-
-// Функция для логина
-const submitLogin = async (username, password) => {
+// Обработчик логина из модалки
+async function handleLogin(username, password) {
   try {
-    const response = await fetch('http://localhost:3000/api/auth/login', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ username, password }),
-    });
-
-    if (response.ok) {
-      const data = await response.json();
-      console.log('Логин успешен:', data);
-    } else {
-      console.error('Ошибка логина');
-    }
-  } catch (error) {
-    console.error('Ошибка при запросе:', error);
+    await auth.login(username, password)
+    closeLoginModal()
+  } catch (e) {
+    alert('Ошибка входа: ' + e.message)
   }
-};
-// Обработка входа пользователя
-function handleLogin() {
-  // Здесь должна быть логика аутентификации
-  console.log('Username:', username.value);
-  console.log('Password:', password.value);
-  closeLoginModal();
 }
+
+// Переключатель темной темы
+function toggleDarkMode() {
+  isDarkMode.value = !isDarkMode.value
+  localStorage.setItem('darkMode', isDarkMode.value ? 'enabled' : 'disabled')
+  document.documentElement.classList.toggle('dark-mode', isDarkMode.value)
+}
+
+// Вычисляемый флаг авторизации
+const isLoggedIn = computed(() => auth.isAuthenticated)
 </script>
+
 <template>
   <div id="app">
-    <!-- Навигация -->
     <header>
       <nav>
-      <ul id="pc">
-        <li><router-link to="/">Home</router-link></li>
-        <li class="dropdown">
-          <a href="#">Services</a>
-          <ul class="dropdown-content">
-            <li><a href="#">Team Management</a></li>
-            <li><a href="#">Schedule Organization</a></li>
-            <li><a href="#">Player Statistics</a></li>
-          </ul>
-        </li>
-        <li><router-link to="/contact">Contact</router-link></li>
-        <li><router-link to="/register">Registration</router-link></li>
-      </ul>
+        <ul id="pc">
+          <li><router-link to="/">Home</router-link></li>
+          <li class="dropdown">
+            <a href="#">Services</a>
+            <ul class="dropdown-content">
+              <li><a href="#">Team Management</a></li>
+              <li><a href="#">Schedule Organization</a></li>
+              <li><a href="#">Player Statistics</a></li>
+            </ul>
+          </li>
+          <li><router-link to="/contact">Contact</router-link></li>
+          <li><router-link to="/register">Registration</router-link></li>
+        </ul>
 
-      <!-- Правая часть -->
-      <div class="nav-actions">
-        <button class="toggle-dark-mode" @click="toggleDarkMode">
-          {{ isDarkMode ? 'Light Mode' : 'Dark Mode' }}
-        </button>
+        <div class="nav-actions">
+          <button class="toggle-dark-mode" @click="toggleDarkMode">
+            {{ isDarkMode ? 'Light Mode' : 'Dark Mode' }}
+          </button>
 
-        <button class="login-btn" @click="openLoginModal">
-          Login
-        </button>
-        <LoginModal v-if="showLoginModal" :show="showLoginModal" @close="closeLoginModal" />
-      </div>
+          <button
+            v-if="!isLoggedIn"
+            class="login-btn"
+            @click="openLoginModal"
+          >
+            Login
+          </button>
+
+          <router-link
+            v-else
+            to="/profile"
+            class="login-btn"
+          >
+            {{ auth.user?.username }}
+          </router-link>
+        </div>
       </nav>
     </header>
 
-    <!-- Основной контент -->
-    <router-view ></router-view>
+    <router-view />
 
-
+    <LoginModal
+      v-if="showLoginModal"
+      @close="closeLoginModal"
+      @login="handleLogin"
+    />
   </div>
 </template>
 
@@ -393,5 +379,24 @@ footer {
     flex-direction: column;
     align-items: center;
   }
+}
+
+.user-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.user-actions button {
+  background-color: #f44336;
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.user-actions button:hover {
+  background-color: #d32f2f;
 }
 </style>
