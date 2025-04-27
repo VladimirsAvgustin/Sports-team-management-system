@@ -1,165 +1,101 @@
 
-
 <template>
+  <main>
+    <h1>Welcome to TeamFlow</h1>
+    <h2>Manage Your Team Effectively</h2>
+    <p>
+      TeamFlow allows you to organize schedules, track player statistics,
+      and communicate with your team in one platform.
+    </p>
+     <!-- <img :src="logo" alt="Sports Logo" class="logo" /> -->
 
+    <div class="card-container">
+      <div class="card" id="card1">
+        <img :src="loginImage" alt="Login" />
+        <h3>Login</h3>
+        <p>
+          Sign in to your account to access team information and manage
+          schedules.
+        </p>
+        <button class="btn login-btn" @click="showLoginModal">Login</button>
+      </div>
+      <div class="card">
+        <img :src="scheduleImage" alt="Schedule" />
+        <h3>Team Schedule</h3>
+        <p>View and manage training sessions and match schedules easily.</p>
+      </div>
 
-
-  
-    <!-- Main Section -->
-    <main>
-        <h1>Welcome to TeamFlow</h1>
-        <h2>Manage Your Team Effectively</h2>
-        <p>TeamFlow allows you to organize schedules, track player statistics, and communicate with your team in one platform.</p>
-        <img src="./images/sport_system_logo.png" alt="Sports Logo">
-
-        <!-- Card Container -->
-        <div class="card-container">
-            <div class="card" id="card1">
-                <img src="./images/login_image.png" alt="Login">
-                <h3>Login</h3>
-                <p>Sign in to your account to access team information and manage schedules.</p>
-                <button class="btn login-btn">Login</button>
-            </div>
-            <div class="card">
-                <img src="./images/schedule.png" alt="Schedule">
-                <h3>Team Schedule</h3>
-                <p>View and manage training sessions and match schedules easily.</p>
-            </div>
-
-            <div class="card">
-                <img src="./images/registration.png" alt="Registration">
-                <h3>Registration</h3>
-                <p>Register your team and players to get started with TeamFlow.</p>
-                <button class="btn" onclick="navigateTo('registration.html')">Registration</button>
-            </div>
-        </div>
-    </main>
-
-    <!-- Login Modal (FIXED) -->
-    <div id="loginModal" class="modal" style="display: none;">
-        <div class="modal-content">
-            <span class="close-btn">&times;</span>
-            <h2>Login</h2>
-            <form>
-                <label for="username">Username:</label>
-                <input type="text" id="username" required>
-                <label for="password">Password:</label>
-                <input type="password" id="password" required>
-                <button type="submit" class="btn">Login</button>
-            </form>
-        </div>
+      <div class="card">
+        <img :src="registrationImage" alt="Registration" />
+        <h3>Registration</h3>
+        <p>Register your team and players to get started with TeamFlow.</p>
+        <button class="btn">Registration</button>
+      </div>
     </div>
-
-    <!-- Sidebar -->
-    <aside>
-        <h3>Related Articles</h3>
-        <ul>
-            <li><a href="#">How to manage a sports team</a></li>
-            <li><a href="#">Benefits of team collaboration</a></li>
-            <li><a href="#">Tips for organizing schedules</a></li>
-        </ul>
-    </aside>
-
-    <!-- Footer -->
-    <footer>
-        <p>&copy; 2025 TeamFlow. All rights reserved.</p>
-        <ul class="footer-links">
-            <li><a href="#">Privacy Policy</a></li>
-            <li><a href="#">Terms of Service</a></li>
-            <li><a href="#">Contact Us</a></li>
-        </ul>
-    </footer>
+  </main>
 
 
 
+  <aside>
+    <h3>Related Articles</h3>
+    <ul>
+      <li><a href="#">How to manage a sports team</a></li>
+      <li><a href="#">Benefits of team collaboration</a></li>
+      <li><a href="#">Tips for organizing schedules</a></li>
+    </ul>
+  </aside>
 
-
+  <footer>
+    <p>&copy; 2025 TeamFlow. All rights reserved.</p>
+    <ul class="footer-links">
+      <li><a href="#">Privacy Policy</a></li>
+      <li><a href="#">Terms of Service</a></li>
+      <li><a href="#">Contact Us</a></li>
+    </ul>
+  </footer>
 </template>
 
 <script>
-document.addEventListener("DOMContentLoaded", function() {
-    const darkModeToggle = document.querySelector('.toggle-dark-mode');
-    const body = document.body;
+import logo from '@/assets/sport_system_logo.png';
+import loginImage from '@/assets/login_image.png';
+import scheduleImage from '@/assets/schedule.png';
+import registrationImage from '@/assets/registration.png';
 
-    // Function to update button text
-    function updateToggleText() {
-        if (body.classList.contains('dark-mode')) {
-            darkModeToggle.textContent = "Light Mode";
-        } else {
-            darkModeToggle.textContent = "Dark Mode";
-        }
-    }
 
-    // Toggle Dark Mode
-    darkModeToggle.addEventListener('click', () => {
-        body.classList.toggle('dark-mode');
 
-        if (body.classList.contains('dark-mode')) {
-            localStorage.setItem('darkMode', 'enabled');
-        } else {
-            localStorage.setItem('darkMode', 'disabled');
-        }
-
-        updateToggleText(); // Update button text
+export default {
+  name: 'HomePage',
+  data() {
+    return {
+      logo,
+      loginImage,
+      scheduleImage,
+      registrationImage,
+      showModal: false,
+      username: '',
+      password: '',
+    };
+  },
+  methods: {
+  showLoginModal() {
+    this.showModal = true;
+  },
+  submitLogin() {
+    console.log('Login attempted:', this.username);
+    this.showModal = false;
+  },
+  closeModal() {
+    this.showModal = false;},
+  },
+  mounted() {
+    const loginBtns = document.querySelectorAll('.login-btn');
+    loginBtns.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        this.showModal = true;
+      });
     });
-
-    // Load dark mode preference
-    if (localStorage.getItem('darkMode') === 'enabled') {
-        body.classList.add('dark-mode');
-    }
-
-    updateToggleText(); // Ensure correct button text on page load
-});
-
-document.addEventListener("DOMContentLoaded", function () {
-    
-
-    // Login Modal Functionality
-    const loginModal = document.getElementById("loginModal");
-    const loginBtn = document.querySelector(".login-btn");
-    const closeBtn = document.querySelector(".close-btn");
-
-    // Open Login Modal
-    loginBtn.addEventListener("click", function () {
-        loginModal.style.display = "flex";
-    });
-
-    // Close Login Modal
-    closeBtn.addEventListener("click", function () {
-        loginModal.style.display = "none";
-    });
-
-    // Close modal when clicking outside the content
-    window.addEventListener("click", function (event) {
-        if (event.target === loginModal) {
-            loginModal.style.display = "none";
-        }
-    });
-});
-
-const loginModal = document.getElementById("loginModal");
-    const loginBtns = document.querySelectorAll(".login-btn"); // Get all login buttons
-    const closeBtn = document.querySelector(".close-btn");
-
-    loginBtns.forEach(btn => {
-        btn.addEventListener("click", function () {
-            loginModal.style.display = "flex";
-        });
-    });
-
-    if (closeBtn) {
-        closeBtn.addEventListener("click", function () {
-            loginModal.style.display = "none";
-        });
-    }
-
-    window.addEventListener("click", function (event) {
-        if (event.target === loginModal) {
-            loginModal.style.display = "none";
-        }
-    });
-
-
+  },
+};
 </script>
 <style>
 /* General Reset */
@@ -170,7 +106,7 @@ const loginModal = document.getElementById("loginModal");
   font-family: 'Arial', sans-serif;
 }
 
-/* Light Mode (Default) */
+/* Body */
 body {
   background-color: #f4f4f4;
   color: #333;
@@ -183,82 +119,7 @@ body {
   color: #f4f4f4;
 }
 
-/* Dark Mode for Navbar */
-.dark-mode nav {
-  background-color: #111;
-}
-
-/* Dark Mode for Cards */
-.dark-mode .card {
-  background-color: #333;
-  color: white;
-}
-
-/* Dark Mode for Footer */
-.dark-mode footer {
-  background-color: #111;
-}
-
-/* Toggle Button Style */
-.toggle-dark-mode {
-  background: #ff9800;
-  color: white;
-  padding: 10px 15px;
-  border: none;
-  cursor: pointer;
-  border-radius: 5px;
-  font-size: 14px;
-}
-
-.toggle-dark-mode:hover {
-  background: #e68900;
-}
-
-
-/* Navigation */
-nav {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  background: #0073e6;
-  padding: 15px 30px;
-}
-
-nav ul {
-  list-style: none;
-  display: flex;
-}
-
-nav ul li {
-  margin: 0 15px;
-}
-
-nav ul li a {
-  color: white;
-  text-decoration: none;
-  font-size: 16px;
-}
-
-nav ul li a:hover {
-  text-decoration: underline;
-}
-
-/* Dark Mode Button */
-.toggle-dark-mode {
-  background: #ff9800;
-  color: white;
-  padding: 10px 15px;
-  border: none;
-  cursor: pointer;
-  border-radius: 5px;
-  font-size: 14px;
-}
-
-.toggle-dark-mode:hover {
-  background: #e68900;
-}
-
-/* Hero Section */
+/* Main Section */
 main {
   text-align: center;
   padding: 50px 20px;
@@ -278,28 +139,30 @@ main p {
   margin: 20px 0;
 }
 
+/* Logo */
+.logo {
+  width: 150px;
+  height: auto;
+  margin: 20px auto;
+}
+
 /* Cards */
 .card-container {
   display: flex;
   justify-content: center;
   flex-wrap: wrap;
-  margin-top: 20px;
+  margin-top: 30px;
 }
 
 .card {
   background: white;
   width: 300px;
   padding: 20px;
+  margin: 15px;
   border-radius: 10px;
-  box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
-  margin: 10px;
   text-align: center;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
   transition: transform 0.3s;
-}
-
-.dark-mode .card {
-  background: #333;
-  color: white;
 }
 
 .card:hover {
@@ -308,8 +171,9 @@ main p {
 
 .card img {
   width: 100%;
-  height: auto;
-  border-radius: 5px;
+  height: 200px;
+  object-fit: cover;
+  border-radius: 8px;
 }
 
 .card h3 {
@@ -324,43 +188,16 @@ main p {
   cursor: pointer;
   margin-top: 10px;
   border-radius: 5px;
+  transition: background 0.3s;
 }
 
 .btn:hover {
   background: #005bb5;
 }
 
-/* Footer */
-footer {
-  text-align: center;
-  padding: 20px;
+/* Dark Mode for Cards */
+.dark-mode .card {
   background: #333;
-  color: white;
-  margin-top: 50px;
-}
-
-.footer-links {
-  list-style: none;
-  padding: 10px;
-}
-
-.footer-links li {
-  display: inline;
-  margin: 0 15px;
-}
-
-.footer-links li a {
-  color: white;
-  text-decoration: none;
-}
-
-.footer-links li a:hover {
-  text-decoration: underline;
-}
-
-/* Dark Mode Styles */
-.dark-mode nav {
-  background: #111;
 }
 
 .dark-mode .btn {
@@ -371,71 +208,22 @@ footer {
   background: #e68900;
 }
 
-.dark-mode footer {
-  background: #111;
+.page-layout {
+  display: flex; /* Размещаем aside и main в ряд */
+  max-width: 1200px;
+  margin: 40px auto;
+  gap: 40px; /* расстояние между aside и main */
+  padding: 0 20px;
 }
 
-/* Responsive Design */
-@media (max-width: 768px) {
-  nav {
-      flex-direction: column;
-      align-items: center;
-  }
-  
-  nav ul {
-      flex-direction: column;
-      text-align: center;
-  }
-  
-  nav ul li {
-      margin: 10px 0;
-  }
-
-  .card-container {
-      flex-direction: column;
-      align-items: center;
-  }
-}
-
-/* Hide dropdown by default */
-.dropdown-content {
-  display: none;
-  position: absolute;
-  background-color: white;
-  box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
-  padding: 10px;
-  list-style: none;
-}
-
-/* Show dropdown on hover */
-.dropdown:hover .dropdown-content {
-  display: block;
-}
-
-/* Style for dropdown items */
-.dropdown-content li {
-  padding: 8px 15px;
-}
-
-.dropdown-content li a {
-  text-decoration: none;
-  color: black;
-  display: block;
-}
-
-/* Hover effect for dropdown links */
-.dropdown-content li a:hover {
-  background: #f4f4f4;
-}
-
-/* General Aside Styling */
+/* Aside Section */
 aside {
   background: #f8f9fa;
   padding: 20px;
+  width: 400px;
   border-left: 5px solid #0073e6;
-  margin-top: 20px;
   border-radius: 10px;
-  width: 300px;
+  flex-shrink: 0; /* чтобы aside не сжимался */
 }
 
 aside h3 {
@@ -453,8 +241,8 @@ aside ul li {
 }
 
 aside ul li a {
-  text-decoration: none;
   color: #0073e6;
+  text-decoration: none;
   font-weight: bold;
 }
 
@@ -465,7 +253,6 @@ aside ul li a:hover {
 /* Dark Mode for Aside */
 .dark-mode aside {
   background: #333;
-  color: white;
   border-left: 5px solid #ff9800;
 }
 
@@ -473,211 +260,63 @@ aside ul li a:hover {
   color: #ff9800;
 }
 
-/* Toggle Button Styling */
-.toggle-dark-mode {
-  background: #003569;
-  color: white;
-  padding: 10px 20px;
-  border: none;
-  cursor: pointer;
-  border-radius: 5px;
-  font-size: 16px;
-  transition: background 0.3s ease, transform 0.2s ease;
-}
-
-.toggle-dark-mode:hover {
-  background: #005bb5;
-  transform: scale(1.05);
-}
-
-/* Dark Mode Button */
-.dark-mode .toggle-dark-mode {
-  background: #ff9800;
-  color: black;
-}
-
-.dark-mode .toggle-dark-mode:hover {
-  background: #e68900;
-}
-
-/* General Image Styling */
-/* Image Hover Effect */
-img {
-  max-width: 100%;
-  height: auto;
-  display: block;
-  margin: 0 auto;
-  border-radius: 10px;
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
-}
-
-/* Zoom & Glow on Hover */
-img:hover {
-  transform: scale(1.05);
-  box-shadow: 0px 4px 15px rgba(0, 115, 230, 0.3);
-}
-
-/* Dark Mode - Slightly Dim Images */
-.dark-mode img {
-  filter: brightness(0.85);
-}
-
-
-/* Logo Image */
-.logo {
-  width: 150px;  /* Adjust based on your logo size */
-  height: auto;
-}
-
-/* Card Images */
-.card img {
-  width: 100%;
-  height: 200px; /* Ensures uniform height */
-  object-fit: cover; /* Ensures images fill the space without distortion */
-  border-radius: 8px;
-}
-
-/* Dark Mode Image Adjustments */
-.dark-mode img {
-  filter: brightness(0.8); /* Slightly dims images in dark mode */
-}
-
-/* Responsive Design */
-@media (max-width: 768px) {
-  img {
-      width: 100%;
-      height: auto;
-  }
-}
-
-/* Login Modal */
-.modal {
-  display: none;
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0, 0, 0, 0.6);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 1000;
-}
-
-.modal-content {
-  background: white;
-  padding: 25px;
-  border-radius: 10px;
-  width: 350px;
+/* Footer */
+footer {
   text-align: center;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
-  position: relative;
-  animation: fadeIn 0.3s;
-}
-
-.dark-mode .modal-content {
-  background: #222;
-  color: white;
-  box-shadow: 0 4px 15px rgba(255, 255, 255, 0.2);
-}
-
-.modal-content h2 {
-  margin-bottom: 15px;
-  font-size: 22px;
-}
-
-/* Close Button */
-.close-btn {
-  position: absolute;
-  top: 10px;
-  right: 15px;
-  color: red;
-  font-size: 24px;
-  cursor: pointer;
-}
-
-.close-btn:hover {
-  color: darkred;
-}
-
-/* Login Form Fields */
-.modal-content form {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.modal-content label {
-  align-self: flex-start;
-  font-size: 14px;
-  margin-bottom: 5px;
-  color: #333;
-}
-
-.dark-mode .modal-content label {
-  color: white;
-}
-
-.modal-content input {
-  width: 100%;
-  padding: 10px;
-  margin-bottom: 10px;
-  border: 1px solid #ccc;
-  border-radius: 5px;
-  font-size: 16px;
-}
-
-.dark-mode .modal-content input {
   background: #333;
   color: white;
-  border: 1px solid #555;
+  padding: 20px;
+  margin-top: 50px;
 }
 
-/* Login Button */
-.modal-content .btn {
-  background: #013569;
+.footer-links {
+  list-style: none;
+  margin-top: 10px;
+}
+
+.footer-links li {
+  display: inline;
+  margin: 0 10px;
+}
+
+.footer-links li a {
   color: white;
-  padding: 10px 15px;
-  border: none;
-  cursor: pointer;
-  border-radius: 5px;
-  font-size: 16px;
-  width: 100%;
-  transition: background 0.3s;
+  text-decoration: none;
 }
 
-.modal-content .btn:hover {
-  background: #005bb5;
+.footer-links li a:hover {
+  text-decoration: underline;
 }
 
-/* Dark Mode Login Button */
-.dark-mode .modal-content .btn {
-  background: #ff9800;
-}
-
-.dark-mode .modal-content .btn:hover {
-  background: #e68900;
-}
-
-/* Fade-in Animation */
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: scale(0.9);
+/* Responsive */
+@media (max-width: 768px) {
+  .card-container {
+    flex-direction: column;
+    align-items: center;
   }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
 
-/* Responsive Login Modal */
-@media (max-width: 480px) {
-  .modal-content {
+  aside {
     width: 90%;
   }
 }
 
+/* General Image Styling */
+img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 10px auto;
+  transition: transform 0.3s, box-shadow 0.3s;
+}
+
+img:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 15px rgba(0, 115, 230, 0.3);
+}
+
+/* Dark mode for images */
+.dark-mode img {
+  filter: brightness(0.85);
+}
 
 </style>

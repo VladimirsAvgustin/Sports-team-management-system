@@ -51,7 +51,7 @@ const success = ref(false)
 
 const registerUser = async () => {
   try {
-    const response = await axios.post('/api/register', form.value)
+    const response = await axios.post('http://localhost:3000/api/auth/register', form.value)
     message.value = response.data.message
     success.value = true
     form.value = { username: '', email: '', password: '', role: '' }
