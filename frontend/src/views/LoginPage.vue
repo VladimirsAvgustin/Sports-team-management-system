@@ -4,8 +4,8 @@
     <h2>Вход</h2>
     <form @submit.prevent="login">
       <input v-model="email" type="email" placeholder="Email" required />
-      <input v-model="password" type="password" placeholder="Пароль" required />
-      <button type="submit">Войти</button>
+      <input v-model="password" type="password" placeholder="Password" required />
+      <button type="submit">Login</button>
       <p v-if="error" class="error">{{ error }}</p>
     </form>
   </div>
@@ -33,7 +33,7 @@ export default {
         localStorage.setItem('role', response.data.role)
         this.$router.push('/')
       } catch (err) {
-        this.error = 'Неверный логин или пароль'
+        this.error = 'Wrong login or password'
       }
     }
   }

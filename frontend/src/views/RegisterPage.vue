@@ -1,9 +1,9 @@
 <template>
   <div class="register-page">
-    <h1>Регистрация</h1>
+    <h1>Registration</h1>
     <form @submit.prevent="registerUser">
       <div class="form-group">
-        <label for="username">Имя пользователя:</label>
+        <label for="username">Username:</label>
         <input v-model="form.username" type="text" id="username" required />
       </div>
 
@@ -13,20 +13,20 @@
       </div>
 
       <div class="form-group">
-        <label for="password">Пароль:</label>
+        <label for="password">Password:</label>
         <input v-model="form.password" type="password" id="password" required />
       </div>
 
       <div class="form-group">
-        <label for="role">Роль:</label>
+        <label for="role">Role:</label>
         <select v-model="form.role" id="role" required>
-          <option disabled value="">Выберите роль</option>
-          <option value="user">Пользователь</option>
-          <option value="admin">Администратор</option>
+          <option disabled value="">Choose a role</option>
+          <option value="user">User</option>
+          <option value="admin">Administrator</option>
         </select>
       </div>
 
-      <button type="submit">Зарегистрироваться</button>
+      <button type="submit">Sign up</button>
     </form>
 
     <div v-if="message" :class="{'success': success, 'error': !success}">

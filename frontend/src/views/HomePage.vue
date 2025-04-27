@@ -9,29 +9,28 @@
     </p>
      <!-- <img :src="logo" alt="Sports Logo" class="logo" /> -->
 
-    <div class="card-container">
-      <div class="card" id="card1">
-        <img :src="loginImage" alt="Login" />
-        <h3>Login</h3>
-        <p>
-          Sign in to your account to access team information and manage
-          schedules.
-        </p>
-        <button class="btn login-btn" @click="showLoginModal">Login</button>
-      </div>
-      <div class="card">
-        <img :src="scheduleImage" alt="Schedule" />
-        <h3>Team Schedule</h3>
-        <p>View and manage training sessions and match schedules easily.</p>
-      </div>
+     <div class="card-container">
+  <div class="card" id="card1">
+    <img :src="loginImage" alt="Login" />
+    <h3>Login</h3>
+    <p>Sign in to your account to access team information and manage schedules.</p>
+    <button class="btn login-btn" @click="showLoginModal">Login</button>
+  </div>
 
-      <div class="card">
-        <img :src="registrationImage" alt="Registration" />
-        <h3>Registration</h3>
-        <p>Register your team and players to get started with TeamFlow.</p>
-        <button class="btn">Registration</button>
-      </div>
-    </div>
+  <div class="card">
+    <img :src="scheduleImage" alt="Schedule" />
+    <h3>Team Schedule</h3>
+    <p>View and manage training sessions and match schedules easily.</p>
+  </div>
+
+  <div class="card">
+    <img :src="registrationImage" alt="Registration" />
+    <h3>Registration</h3>
+    <p>Register your team and players to get started with TeamFlow.</p>
+    <button class="btn registration-btn" @click="goToRegistration">Registration</button>
+  </div>
+</div>
+
   </main>
 
 
@@ -60,11 +59,15 @@ import logo from '@/assets/sport_system_logo.png';
 import loginImage from '@/assets/login_image.png';
 import scheduleImage from '@/assets/schedule.png';
 import registrationImage from '@/assets/registration.png';
+import LoginModal from '@/components/LoginModal.vue';
 
 
 
 export default {
   name: 'HomePage',
+  components: {
+    LoginModal,
+  },
   data() {
     return {
       logo,
@@ -77,23 +80,19 @@ export default {
     };
   },
   methods: {
-  showLoginModal() {
-    this.showModal = true;
-  },
-  submitLogin() {
-    console.log('Login attempted:', this.username);
-    this.showModal = false;
-  },
-  closeModal() {
-    this.showModal = false;},
-  },
-  mounted() {
-    const loginBtns = document.querySelectorAll('.login-btn');
-    loginBtns.forEach((btn) => {
-      btn.addEventListener('click', () => {
-        this.showModal = true;
-      });
-    });
+    showLoginModal() {
+      this.showModal = true;
+    },
+    submitLogin() {
+      console.log('Login attempted:', this.username);
+      this.showModal = false;
+    },
+    closeModal() {
+      this.showModal = false;
+    },
+    goToRegistration() {
+      this.$router.push('/register');
+    },
   },
 };
 </script>
