@@ -16,13 +16,19 @@
         <label for="password">Password:</label>
         <input v-model="form.password" type="password" id="password" required />
       </div>
+      
+      <div class="form-group">
+        <label for="TeamCode">Team Code(optional):</label>
+        <input v-model="form.teamCode" type="text" id="teamCode"  />
+        </div>
 
+      
       <div class="form-group">
         <label for="role">Role:</label>
         <select v-model="form.role" id="role" required>
           <option disabled value="">Choose a role</option>
-          <option value="user">User</option>
-          <option value="admin">Administrator</option>
+          <option value="Player">Player</option>
+          <option value="Coach">Coach</option>
         </select>
       </div>
 
@@ -38,12 +44,17 @@
 <script setup>
 import { ref } from 'vue'
 import axios from 'axios'
+import { useRouter } from 'vue-router'
+
+const router = useRouter()
+
 
 const form = ref({
   username: '',
   email: '',
   password: '',
-  role: ''
+  role: '',
+   teamCode: ''
 })
 
 const message = ref('')
@@ -55,6 +66,9 @@ const registerUser = async () => {
     message.value = response.data.message
     success.value = true
     form.value = { username: '', email: '', password: '', role: '' }
+    setTimeout(() => {
+      router.push('/') 
+    }, 1000)
   } catch (error) {
     message.value = error.response?.data?.error || 'Ошибка при регистрации'
     success.value = false
