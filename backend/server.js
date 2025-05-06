@@ -7,8 +7,9 @@ const path = require('path');
 const app = express();
 const PORT = 3000;
 
+
 // Middleware
-app.use(cors({
+app.use(cors({  
   origin: 'http://127.0.0.1:5173',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   credentials: true
@@ -16,32 +17,33 @@ app.use(cors({
 app.options('*', cors());
 app.use(bodyParser.json());
 
-// Подключение базы данных
+// Connecting to the database
 const dbPath = path.resolve(__dirname, 'database.sqlite');
 const db = new sqlite3.Database(dbPath, (err) => {
   if (err) {
-    console.error('Ошибка подключения к БД:', err.message);
+    console.error('Database connection error:', err.message);
   } else {
-    console.log('Успешное подключение к БД');
+    console.log('Successful database connection');
   }
 });
 
-// Теперь, когда база есть — подключаем роуты
+// Now that the database is connected, set up the routes
 const authRoutes = require('./routes/auth')(db);
 app.use('/api/auth', authRoutes);
 
-// Обработка несуществующих маршрутов
+
+// Handling non-existing routes
 app.use((req, res, next) => {
-  res.status(404).json({ error: 'Маршрут не найден' });
+  res.status(404).json({ error: 'Route not found' });
 });
 
-// Центральная обработка ошибок
+// Central error handling
 app.use((err, req, res, next) => {
   console.error(err.stack);
-  res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+  res.status(500).json({ error: 'Internal server error' });
 });
 
-// Запуск сервера
+// Start the server
 app.listen(PORT, () => {
-  console.log(`Сервер запущен на http://localhost:${PORT}`);
+  console.log(`Server started at http://localhost:${PORT}`);
 });

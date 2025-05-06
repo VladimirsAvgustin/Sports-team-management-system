@@ -1,24 +1,33 @@
+--- App.vue
 <script setup>
-import { ref, onMounted, computed } from 'vue'
-import { useAuthStore } from './stores/auth'
-import LoginModal from './components/LoginModal.vue'
+import { ref, onMounted, computed, watch } from 'vue'
+ import { useAuthStore } from './stores/auth'
+ import LoginModal from './components/LoginModal.vue'
+ import axios from 'axios'
+ import { useRouter } from 'vue-router'
 
-// Стор для аутентификации
-const auth = useAuthStore()
+ // Стор для аутентификации
+ const auth = useAuthStore()
+ const router = useRouter()
 
-// Состояния
-const showLoginModal = ref(false)
-const isDarkMode = ref(false)
+ // Состояния
+ const showLoginModal = ref(false)
+ const isDarkMode = ref(false)
 
-// При монтировании подгружаем пользователя и тему
-onMounted(() => {
-  auth.fetchUser()
-  isDarkMode.value = localStorage.getItem('darkMode') === 'enabled'
-  document.documentElement.classList.toggle('dark-mode', isDarkMode.value)
-})
+ const userTeam = ref(null);
 
-// Открыть/закрыть модалку входа
-const openLoginModal  = () => showLoginModal.value = true
+ // Вычисляемый флаг авторизации
+ const isLoggedIn = computed(() => auth.isAuthenticated)
+
+ // Нужно ли показывать кнопку создания команды
+const showCreateTeam = computed(() =>
+  auth.user?.role === 'Coach' && !userTeam.value
+)
+
+ // Есть ли у пользователя команда
+ const hasTeam = computed(() => !!userTeam.value)
+
+ const openLoginModal  = () => showLoginModal.value = true
 const closeLoginModal = () => showLoginModal.value = false
 
 // Обработчик логина из модалки
@@ -31,16 +40,67 @@ async function handleLogin(username, password) {
   }
 }
 
-// Переключатель темной темы
-function toggleDarkMode() {
-  isDarkMode.value = !isDarkMode.value
-  localStorage.setItem('darkMode', isDarkMode.value ? 'enabled' : 'disabled')
-  document.documentElement.classList.toggle('dark-mode', isDarkMode.value)
+ // Переключатель темной темы
+ function toggleDarkMode() {
+   isDarkMode.value = !isDarkMode.value
+   localStorage.setItem('darkMode', isDarkMode.value ? 'enabled' : 'disabled')
+   document.documentElement.classList.toggle('dark-mode', isDarkMode.value)
+ }
+
+ // Переходы
+ const goToCreateTeam = () => {
+   router.push('/create-team')
+ }
+
+ const goToMyTeam = () => {
+   if (userTeam.value) {
+     router.push(`/team/${userTeam.value.id}`)
+   }
+ }
+ const goToSchedule = () => {
+   if (userTeam.value) {
+     router.push(`/team-schedule/${userTeam.value.id}`)
+   }
+ }
+
+// метод, который подставляет токен из Pinia и грузит команду
+async function fetchMyTeam() {
+  if (!auth.token) {
+   userTeam.value = null
+    return
+  }
+
+  try {
+    const res = await axios.get('/api/auth/my-team', {
+      headers: { Authorization: `Bearer ${auth.token}` }
+    })
+    userTeam.value = res.data.team
+  } catch (err) {
+    if (err.response?.status === 404) {
+      userTeam.value = null
+    } else {
+      console.error('Error loading team:', err)
+    }
+  }
 }
 
-// Вычисляемый флаг авторизации
-const isLoggedIn = computed(() => auth.isAuthenticated)
-</script>
+ onMounted(async () => {
+   // сначала аутентификация
+   await auth.fetchUser()
+  // и сразу пытаемся получить команду (если залогинен)
+  await fetchMyTeam()
+
+   isDarkMode.value = localStorage.getItem('darkMode') === 'enabled'
+   document.documentElement.classList.toggle('dark-mode', isDarkMode.value)
+ })
+
+// если вдруг сменился токен (вошли или вышли) — ещё раз обновим команду
+watch(() => auth.isAuthenticated, async () => {
+  await fetchMyTeam()
+})
+ </script>
+
+
 
 <template>
   <div id="app">
@@ -57,14 +117,49 @@ const isLoggedIn = computed(() => auth.isAuthenticated)
             </ul>
           </li>
           <li><router-link to="/contact">Contact</router-link></li>
-          <li><router-link to="/register">Registration</router-link></li>
         </ul>
+
+        
+        <div class="team-actions">
+          <button 
+            v-if="showCreateTeam" 
+            @click="goToCreateTeam"
+            class="create-team-btn"
+          >
+            Create Team
+          </button>
+
+          <button 
+            v-if="hasTeam" 
+            @click="goToMyTeam"
+            class="create-team-btn"
+          >
+            {{ userTeam.name }}
+          </button>
+
+          <button 
+            v-if="hasTeam" 
+            @click="goToSchedule"
+            class="create-team-btn"
+          >
+            Расписание
+          </button>
+        </div>
 
         <div class="nav-actions">
           <button class="toggle-dark-mode" @click="toggleDarkMode">
             {{ isDarkMode ? 'Light Mode' : 'Dark Mode' }}
           </button>
 
+
+          
+          <router-link
+          v-if="!isLoggedIn"
+          to="/register" class="login-btn registration-btn"
+          >
+            Registration
+          </router-link>
+         
           <button
             v-if="!isLoggedIn"
             class="login-btn"
@@ -93,6 +188,7 @@ const isLoggedIn = computed(() => auth.isAuthenticated)
     />
   </div>
 </template>
+
 
 
 <style>
@@ -398,5 +494,56 @@ footer {
 
 .user-actions button:hover {
   background-color: #d32f2f;
+}
+
+.create-team-btn {
+  background: linear-gradient(45deg, #0073e6, #00c6ff);
+  color: white;
+  padding: 10px 20px;
+  font-size: 16px;
+  font-weight: bold;
+  border: none;
+  border-radius: 8px;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+  cursor: pointer;
+  transition: background 0.3s, transform 0.2s;
+}
+
+.create-team-btn:hover {
+  background: linear-gradient(45deg, #005bb5, #0099cc);
+  transform: scale(1.05);
+}
+.create-team-btn:active {
+  transform: scale(0.95);
+}
+.registration-btn {
+  text-decoration: none;
+  font-weight: normal;
+  margin-right: 30px;
+}
+
+.registration-btn:hover {
+  text-decoration: underline;
+}
+
+.team-actions {
+  display: flex;
+  gap: 10px;
+  margin-right: auto;
+}
+
+.create-team-btn {
+  background: linear-gradient(45deg, #0073e6, #00c6ff);
+  color: white;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.create-team-btn:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
 }
 </style>

@@ -1,40 +1,42 @@
-
 <template>
   <main>
+    <!-- Logo at the top of the page -->
+    <img :src="logo" alt="Sports Logo" class="logo" /> 
     <h1>Welcome to TeamFlow</h1>
     <h2>Manage Your Team Effectively</h2>
     <p>
       TeamFlow allows you to organize schedules, track player statistics,
       and communicate with your team in one platform.
     </p>
-     <!-- <img :src="logo" alt="Sports Logo" class="logo" /> -->
 
-     <div class="card-container">
-  <div class="card" id="card1">
-    <img :src="loginImage" alt="Login" />
-    <h3>Login</h3>
-    <p>Sign in to your account to access team information and manage schedules.</p>
-    <button class="btn login-btn" @click="showLoginModal">Login</button>
-  </div>
+    <!-- Card section with login, schedule, and registration -->
+    <div class="card-container">
+      <!-- Show login card only if user is not logged in -->
+      <div class="card" id="card1" v-if="!isLoggedIn">
+        <img :src="loginImage" alt="Login" />
+        <h3>Login</h3>
+        <p>Sign in to your account to access team information and manage schedules.</p>
+        <button class="btn login-btn" @click="showLoginModal">Login</button>
+      </div>
 
-  <div class="card">
-    <img :src="scheduleImage" alt="Schedule" />
-    <h3>Team Schedule</h3>
-    <p>View and manage training sessions and match schedules easily.</p>
-  </div>
+      <!-- Always visible schedule card -->
+      <div class="card">
+        <img :src="scheduleImage" alt="Schedule" />
+        <h3>Team Schedule</h3>
+        <p>View and manage training sessions and match schedules easily.</p>
+      </div>
 
-  <div class="card">
-    <img :src="registrationImage" alt="Registration" />
-    <h3>Registration</h3>
-    <p>Register your team and players to get started with TeamFlow.</p>
-    <button class="btn registration-btn" @click="goToRegistration">Registration</button>
-  </div>
-</div>
-
+      <!-- Show registration card only if user is not logged in -->
+      <div class="card" v-if="!isLoggedIn">
+        <img :src="registrationImage" alt="Registration" />
+        <h3>Registration</h3>
+        <p>Register your team and players to get started with TeamFlow.</p>
+        <button class="btn registration-btn" @click="goToRegistration">Registration</button>
+      </div>
+    </div>
   </main>
 
-
-
+  <!-- Related article links in sidebar -->
   <aside>
     <h3>Related Articles</h3>
     <ul>
@@ -44,6 +46,7 @@
     </ul>
   </aside>
 
+  <!-- Footer with links -->
   <footer>
     <p>&copy; 2025 TeamFlow. All rights reserved.</p>
     <ul class="footer-links">
@@ -55,13 +58,12 @@
 </template>
 
 <script>
+// Importing images and modal component
 import logo from '@/assets/sport_system_logo.png';
 import loginImage from '@/assets/login_image.png';
 import scheduleImage from '@/assets/schedule.png';
 import registrationImage from '@/assets/registration.png';
 import LoginModal from '@/components/LoginModal.vue';
-
-
 
 export default {
   name: 'HomePage',
@@ -75,27 +77,38 @@ export default {
       scheduleImage,
       registrationImage,
       showModal: false,
-      username: '',
-      password: '',
+      username: '', // Stores username input
+      password: '', // Stores password input
+      isLoggedIn: false, // Flag for login status
     };
   },
+  mounted() {
+    // Check if user data is stored in localStorage
+    const user = localStorage.getItem('user');
+    this.isLoggedIn = !!user; // Convert to boolean
+  },
   methods: {
+    // Shows login modal
     showLoginModal() {
       this.showModal = true;
     },
+    // Placeholder login submission handler
     submitLogin() {
       console.log('Login attempted:', this.username);
       this.showModal = false;
     },
+    // Close modal
     closeModal() {
       this.showModal = false;
     },
+    // Redirect to registration page
     goToRegistration() {
       this.$router.push('/register');
     },
   },
 };
 </script>
+
 <style>
 /* General Reset */
 * {
@@ -105,20 +118,20 @@ export default {
   font-family: 'Arial', sans-serif;
 }
 
-/* Body */
+/* Body styles */
 body {
   background-color: #f4f4f4;
   color: #333;
   transition: background 0.3s, color 0.3s;
 }
 
-/* Dark Mode */
+/* Dark mode styles */
 .dark-mode body {
   background-color: #222;
   color: #f4f4f4;
 }
 
-/* Main Section */
+/* Main content styling */
 main {
   text-align: center;
   padding: 50px 20px;
@@ -138,14 +151,23 @@ main p {
   margin: 20px 0;
 }
 
-/* Logo */
+/* Logo styling */
 .logo {
-  width: 150px;
+  width: 500px;
   height: auto;
-  margin: 20px auto;
+  margin: 40px auto 20px auto;
+  display: block;
+  border-radius: 16px;
+  box-shadow: 0 6px 20px rgba(0, 115, 230, 0.3);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
 
-/* Cards */
+.logo:hover {
+  transform: scale(1.08);
+  box-shadow: 0 10px 30px rgba(0, 115, 230, 0.5);
+}
+
+/* Cards container and card styles */
 .card-container {
   display: flex;
   justify-content: center;
@@ -179,6 +201,7 @@ main p {
   margin: 15px 0;
 }
 
+/* Button styling */
 .btn {
   background: #0073e6;
   color: white;
@@ -194,7 +217,7 @@ main p {
   background: #005bb5;
 }
 
-/* Dark Mode for Cards */
+/* Dark mode adjustments for cards and buttons */
 .dark-mode .card {
   background: #333;
 }
@@ -207,22 +230,23 @@ main p {
   background: #e68900;
 }
 
+/* Page layout combining main and aside */
 .page-layout {
-  display: flex; /* Размещаем aside и main в ряд */
+  display: flex;
   max-width: 1200px;
   margin: 40px auto;
-  gap: 40px; /* расстояние между aside и main */
+  gap: 40px;
   padding: 0 20px;
 }
 
-/* Aside Section */
+/* Aside styles */
 aside {
   background: #f8f9fa;
   padding: 20px;
   width: 400px;
   border-left: 5px solid #0073e6;
   border-radius: 10px;
-  flex-shrink: 0; /* чтобы aside не сжимался */
+  flex-shrink: 0;
 }
 
 aside h3 {
@@ -249,7 +273,7 @@ aside ul li a:hover {
   text-decoration: underline;
 }
 
-/* Dark Mode for Aside */
+/* Dark mode styles for aside */
 .dark-mode aside {
   background: #333;
   border-left: 5px solid #ff9800;
@@ -259,7 +283,7 @@ aside ul li a:hover {
   color: #ff9800;
 }
 
-/* Footer */
+/* Footer styles */
 footer {
   text-align: center;
   background: #333;
@@ -287,7 +311,7 @@ footer {
   text-decoration: underline;
 }
 
-/* Responsive */
+/* Responsive design for small screens */
 @media (max-width: 768px) {
   .card-container {
     flex-direction: column;
@@ -299,7 +323,7 @@ footer {
   }
 }
 
-/* General Image Styling */
+/* General image hover effect */
 img {
   max-width: 100%;
   height: auto;
@@ -313,9 +337,8 @@ img:hover {
   box-shadow: 0 4px 15px rgba(0, 115, 230, 0.3);
 }
 
-/* Dark mode for images */
+/* Image dark mode filter */
 .dark-mode img {
   filter: brightness(0.85);
 }
-
 </style>
