@@ -31,6 +31,14 @@ const db = new sqlite3.Database(dbPath, (err) => {
 const authRoutes = require('./routes/auth')(db);
 app.use('/api/auth', authRoutes);
 
+const scheduleRoutes = require('./routes/schedules')(db);
+app.use('/api', scheduleRoutes);
+
+const playersRouter = require('./routes/players')
+const attendancesRouter = require('./routes/attendances')
+
+app.use('/api/teams', playersRouter)
+app.use('/api/teams', attendancesRouter)
 
 // Handling non-existing routes
 app.use((req, res, next) => {

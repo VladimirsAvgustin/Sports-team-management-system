@@ -1,0 +1,85 @@
+/* FullCalendar TimeGrid Main CSS */
+
+/* Base styles for the time grid */
+.fc-timegrid {
+    font-family: Arial, sans-serif;
+    font-size: 14px;
+    color: #333;
+    background-color: #fff;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+/* Header styles */
+.fc-timegrid-header {
+    background-color: #f8f9fa;
+    border-bottom: 1px solid #ddd;
+    text-align: center;
+    font-weight: bold;
+    padding: 10px 0;
+}
+
+.fc-timegrid-header .fc-col-header-cell {
+    padding: 5px;
+    border-right: 1px solid #ddd;
+}
+
+.fc-timegrid-header .fc-col-header-cell:last-child {
+    border-right: none;
+}
+
+/* Time slots */
+.fc-timegrid-slots {
+    background-color: #fdfdfd;
+}
+
+.fc-timegrid-slot {
+    border-bottom: 1px solid #eee;
+    height: 40px;
+    line-height: 40px;
+    padding-left: 10px;
+    color: #666;
+}
+
+/* Events */
+.fc-timegrid-event {
+    background-color: #007bff;
+    color: #fff;
+    border-radius: 4px;
+    padding: 5px;
+    font-size: 12px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.fc-timegrid-event:hover {
+    background-color: #0056b3;
+}
+
+/* Now indicator */
+.fc-timegrid-now-indicator {
+    background-color: #ff0000;
+    height: 2px;
+    position: absolute;
+    z-index: 10;
+}
+
+/* Scrollbar styling */
+.fc-timegrid-scroll {
+    overflow-y: auto;
+}
+
+.fc-timegrid-scroll::-webkit-scrollbar {
+    width: 8px;
+}
+
+.fc-timegrid-scroll::-webkit-scrollbar-thumb {
+    background-color: #ccc;
+    border-radius: 4px;
+}
+
+.fc-timegrid-scroll::-webkit-scrollbar-thumb:hover {
+    background-color: #aaa;
+}

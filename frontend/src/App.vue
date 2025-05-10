@@ -179,7 +179,8 @@ watch(() => auth.isAuthenticated, async () => {
       </nav>
     </header>
 
-    <router-view />
+    <router-view :key="$route.fullPath" />
+
 
     <LoginModal
       v-if="showLoginModal"

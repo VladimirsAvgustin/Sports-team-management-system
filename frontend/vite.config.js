@@ -20,5 +20,16 @@ export default defineConfig({
         changeOrigin: true,
       }
     }
+  },
+  plugins: [vue()],
+  build: {
+    rollupOptions: {
+      external: [
+        '@fullcalendar/vue3',
+        '@fullcalendar/daygrid',
+        '@fullcalendar/timegrid',
+        '@fullcalendar/interaction'
+      ]
+    }
   }
 })
