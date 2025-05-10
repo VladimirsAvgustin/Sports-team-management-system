@@ -17,8 +17,8 @@ const routes = [
   { path: "/create-team", component: CreateTeam },
   { path: '/profile', component: ProfilePage },
   { path: '/team/:id', name:'TeamPage', component: TeamPage },
-  {path: '/team-schedule/:id', name: 'TeamSchedule', component: () => import('@/views/TeamSchedule.vue')
-  }
+  {path: '/team-schedule/:id', name: 'TeamSchedule', component: () => import('@/views/TeamSchedule.vue')},
+  {path: '/teams/:teamId/schedule', component: TeamSchedule}
 ];
 
 const router = createRouter({

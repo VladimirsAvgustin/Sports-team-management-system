@@ -12,6 +12,7 @@ const authenticateToken = (req, res, next) => {
 
   const token = authHeader.split(' ')[1];
 
+
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
     req.user = decoded; // { id, username, role }
@@ -21,6 +22,15 @@ const authenticateToken = (req, res, next) => {
     return res.status(403).json({ error: 'Invalid token' });
   }
 };
+
+// В auth.js или store:
+async function getMyTeam(token) {
+  const res = await fetch('/api/my-team', {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  const data = await res.json();
+  return data.team.id;
+}
 
 module.exports = (db) => {
     const router = express.Router();
@@ -367,161 +377,6 @@ router.get('/api/teams/:id', async (req, res) => {
       });
     });
   });
-  
-  router.get(
-    '/teams/:teamId/schedule',
-    authenticateToken,
-    (req, res) => {
-      const teamId = req.params.teamId;
-      db.all(
-        'SELECT id, event_name, event_date, location FROM schedules WHERE team_id = ? ORDER BY event_date',
-        [teamId],
-        (err, rows) => {
-          if (err) {
-            console.error('Error fetching schedule:', err.message);
-            return res.status(500).json({ error: 'Database error' });
-          }
-          // Приведём к фронтенд-формату
-          const schedule = rows.map((r) => ({
-            id: r.id,
-            date: r.event_date,
-            description: r.event_name,
-            location: r.location,
-          }));
-          res.json({ schedule });
-        }
-      );
-    }
-  );
-    
-  // 2) Создать новое событие (только тренер)
-  router.post(
-    '/teams/:teamId/schedule',
-    authenticateToken,
-    (req, res) => {
-      const coachId = req.user.id;
-      const teamId = +req.params.teamId;
-      const { date, time, description, location } = req.body;
-    
-      // Проверим, что этот тренер действительно владеет командой
-      db.get(
-        'SELECT coach_id FROM teams WHERE id = ?',
-        [teamId],
-        (err, team) => {
-          if (err || !team) {
-            return res.status(404).json({ error: 'Team not found' });
-          }
-          if (team.coach_id !== coachId) {
-            return res.status(403).json({ error: 'Access denied' });
-          }
-    
-          // Вставляем событие
-          db.run(
-            `INSERT INTO schedules (team_id, event_name, event_date, location)
-             VALUES (?, ?, ?, ?)`,
-            [teamId, description, date, location || null],
-            function (insErr) {
-              if (insErr) {
-                console.error('Error creating schedule item:', insErr.message);
-                return res.status(500).json({ error: 'Insert failed' });
-              }
-              res.status(201).json({
-                id: this.lastID,
-                date,
-                description,
-                location: location || '',
-              });
-            }
-          );
-        }
-      );
-    }
-  );
-    
-  // 3) Обновить событие
-  router.put(
-    '/teams/:teamId/schedule/:eventId',
-    authenticateToken,
-    (req, res) => {
-      const coachId = req.user.id;
-      const teamId = +req.params.teamId;
-      const eventId = +req.params.eventId;
-      const { date, time, description, location } = req.body;
-    
-      // Проверка прав
-      db.get(
-        'SELECT coach_id FROM teams WHERE id = ?',
-        [teamId],
-        (err, team) => {
-          if (err || !team) {
-            return res.status(404).json({ error: 'Team not found' });
-          }
-          if (team.coach_id !== coachId) {
-            return res.status(403).json({ error: 'Access denied' });
-          }
-    
-          // Выполняем обновление
-          db.run(
-            `UPDATE schedules
-             SET event_name = ?, event_date = ?, location = ?
-             WHERE id = ? AND team_id = ?`,
-            [description, date, location || null, eventId, teamId],
-            function (updErr) {
-              if (updErr) {
-                console.error('Error updating schedule item:', updErr.message);
-                return res.status(500).json({ error: 'Update failed' });
-              }
-              if (this.changes === 0) {
-                return res.status(404).json({ error: 'Event not found' });
-              }
-              res.json({ message: 'Updated successfully' });
-            }
-          );
-        }
-      );
-    }
-  );
-    
-  // 4) Удалить событие
-  router.delete(
-    '/teams/:teamId/schedule/:eventId',
-    authenticateToken,
-    (req, res) => {
-      const coachId = req.user.id;
-      const teamId = +req.params.teamId;
-      const eventId = +req.params.eventId;
-    
-      // Проверка прав
-      db.get(
-        'SELECT coach_id FROM teams WHERE id = ?',
-        [teamId],
-        (err, team) => {
-          if (err || !team) {
-            return res.status(404).json({ error: 'Team not found' });
-          }
-          if (team.coach_id !== coachId) {
-            return res.status(403).json({ error: 'Access denied' });
-          }
-    
-          // Удаляем
-          db.run(
-            'DELETE FROM schedules WHERE id = ? AND team_id = ?',
-            [eventId, teamId],
-            function (delErr) {
-              if (delErr) {
-                console.error('Error deleting schedule item:', delErr.message);
-                return res.status(500).json({ error: 'Delete failed' });
-              }
-              if (this.changes === 0) {
-                return res.status(404).json({ error: 'Event not found' });
-              }
-              res.json({ message: 'Deleted successfully' });
-            }
-          );
-        }
-      );
-    }
-  );
 
   
   return router;
