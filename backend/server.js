@@ -6,15 +6,19 @@ const path = require('path');
 
 const app = express();
 const PORT = 3000;
-
+app.use((req, res, next) => {
+  next();
+});
 
 // Middleware
 app.use(cors({  
-  origin: 'http://127.0.0.1:5173',
+  origin: 'http://localhost:5173',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   credentials: true
 }));
 app.options('*', cors());
+
+
 app.use(bodyParser.json());
 
 // Connecting to the database
@@ -27,18 +31,15 @@ const db = new sqlite3.Database(dbPath, (err) => {
   }
 });
 
-// Now that the database is connected, set up the routes
+// Set up the routes
 const authRoutes = require('./routes/auth')(db);
 app.use('/api/auth', authRoutes);
 
 const scheduleRoutes = require('./routes/schedules')(db);
 app.use('/api', scheduleRoutes);
 
-const playersRouter = require('./routes/players')
-const attendancesRouter = require('./routes/attendances')
-
-app.use('/api/teams', playersRouter)
-app.use('/api/teams', attendancesRouter)
+const adminRoutes = require('./routes/admin')
+app.use('/api/admin', adminRoutes)
 
 // Handling non-existing routes
 app.use((req, res, next) => {

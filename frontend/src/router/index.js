@@ -8,8 +8,10 @@ import ProfilePage from '../views/ProfilePage.vue'
 import CreateTeam  from "../views/CreateTeam.vue";
 import TeamPage from "../views/TeamPage.vue";
 import TeamSchedule from "../views/TeamSchedule.vue";
+import AdminPage from "../views/AdminPage.vue";
+
 const routes = [
-  { path: "/", component: () => import("../views/HomePage.vue") },
+  { path: "/", component: HomePage },
   { path: "/about", component: AboutPage },
   { path: "/contact", component: ContactPage },
   { path: "/register", component: RegisterPage },
@@ -18,7 +20,11 @@ const routes = [
   { path: '/profile', component: ProfilePage },
   { path: '/team/:id', name:'TeamPage', component: TeamPage },
   {path: '/team-schedule/:id', name: 'TeamSchedule', component: () => import('@/views/TeamSchedule.vue')},
-  {path: '/teams/:teamId/schedule', component: TeamSchedule}
+  {path: '/teams/:teamId/schedule', component: TeamSchedule},
+  {path: '/team/:id', name: 'TeamPage', component: () => import('../views/TeamPage.vue'), meta: { requiresAuth: true }},
+  {path: '/admin', component: AdminPage },
+    
+
 ];
 
 const router = createRouter({

@@ -1,28 +1,39 @@
 :root {
-    --background-color: #f4f4f4;
-    --text-color: #333;
-    --primary-color: #0073e6;
-    --button-color: #ff9800;
-  }
-  
-  .dark-mode {
-    --background-color: #121212;
-    --text-color: #f4f4f4;
-    --primary-color: #ff9800;
-    --button-color: #003569;
-  }
-  
-  body {
-    background-color: var(--background-color);
-    color: var(--text-color);
-    transition: background 0.3s, color 0.3s;
-  }
-  
-  .btn {
-    background-color: var(--primary-color);
-    color: white;
-  }
-  
-  .btn:hover {
-    background-color: var(--button-color);
-  }
+  --background-color: #f4f4f4;
+  --text-color: #333;
+  --primary-color: #0073e6;
+  --button-color: #ff9800;
+}
+
+.dark-mode {
+  --background-color: #121212;
+  --text-color: #f4f4f4;
+  --primary-color: #ff9800;
+  --button-color: #003569;
+}
+
+body {
+  background-color: var(--background-color);
+  color: var(--text-color);
+  transition: background 0.3s, color 0.3s;
+}
+
+.btn {
+  background-color: var(--primary-color);
+  color: white;
+}
+
+.btn:hover {
+  background-color: var(--button-color);
+}
+
+.nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 15px; /* distance between buttons */
+}
+
+/* To align both buttons nicely */
+.nav-actions button {
+  margin-left: 10px;
+}

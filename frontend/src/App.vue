@@ -1,69 +1,113 @@
---- App.vue
 <script setup>
 import { ref, onMounted, computed, watch } from 'vue'
- import { useAuthStore } from './stores/auth'
- import LoginModal from './components/LoginModal.vue'
- import axios from 'axios'
- import { useRouter } from 'vue-router'
+import { useAuthStore } from './stores/auth'
+import LoginModal from './components/LoginModal.vue'
+import axios from 'axios'
+import { useRouter } from 'vue-router'
+import JoinTeamModal from './components/JoinTeamModal.vue'
 
- // Стор для аутентификации
- const auth = useAuthStore()
- const router = useRouter()
+// Authentication store
+const auth = useAuthStore()
+const router = useRouter()
 
- // Состояния
- const showLoginModal = ref(false)
- const isDarkMode = ref(false)
+// States
+const showLoginModal = ref(false)
+const isDarkMode = ref(false)
 
- const userTeam = ref(null);
+const userTeam = ref(null);
 
- // Вычисляемый флаг авторизации
- const isLoggedIn = computed(() => auth.isAuthenticated)
+// Computed auth flag
+const isLoggedIn = computed(() => auth.isAuthenticated)
 
- // Нужно ли показывать кнопку создания команды
+// Whether to show create team button
 const showCreateTeam = computed(() =>
   auth.user?.role === 'Coach' && !userTeam.value
 )
 
- // Есть ли у пользователя команда
- const hasTeam = computed(() => !!userTeam.value)
+const showJoinTeam = computed(() =>
+  auth.user?.role === 'Player' && !userTeam.value
+)
 
- const openLoginModal  = () => showLoginModal.value = true
+// Whether user has a team
+const hasTeam = computed(() => !!userTeam.value)
+
+const openLoginModal  = () => showLoginModal.value = true
 const closeLoginModal = () => showLoginModal.value = false
 
-// Обработчик логина из модалки
+const showJoinTeamModal = ref(false)
+
+const openJoinTeamModal = () => {
+  showJoinTeamModal.value = true
+}
+
+const closeJoinTeamModal = () => {
+  showJoinTeamModal.value = false
+}
+
+const handleTeamJoined = (team) => {
+  userTeam.value = team
+}
+
 async function handleLogin(username, password) {
   try {
     await auth.login(username, password)
     closeLoginModal()
   } catch (e) {
-    alert('Ошибка входа: ' + e.message)
+    alert('Login error: ' + e.message)
   }
 }
 
- // Переключатель темной темы
- function toggleDarkMode() {
-   isDarkMode.value = !isDarkMode.value
-   localStorage.setItem('darkMode', isDarkMode.value ? 'enabled' : 'disabled')
-   document.documentElement.classList.toggle('dark-mode', isDarkMode.value)
- }
+const handleJoin = async (teamCode) => {
+  try {
+    const response = await fetch('/api/auth/join-team', {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${auth.token}` // ⬅️ если нужно
+      },
+      body: JSON.stringify({ teamCode })
+    })
 
- // Переходы
- const goToCreateTeam = () => {
-   router.push('/create-team')
- }
+    const result = await response.json()
 
- const goToMyTeam = () => {
-   if (userTeam.value) {
-     router.push(`/team/${userTeam.value.id}`)
-   }
- }
- const goToSchedule = () => {
-   if (userTeam.value) {
-     router.push(`/team-schedule/${userTeam.value.id}`)
-   }
- }
+    if (response.ok) {
+      alert('You have joined the team!')
+      await fetchMyTeam()
+      closeJoinTeamModal()
+    } else {
+      alert(result.message || 'Failed to join the team')
+    }
+  } catch (err) {
+    console.error(err)
+    alert('Something went wrong')
+  }
+}
 
-// метод, который подставляет токен из Pinia и грузит команду
+
+// Dark mode toggle
+function toggleDarkMode() {
+  isDarkMode.value = !isDarkMode.value
+  localStorage.setItem('darkMode', isDarkMode.value ? 'enabled' : 'disabled')
+  document.documentElement.classList.toggle('dark-mode', isDarkMode.value)
+}
+
+// Navigation
+const goToCreateTeam = () => {
+  router.push('/create-team')
+}
+
+const goToMyTeam = () => {
+  if (userTeam.value) {
+    router.push(`/team/${userTeam.value.id}`)
+  }
+}
+const goToSchedule = () => {
+  if (userTeam.value) {
+    router.push(`/team-schedule/${userTeam.value.id}`)
+  }
+}
+
+// Method that uses token from Pinia and loads team
 async function fetchMyTeam() {
   if (!auth.token) {
    userTeam.value = null
@@ -84,23 +128,21 @@ async function fetchMyTeam() {
   }
 }
 
- onMounted(async () => {
-   // сначала аутентификация
-   await auth.fetchUser()
-  // и сразу пытаемся получить команду (если залогинен)
+onMounted(async () => {
+  // First authenticate
+  await auth.fetchUser()
+  // Then try to get team (if logged in)
   await fetchMyTeam()
 
-   isDarkMode.value = localStorage.getItem('darkMode') === 'enabled'
-   document.documentElement.classList.toggle('dark-mode', isDarkMode.value)
- })
+  isDarkMode.value = localStorage.getItem('darkMode') === 'enabled'
+  document.documentElement.classList.toggle('dark-mode', isDarkMode.value)
+})
 
-// если вдруг сменился токен (вошли или вышли) — ещё раз обновим команду
+// If token changed (logged in/out) - refresh team
 watch(() => auth.isAuthenticated, async () => {
   await fetchMyTeam()
 })
- </script>
-
-
+</script>
 
 <template>
   <div id="app">
@@ -108,14 +150,7 @@ watch(() => auth.isAuthenticated, async () => {
       <nav>
         <ul id="pc">
           <li><router-link to="/">Home</router-link></li>
-          <li class="dropdown">
-            <a href="#">Services</a>
-            <ul class="dropdown-content">
-              <li><a href="#">Team Management</a></li>
-              <li><a href="#">Schedule Organization</a></li>
-              <li><a href="#">Player Statistics</a></li>
-            </ul>
-          </li>
+
           <li><router-link to="/contact">Contact</router-link></li>
         </ul>
 
@@ -142,8 +177,16 @@ watch(() => auth.isAuthenticated, async () => {
             @click="goToSchedule"
             class="create-team-btn"
           >
-            Расписание
+            Schedule
           </button>
+
+          <button 
+          v-if="showJoinTeam" 
+          @click="openJoinTeamModal"
+          class="create-team-btn"
+        >
+          Join Team
+        </button>
         </div>
 
         <div class="nav-actions">
@@ -151,8 +194,6 @@ watch(() => auth.isAuthenticated, async () => {
             {{ isDarkMode ? 'Light Mode' : 'Dark Mode' }}
           </button>
 
-
-          
           <router-link
           v-if="!isLoggedIn"
           to="/register" class="login-btn registration-btn"
@@ -181,16 +222,19 @@ watch(() => auth.isAuthenticated, async () => {
 
     <router-view :key="$route.fullPath" />
 
-
     <LoginModal
       v-if="showLoginModal"
       @close="closeLoginModal"
       @login="handleLogin"
     />
+    <JoinTeamModal
+    v-if="showJoinTeamModal"
+    @close="closeJoinTeamModal"
+    @join="handleJoin"
+  />
   </div>
+
 </template>
-
-
 
 <style>
 /* ========== Base Reset ========== */
