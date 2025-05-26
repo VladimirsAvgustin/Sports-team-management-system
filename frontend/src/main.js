@@ -2,15 +2,13 @@ import { createApp } from 'vue'
 import App from './App.vue'
 import router from './router'
 import { createPinia } from 'pinia'
+import axios from 'axios'
 
 import '@/assets/styles/global.css'
-
-import '@/assets/fullcalendar/core.css';
-import '@/assets/fullcalendar/daygrid.css';
-import '@/assets/fullcalendar/timegrid.css';
-
-
-
+const token = localStorage.getItem('token')
+if (token) {
+  axios.defaults.headers.common['Authorization'] = `Bearer ${token}`
+}
 
 const app = createApp(App)
 app.use(createPinia())

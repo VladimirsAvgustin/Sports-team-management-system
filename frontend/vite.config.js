@@ -11,6 +11,7 @@ export default defineConfig({
   },
   server: {
     hmr: true,
+    port: 5173,
     watch: {
       usePolling: true,
     },
@@ -18,6 +19,7 @@ export default defineConfig({
       '/api': {
         target: 'http://localhost:3000',
         changeOrigin: true,
+        secure: false
       }
     }
   },

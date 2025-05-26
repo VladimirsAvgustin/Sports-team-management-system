@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import axios from 'axios'
+import { useRouter } from 'vue-router'
 
 export const useAuthStore = defineStore('auth', {
   state: () => ({
@@ -23,24 +24,24 @@ export const useAuthStore = defineStore('auth', {
         const data = await res.json();
 
         if (!res.ok) {
-          throw new Error(data.error || 'Ошибка входа');
+          throw new Error(data.error || 'Login error');
         }
 
         this.token = data.token;
         localStorage.setItem('token', data.token);
 
-        // Сразу загружаем пользователя после логина
+        // Immediately load user after login
         await this.fetchUser();
 
       } catch (error) {
-        console.error('Ошибка при входе:', error);
+        console.error('Login error:', error);
         throw error;
       }
     },
 
     async fetchUser() {
       if (!this.token) {
-        console.log('Нет токена, пропускаем загрузку пользователя');
+        console.log('No token, skipping user loading');
         return;
       }
 
@@ -52,13 +53,13 @@ export const useAuthStore = defineStore('auth', {
         });
 
         if (!res.ok) {
-          // Если 401 - токен недействителен
+          // If 401 - token is invalid
           if (res.status === 401) {
-            console.log('Токен недействителен, выполняем logout');
+            console.log('Token is invalid, performing logout');
             this.logout();
             return;
           }
-          throw new Error('Ошибка получения пользователя');
+          throw new Error('Error fetching user');
         }
 
         const data = await res.json();
@@ -66,7 +67,7 @@ export const useAuthStore = defineStore('auth', {
         localStorage.setItem('user', JSON.stringify(this.user));
 
       } catch (error) {
-        console.error('Ошибка при загрузке пользователя:', error);
+        console.error('Error loading user:', error);
         this.logout();
       }
     },
@@ -76,6 +77,7 @@ export const useAuthStore = defineStore('auth', {
       this.token = null;
       localStorage.removeItem('token');
       localStorage.removeItem('user');
+      router.push('/')
     }
   }
 })

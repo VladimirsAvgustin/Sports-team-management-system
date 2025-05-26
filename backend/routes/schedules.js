@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 
 module.exports = (db) => {
-  // Получить расписание по команде
+  // get schedule by team id
   router.get('/teams/:id/schedule', (req, res) => {
     const teamId = req.params.id;
     db.all('SELECT * FROM schedules WHERE team_id = ?', [teamId], (err, rows) => {
@@ -13,7 +13,7 @@ module.exports = (db) => {
     });
   });
 
-  // Добавить событие
+  // add event
   router.post('/teams/:id/schedule', (req, res) => {
     const teamId = req.params.id;
     const { event_name, event_date, location, event_time, event_type } = req.body;
@@ -76,51 +76,115 @@ module.exports = (db) => {
     );
   });
 
-  router.get('/:teamId/attendances', async (req, res) => {
-  try {
-    const result = await db.query(
-      `SELECT * FROM attendances WHERE event_id IN (
-        SELECT id FROM events WHERE team_id = $1
-      )`, [req.params.teamId]
-    );
-    res.json(result.rows);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
+  
+//   // Получить все посещения по команде
+//   router.get('/:teamId/attendances', (req, res) => {
+//     const teamId = req.params.teamId;
 
-// POST /api/teams/:teamId/attendances - добавить отметку
-router.post('/:teamId/attendances', async (req, res) => {
-  try {
-    const { player_id, event_id, status } = req.body;
-    const result = await db.query(
-      `INSERT INTO attendances (player_id, event_id, status)
-       VALUES ($1, $2, $3)
-       ON CONFLICT (player_id, event_id) 
-       DO UPDATE SET status = EXCLUDED.status
-       RETURNING *`,
-      [player_id, event_id, status]
-    );
-    res.json(result.rows[0]);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
+//     const query = `
+//       SELECT a.*
+//       FROM attendances a
+//       JOIN schedules s ON a.event_id = s.id
+//       WHERE s.team_id = ?
+//     `;
 
-// DELETE /api/teams/:teamId/attendances - удалить отметку
-router.delete('/:teamId/attendances', async (req, res) => {
-  try {
-    const { player_id, event_id } = req.body;
-    await db.query(
-      `DELETE FROM attendances 
-       WHERE player_id = $1 AND event_id = $2`,
-      [player_id, event_id]
-    );
-    res.json({ success: true });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
+//     db.all(query, [teamId], (err, rows) => {
+//       if (err) {
+//         return res.status(500).json({ error: 'Ошибка при получении посещаемости' });
+//       }
+//       res.json(rows);
+//     });
+//   });
 
+//   // Добавить/обновить посещение
+//   router.post('/:teamId/attendances', (req, res) => {
+//     const { player_id, event_id, status } = req.body;
+
+//     const checkQuery = `
+//       SELECT * FROM attendances WHERE player_id = ? AND event_id = ?
+//     `;
+
+//     db.get(checkQuery, [player_id, event_id], (err, row) => {
+//       if (err) {
+//         return res.status(500).json({ error: 'Ошибка при проверке посещаемости' });
+//       }
+
+//       if (row) {
+//         // обновить
+//         db.run(
+//           `UPDATE attendances SET status = ? WHERE player_id = ? AND event_id = ?`,
+//           [status, player_id, event_id],
+//           function (err) {
+//             if (err) return res.status(500).json({ error: 'Ошибка при обновлении посещаемости' });
+//             res.json({ updated: true });
+//           }
+//         );
+//       } else {
+//         // вставить
+//         db.run(
+//           `INSERT INTO attendances (player_id, event_id, status) VALUES (?, ?, ?)`,
+//           [player_id, event_id, status],
+//           function (err) {
+//             if (err) return res.status(500).json({ error: 'Ошибка при добавлении посещаемости' });
+//             res.json({ id: this.lastID });
+//           }
+//         );
+//       }
+//     });
+//   });
+
+//   // Удалить посещение
+//   router.delete('/:teamId/attendances', (req, res) => {
+//     const { player_id, event_id } = req.body;
+
+//     db.run(
+//       `DELETE FROM attendances WHERE player_id = ? AND event_id = ?`,
+//       [player_id, event_id],
+//       function (err) {
+//         if (err) {
+//           return res.status(500).json({ error: 'Ошибка при удалении посещаемости' });
+//         }
+//         res.json({ success: true });
+//       }
+//     );
+//   });
+   // Получить игроков команды
+  router.get('/teams/:teamId/players', (req, res) => {
+    const teamId = req.params.teamId;
+    
+    db.all(`
+        SELECT 
+            u.id, 
+            u.username, 
+            u.email,
+            ps.matches,
+            ps.goals,
+            ps.assists,
+            ps.yellow_cards,
+            ps.red_cards
+        FROM users u
+        LEFT JOIN player_stats ps ON u.id = ps.user_id
+        WHERE u.team_id = ? AND u.role = 'Player'
+    `, [teamId], (err, rows) => {
+        if (err) {
+            console.error('Ошибка при получении игроков:', err);
+            return res.status(500).json({ error: 'Не удалось загрузить игроков команды' });
+        }
+        
+        // Преобразуем null в 0, если статистики нет
+        const players = rows.map(player => ({
+            ...player,
+            stats: {
+                matches: player.matches || 0,
+                goals: player.goals || 0,
+                assists: player.assists || 0,
+                yellow_cards: player.yellow_cards || 0,
+                red_cards: player.red_cards || 0
+            }
+        }));
+        
+        res.json({ players });
+    });
+});
   return router;
 };

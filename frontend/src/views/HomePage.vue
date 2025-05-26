@@ -1,14 +1,13 @@
 <template>
   <main>
     <!-- Logo at the top of the page -->
-    <img :src="logo" alt="Sports Logo" class="logo" /> 
     <h1>Welcome to TeamFlow</h1>
     <h2>Manage Your Team Effectively</h2>
     <p>
       TeamFlow allows you to organize schedules, track player statistics,
       and communicate with your team in one platform.
     </p>
-
+     <img :src="logo" alt="Sports Logo" class="logo" /> 
     <!-- Card section with login, schedule, and registration -->
     <div class="card-container">
       <!-- Show login card only if user is not logged in -->

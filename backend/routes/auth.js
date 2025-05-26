@@ -25,7 +25,7 @@ const authenticateToken = (req, res, next) => {
 
 // В auth.js или store:
 async function getMyTeam(token) {
-  const res = await fetch('/api/my-team', {
+  const res = await fetch('/my-team', {
     headers: { Authorization: `Bearer ${token}` }
   });
   const data = await res.json();
@@ -160,7 +160,8 @@ module.exports = (db) => {
   
   router.post('/login', (req, res) => {
     const { username, password } = req.body;
-  
+    console.log('Login request:', username, password);
+    
     if (!username || !password) {
       return res.status(400).json({ error: 'Enter username and password' });
     }
@@ -319,8 +320,8 @@ router.get('/teams/byCoach/:coachId', (req, res) => {
 });
 
 
-router.get('/api/teams/:id', async (req, res) => {
-    const teamId = req.params.id;
+router.get('/teams/:teamId', async (req, res) => {
+    const teamId = req.params.teamId;
   
     // Пример для SQLite без ORM:
     db.get('SELECT * FROM teams WHERE id = ?', [teamId], (err, team) => {
@@ -378,6 +379,220 @@ router.get('/api/teams/:id', async (req, res) => {
     });
   });
 
-  
+  router.get('/players/:id/stats', (req, res) => {
+  const playerId = req.params.id;
+
+  db.get(
+    'SELECT * FROM player_stats WHERE user_id = ?',
+    [playerId],
+    (err, stats) => {
+      if (err) {
+        console.error(err.message);
+        return res.status(500).json({ error: 'Error fetching player stats' });
+      }
+
+      res.status(200).json({ 
+        stats: stats || { 
+          matches: 0, 
+          goals: 0, 
+          assists: 0, 
+          yellow_cards: 0, 
+          red_cards: 0 
+        } 
+      });
+    }
+  );
+});
+
+// Обновление статистики игрока
+router.put('/players/:id/stats', authenticateToken, (req, res) => {
+  const playerId = req.params.id;
+  const { matches, goals, assists, yellow_cards, red_cards } = req.body;
+
+  // Проверяем, что пользователь - тренер команды
+  db.get(
+    'SELECT team_id FROM users WHERE id = ?',
+    [req.user.id],
+    (err, coach) => {
+      if (err) {
+        console.error(err.message);
+        return res.status(500).json({ error: 'Error verifying coach' });
+      }
+
+      db.get(
+        'SELECT team_id FROM users WHERE id = ?',
+        [playerId],
+        (err, player) => {
+          if (err) {
+            console.error(err.message);
+            return res.status(500).json({ error: 'Error verifying player' });
+          }
+
+          // Проверяем, что тренер и игрок из одной команды
+          if (coach.team_id !== player.team_id) {
+            return res.status(403).json({ error: 'Not authorized to update this player' });
+          }
+
+          // Обновляем или создаем статистику
+          db.run(
+            `INSERT INTO player_stats 
+             (user_id, matches, goals, assists, yellow_cards, red_cards) 
+             VALUES (?, ?, ?, ?, ?, ?)
+             ON CONFLICT(user_id) DO UPDATE SET
+               matches = excluded.matches,
+               goals = excluded.goals,
+               assists = excluded.assists,
+               yellow_cards = excluded.yellow_cards,
+               red_cards = excluded.red_cards`,
+            [playerId, matches, goals, assists, yellow_cards, red_cards],
+            function (err) {
+              if (err) {
+                console.error(err.message);
+                return res.status(500).json({ error: 'Error updating stats' });
+              }
+
+              res.status(200).json({ message: 'Stats updated successfully' });
+            }
+          );
+        }
+      );
+    }
+  );
+});
+
+
+router.post('/join-team', authenticateToken, async (req, res) => {
+  const { teamCode } = req.body;
+  const userId = req.user.id;
+
+  // Проверяем, что пользователь еще не состоит в команде
+  try {
+    const user = await new Promise((resolve, reject) => {
+      db.get('SELECT team_id FROM users WHERE id = ?', [userId], (err, row) => {
+        if (err) reject(err);
+        else resolve(row);
+      });
+    });
+
+    if (user && user.team_id) {
+      return res.status(400).json({ message: 'User already belongs to a team' });
+    }
+
+    // Ищем команду по коду
+    const team = await new Promise((resolve, reject) => {
+      db.get('SELECT id, name, coach_id FROM teams WHERE team_code = ?', [teamCode], (err, row) => {
+        if (err) reject(err);
+        else resolve(row);
+      });
+    });
+
+    if (!team) {
+      return res.status(404).json({ message: 'Team not found with this code' });
+    }
+
+    // Обновляем пользователя, добавляя team_id
+    await new Promise((resolve, reject) => {
+      db.run(
+        'UPDATE users SET team_id = ? WHERE id = ?',
+        [team.id, userId],
+        function(err) {
+          if (err) reject(err);
+          else resolve();
+        }
+      );
+    });
+
+    // Если пользователь - игрок, создаем для него статистику
+    const userRole = await new Promise((resolve, reject) => {
+      db.get('SELECT role FROM users WHERE id = ?', [userId], (err, row) => {
+        if (err) reject(err);
+        else resolve(row?.role);
+      });
+    });
+
+    if (userRole === 'player') {
+      await new Promise((resolve, reject) => {
+        db.run(
+          'INSERT OR IGNORE INTO player_stats (user_id, matches, goals, assists, yellow_cards, red_cards) VALUES (?, 0, 0, 0, 0, 0)',
+          [userId],
+          function(err) {
+            if (err) reject(err);
+            else resolve();
+          }
+        );
+      });
+    }
+
+    // Возвращаем обновленные данные пользователя и команды
+    const updatedUser = await new Promise((resolve, reject) => {
+      db.get(
+        'SELECT id, username, email, role, team_id FROM users WHERE id = ?',
+        [userId],
+        (err, row) => {
+          if (err) reject(err);
+          else resolve(row);
+        }
+      );
+    });
+
+    res.status(200).json({
+      message: 'Successfully joined the team',
+      user: updatedUser,
+      team: {
+        id: team.id,
+        name: team.name,
+        coach_id: team.coach_id
+      }
+    });
+
+  } catch (err) {
+    console.error('Error joining team:', err);
+    res.status(500).json({ message: 'Internal server error', error: err.message });
+  }
+});
+
+router.delete('/players/:id/team', authenticateToken, async (req, res) => {
+  const playerId = req.params.id;
+  const coachId = req.user.id;
+
+  try {
+    // Проверяем, что запрос от тренера команды
+    const team = await new Promise((resolve, reject) => {
+      db.get('SELECT id FROM teams WHERE coach_id = ?', [coachId], (err, row) => {
+        if (err) reject(err);
+        else resolve(row);
+      });
+    });
+
+    if (!team) {
+      return res.status(403).json({ error: 'Only team coach can remove players' });
+    }
+
+    // Проверяем, что игрок в команде тренера
+    const player = await new Promise((resolve, reject) => {
+      db.get('SELECT id FROM users WHERE id = ? AND team_id = ?', [playerId, team.id], (err, row) => {
+        if (err) reject(err);
+        else resolve(row);
+      });
+    });
+
+    if (!player) {
+      return res.status(404).json({ error: 'Player not found in your team' });
+    }
+
+    // Удаляем игрока из команды
+    await new Promise((resolve, reject) => {
+      db.run('UPDATE users SET team_id = NULL WHERE id = ?', [playerId], (err) => {
+        if (err) reject(err);
+        else resolve();
+      });
+    });
+
+    res.status(200).json({ message: 'Player removed from team' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
   return router;
 };

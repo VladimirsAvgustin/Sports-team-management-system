@@ -1,15 +1,15 @@
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 
-// Путь до файла базы данных
+// Path to the database file
 const dbPath = path.resolve(__dirname, 'database.sqlite');
 
-// Подключение к базе данных
+// Connecting to the database
 const db = new sqlite3.Database(dbPath, (err) => {
   if (err) {
-    console.error('Ошибка подключения к SQLite:', err.message);
+    console.error('SQLite connection error:', err.message);
   } else {
-    console.log('Успешное подключение к SQLite базе данных');
+    console.log('Successfully connected to the SQLite database');
   }
 });
 

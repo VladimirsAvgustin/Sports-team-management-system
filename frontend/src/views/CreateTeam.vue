@@ -29,7 +29,7 @@ const router = useRouter()
 const teamName = ref('')
 const teamCode = ref('')
 
-// Генерация случайного кода
+// Generate a random team code
 function generateTeamCode() {
   const charset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
   let code = ''
@@ -39,7 +39,7 @@ function generateTeamCode() {
   teamCode.value = code
 }
 
-// Создать команду
+// Create the team
 async function createTeam() {
   if (!auth.token) {
     alert('You must be logged in as a coach.')
@@ -58,11 +58,10 @@ async function createTeam() {
       }
     )
 
-    // Обновим данные пользователя (чтобы получить team_id)
+    // Refresh user data to get the team ID
     await auth.fetchUser()
 
     alert('Team successfully created!')
-    // Перейти на страницу команды
     const newTeam = response.data.team
     router.push(`/team/${newTeam.id}`)
   } catch (error) {
