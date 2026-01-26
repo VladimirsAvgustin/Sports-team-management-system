@@ -6,8 +6,19 @@
       <h2>{{ team.team_code }}</h2>
       <div class="team-meta">
         <span class="badge">{{ sortedPlayers.length }} players</span>
+        <button @click="toggleChat" class="chat-toggle-btn" title="Team Chat">
+          💬 Chat
+          <span v-if="unreadCount > 0" class="unread-badge">{{ unreadCount }}</span>
+        </button>
       </div>
     </div>
+
+    <!-- Floating Chat Panel -->
+    <transition name="slide-left">
+      <div v-if="showChat" class="floating-chat">
+        <ChatComponent :room-id="chatRoomId" :show-close="true" @close="toggleChat" />
+      </div>
+    </transition>
 
     <!-- Search and Controls -->
     <div class="team-controls">
@@ -182,10 +193,13 @@ import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import { useRoute } from 'vue-router'
 import axios from 'axios'
 import { useAuthStore } from '../stores/auth'
+import { useChatStore } from '../stores/chat'
 import Chart from 'chart.js/auto'
+import ChatComponent from '../components/ChatComponent.vue'
 
 const route = useRoute()
 const authStore = useAuthStore()
+const chatStore = useChatStore()
 const teamId = route.params.id
 
 // Refs and state
@@ -197,6 +211,11 @@ const sortBy = ref('username')
 const viewMode = ref('cards') // 'cards' or 'list'
 const toastMessage = ref('')
 const toastType = ref('')
+
+// Chat state
+const showChat = ref(false)
+const chatRoomId = ref(null)
+const unreadCount = computed(() => chatStore.unreadCount)
 
 const goalsChartRef = ref(null)
 const assistsChartRef = ref(null)
@@ -345,6 +364,18 @@ const exportStats = () => {
   link.click()
 }
 
+// Chat functions
+const toggleChat = async () => {
+  if (!showChat.value && !chatRoomId.value) {
+    // Initialize chat room if not already done
+    const room = await chatStore.getTeamRoom(teamId)
+    if (room) {
+      chatRoomId.value = room.id
+    }
+  }
+  showChat.value = !showChat.value
+}
+
 // Chart rendering
 const renderCharts = () => {
   if (!goalsChartRef.value || !assistsChartRef.value) return
@@ -411,6 +442,11 @@ const renderCharts = () => {
 // Lifecycle
 onMounted(() => {
   fetchTeamData()
+  
+  // Initialize chat socket connection
+  if (!chatStore.isConnected && authStore.token) {
+    chatStore.connect()
+  }
 })
 
 watch(players, () => { 
@@ -973,6 +1009,100 @@ dark-mode .view-toggle {
     flex-direction: column;
     align-items: flex-start;
     gap: 0.5rem;
+  }
+}
+
+/* Chat Styles */
+.chat-toggle-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 24px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+  position: relative;
+  margin-left: auto;
+}
+
+.chat-toggle-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.unread-badge {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  background: #ef4444;
+  color: white;
+  font-size: 0.75rem;
+  padding: 0.125rem 0.5rem;
+  border-radius: 12px;
+  font-weight: 700;
+  min-width: 20px;
+  text-align: center;
+}
+
+.floating-chat {
+  position: fixed;
+  right: 2rem;
+  top: 80px;
+  bottom: 2rem;
+  width: 400px;
+  z-index: 1000;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+/* Slide animation */
+.slide-left-enter-active,
+.slide-left-leave-active {
+  transition: transform 0.3s ease, opacity 0.3s ease;
+}
+
+.slide-left-enter-from {
+  transform: translateX(100%);
+  opacity: 0;
+}
+
+.slide-left-leave-to {
+  transform: translateX(100%);
+  opacity: 0;
+}
+
+@media (max-width: 768px) {
+  .floating-chat {
+    right: 0;
+    left: 0;
+    width: 100%;
+    top: 60px;
+    bottom: 0;
+    border-radius: 0;
+  }
+  
+  .chat-toggle-btn {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 999;
+    border-radius: 50%;
+    width: 60px;
+    height: 60px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+  }
+  
+  .chat-toggle-btn span:not(.unread-badge) {
+    display: none;
   }
 }
 </style>

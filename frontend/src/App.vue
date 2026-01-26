@@ -181,6 +181,14 @@ watch(() => auth.isAuthenticated, async () => {
           </button>
 
           <button 
+            v-if="isLoggedIn" 
+            @click="router.push('/chat')"
+            class="create-team-btn chat-btn"
+          >
+            💬 Chat
+          </button>
+
+          <button 
           v-if="showJoinTeam" 
           @click="openJoinTeamModal"
           class="create-team-btn"

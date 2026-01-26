@@ -1,6 +1,5 @@
 import { defineStore } from 'pinia'
 import axios from 'axios'
-import { useRouter } from 'vue-router'
 
 export const useAuthStore = defineStore('auth', {
   state: () => ({
@@ -15,7 +14,7 @@ export const useAuthStore = defineStore('auth', {
   actions: {
     async login(username, password) {
       try {
-        const res = await fetch('http://localhost:3000/api/auth/login', {
+        const res = await fetch('/api/auth/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ username, password })
@@ -46,7 +45,7 @@ export const useAuthStore = defineStore('auth', {
       }
 
       try {
-        const res = await fetch('http://localhost:3000/api/auth/me', {
+        const res = await fetch('/api/auth/me', {
           headers: {
             Authorization: `Bearer ${this.token}`,
           },
@@ -77,7 +76,28 @@ export const useAuthStore = defineStore('auth', {
       this.token = null;
       localStorage.removeItem('token');
       localStorage.removeItem('user');
-      router.push('/')
+      // Navigate to home page after logout
+      if (typeof window !== 'undefined' && window.location) {
+        window.location.href = '/';
+      }
+    },
+
+    // Initialize auth state from localStorage
+    async initializeAuth() {
+      const token = localStorage.getItem('token');
+      const user = localStorage.getItem('user');
+      
+      if (token && user) {
+        this.token = token;
+        try {
+          this.user = JSON.parse(user);
+          // Verify token is still valid
+          await this.fetchUser();
+        } catch (error) {
+          console.error('Error initializing auth:', error);
+          this.logout();
+        }
+      }
     }
   }
 })
