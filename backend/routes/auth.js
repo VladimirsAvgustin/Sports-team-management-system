@@ -114,6 +114,19 @@ module.exports = (db) => {
       
                       const teamId = this.lastID;
       
+                      // Create team chat room automatically
+                      db.run(
+                        'INSERT INTO chat_rooms (team_id, name) VALUES (?, ?)',
+                        [teamId, `${teamName} Chat`],
+                        (chatErr) => {
+                          if (chatErr) {
+                            console.error('Error creating team chat room:', chatErr.message);
+                          } else {
+                            console.log(`Team chat room created for team: ${teamName}`);
+                          }
+                        }
+                      );
+
                       // Обновим user.team_id
                       db.run(
                         'UPDATE users SET team_id = ? WHERE id = ?',
@@ -251,6 +264,19 @@ module.exports = (db) => {
   
             const newTeamId = this.lastID;
   
+            // Create team chat room automatically
+            db.run(
+              'INSERT INTO chat_rooms (team_id, name) VALUES (?, ?)',
+              [newTeamId, `${name} Chat`],
+              (chatErr) => {
+                if (chatErr) {
+                  console.error('Error creating team chat room:', chatErr.message);
+                } else {
+                  console.log(`Team chat room created for team: ${name}`);
+                }
+              }
+            );
+
             // 2) Обновляем пользователя — ставим ему team_id
             db.run(
               `UPDATE users SET team_id = ? WHERE id = ?`,
@@ -594,5 +620,299 @@ router.delete('/players/:id/team', authenticateToken, async (req, res) => {
     res.status(500).json({ error: 'Server error' });
   }
 });
+
+// Get user statistics for homepage dashboard
+router.get('/user/stats', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const userRole = req.user.role;
+    
+    let teamCount = 0;
+    let upcomingEvents = 0;
+    let playerCount = 0;
+
+    if (userRole.toLowerCase() === 'coach') {
+      // Get teams coached by this user
+      db.get(
+        'SELECT COUNT(*) as count FROM teams WHERE coach_id = ?',
+        [userId],
+        (err, result) => {
+          if (err) {
+            console.error('Error fetching team count:', err);
+            return res.status(500).json({ error: 'Error fetching statistics' });
+          }
+          
+          teamCount = result ? result.count : 0;
+          
+          // Get upcoming events for coach's teams
+          db.get(
+            `SELECT COUNT(*) as count FROM schedules 
+             WHERE team_id IN (SELECT id FROM teams WHERE coach_id = ?) 
+             AND date(event_date) >= date('now')`,
+            [userId],
+            (err, eventResult) => {
+              if (err) {
+                console.error('Error fetching events count:', err);
+                return res.status(500).json({ error: 'Error fetching statistics' });
+              }
+              
+              upcomingEvents = eventResult ? eventResult.count : 0;
+              
+              // Get player count in coach's teams
+              db.get(
+                `SELECT COUNT(*) as count FROM users 
+                 WHERE team_id IN (SELECT id FROM teams WHERE coach_id = ?) 
+                 AND role = 'Player'`,
+                [userId],
+                (err, playerResult) => {
+                  if (err) {
+                    console.error('Error fetching player count:', err);
+                    return res.status(500).json({ error: 'Error fetching statistics' });
+                  }
+                  
+                  playerCount = playerResult ? playerResult.count : 0;
+                  
+                  res.json({
+                    teamCount,
+                    upcomingEvents,
+                    playerCount
+                  });
+                }
+              );
+            }
+          );
+        }
+      );
+    } else {
+      // For players, show different stats
+      db.get(
+        'SELECT team_id FROM users WHERE id = ?',
+        [userId],
+        (err, userResult) => {
+          if (err) {
+            console.error('Error fetching user team:', err);
+            return res.status(500).json({ error: 'Error fetching statistics' });
+          }
+          
+          const userTeamId = userResult ? userResult.team_id : null;
+          
+          if (userTeamId) {
+            // Get upcoming events for player's team
+            db.get(
+              `SELECT COUNT(*) as count FROM schedules 
+               WHERE team_id = ? AND date(event_date) >= date('now')`,
+              [userTeamId],
+              (err, eventResult) => {
+                if (err) {
+                  console.error('Error fetching events:', err);
+                  return res.status(500).json({ error: 'Error fetching statistics' });
+                }
+                
+                upcomingEvents = eventResult ? eventResult.count : 0;
+                
+                // Get team member count
+                db.get(
+                  'SELECT COUNT(*) as count FROM users WHERE team_id = ?',
+                  [userTeamId],
+                  (err, teamResult) => {
+                    if (err) {
+                      console.error('Error fetching team size:', err);
+                      return res.status(500).json({ error: 'Error fetching statistics' });
+                    }
+                    
+                    playerCount = teamResult ? teamResult.count : 0;
+                    teamCount = 1; // Player is in one team
+                    
+                    res.json({
+                      teamCount,
+                      upcomingEvents,
+                      playerCount
+                    });
+                  }
+                );
+              }
+            );
+          } else {
+            res.json({
+              teamCount: 0,
+              upcomingEvents: 0,
+              playerCount: 0
+            });
+          }
+        }
+      );
+    }
+  } catch (error) {
+    console.error('Error in user stats endpoint:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Get upcoming events for user
+router.get('/user/upcoming-events', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const userRole = req.user.role;
+    
+    let query;
+    let params;
+    
+    if (userRole.toLowerCase() === 'coach') {
+      query = `
+        SELECT s.*, t.name as team_name 
+        FROM schedules s
+        JOIN teams t ON s.team_id = t.id
+        WHERE t.coach_id = ? 
+        AND date(s.event_date) >= date('now')
+        ORDER BY s.event_date ASC, s.event_time ASC
+        LIMIT 5`;
+      params = [userId];
+    } else {
+      query = `
+        SELECT s.*, t.name as team_name 
+        FROM schedules s
+        JOIN teams t ON s.team_id = t.id 
+        JOIN users u ON u.team_id = t.id
+        WHERE u.id = ? 
+        AND date(s.event_date) >= date('now')
+        ORDER BY s.event_date ASC, s.event_time ASC
+        LIMIT 5`;
+      params = [userId];
+    }
+    
+    db.all(query, params, (err, events) => {
+      if (err) {
+        console.error('Error fetching upcoming events:', err);
+        return res.status(500).json({ error: 'Error fetching events' });
+      }
+      
+      const formattedEvents = events.map(event => ({
+        id: event.id,
+        title: event.event_name,
+        date: event.event_date,
+        time: event.event_time,
+        location: event.location,
+        team: event.team_name,
+        type: event.event_type
+      }));
+      
+      res.json(formattedEvents);
+    });
+  } catch (error) {
+    console.error('Error in upcoming events endpoint:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Get recent activity for user
+router.get('/user/recent-activity', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const userRole = req.user.role;
+    
+    let activities = [];
+    
+    if (userRole.toLowerCase() === 'coach') {
+      // Get recent activities from coach's teams
+      db.all(`
+        SELECT 
+          'event' as type,
+          'created event' as action,
+          event_name as description,
+          event_date as timestamp,
+          'System' as user_name
+        FROM schedules s
+        JOIN teams t ON s.team_id = t.id
+        WHERE t.coach_id = ?
+        ORDER BY s.id DESC
+        LIMIT 5
+      `, [userId], (err, eventActivities) => {
+        if (err) {
+          console.error('Error fetching activities:', err);
+          return res.status(500).json({ error: 'Error fetching activities' });
+        }
+        
+        // Get new team members
+        db.all(`
+          SELECT 
+            'team' as type,
+            'joined team' as action,
+            t.name as description,
+            u.id as timestamp,
+            u.username as user_name
+          FROM users u
+          JOIN teams t ON u.team_id = t.id
+          WHERE t.coach_id = ? AND u.role = 'Player'
+          ORDER BY u.id DESC
+          LIMIT 3
+        `, [userId], (err, teamActivities) => {
+          if (err) {
+            console.error('Error fetching team activities:', err);
+            return res.status(500).json({ error: 'Error fetching activities' });
+          }
+          
+          activities = [...eventActivities, ...teamActivities]
+            .sort((a, b) => b.timestamp - a.timestamp)
+            .slice(0, 5)
+            .map((activity, index) => ({
+              id: index + 1,
+              type: activity.type,
+              user: activity.user_name,
+              action: `${activity.action}: ${activity.description}`,
+              time: formatTimeAgo(activity.timestamp)
+            }));
+          
+          res.json(activities);
+        });
+      });
+    } else {
+      // For players, show team-related activities
+      db.all(`
+        SELECT 
+          'event' as type,
+          'upcoming event' as action,
+          s.event_name as description,
+          s.event_date as timestamp,
+          'Team' as user_name
+        FROM schedules s
+        JOIN users u ON u.team_id = s.team_id
+        WHERE u.id = ?
+        AND date(s.event_date) >= date('now')
+        ORDER BY s.event_date ASC
+        LIMIT 5
+      `, [userId], (err, playerActivities) => {
+        if (err) {
+          console.error('Error fetching player activities:', err);
+          return res.status(500).json({ error: 'Error fetching activities' });
+        }
+        
+        activities = playerActivities.map((activity, index) => ({
+          id: index + 1,
+          type: activity.type,
+          user: activity.user_name,
+          action: `${activity.action}: ${activity.description}`,
+          time: formatTimeAgo(activity.timestamp)
+        }));
+        
+        res.json(activities);
+      });
+    }
+  } catch (error) {
+    console.error('Error in recent activity endpoint:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Helper function to format time ago
+function formatTimeAgo(timestamp) {
+  const now = new Date();
+  const time = new Date(timestamp);
+  const diffInHours = (now - time) / (1000 * 60 * 60);
+  
+  if (diffInHours < 1) return 'Just now';
+  if (diffInHours < 24) return `${Math.floor(diffInHours)} hours ago`;
+  return `${Math.floor(diffInHours / 24)} days ago`;
+}
+
   return router;
 };

@@ -9,6 +9,7 @@ import CreateTeam  from "../views/CreateTeam.vue";
 import TeamPage from "../views/TeamPage.vue";
 import TeamSchedule from "../views/TeamSchedule.vue";
 import AdminPage from "../views/AdminPage.vue";
+import ChatPage from "../views/ChatPage.vue";
 
 const routes = [
   { path: "/", component: HomePage },
@@ -23,6 +24,7 @@ const routes = [
   {path: '/teams/:teamId/schedule', component: TeamSchedule},
   {path: '/team/:id', name: 'TeamPage', component: () => import('../views/TeamPage.vue'), meta: { requiresAuth: true }},
   {path: '/admin', component: AdminPage },
+  {path: '/chat', component: ChatPage, meta: { requiresAuth: true }},
     
 
 ];

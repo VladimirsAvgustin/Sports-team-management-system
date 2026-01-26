@@ -230,6 +230,23 @@ export default {
       this.loadUserData();
     }
   },
+  watch: {
+    isLoggedIn(newValue) {
+      if (newValue) {
+        this.loadUserData();
+      } else {
+        // Clear data when logged out
+        this.userData = {
+          name: '',
+          teamCount: 0,
+          upcomingEvents: 0,
+          playerCount: 0
+        };
+        this.upcomingEvents = [];
+        this.recentActivity = [];
+      }
+    }
+  },
   methods: {
     checkAuthStatus() {
       const user = localStorage.getItem('user');
@@ -244,62 +261,99 @@ export default {
       }
     },
 
-    loadUserData() {
-      // Mock data - in real app, this would come from your API
+    async loadUserData() {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        console.log('No token found, cannot load user data');
+        return;
+      }
+
+      try {
+        // Load user statistics
+        await this.loadUserStats();
+        
+        // Load upcoming events
+        await this.loadUpcomingEvents();
+        
+        // Load recent activity
+        await this.loadRecentActivity();
+        
+      } catch (error) {
+        console.error('Error loading user data:', error);
+        // Fall back to empty data if API fails
+        this.userData = {
+          name: this.userData.name || 'User',
+          teamCount: 0,
+          upcomingEvents: 0,
+          playerCount: 0
+        };
+        this.upcomingEvents = [];
+        this.recentActivity = [];
+      }
+    },
+
+    async loadUserStats() {
+      const token = localStorage.getItem('token');
+      const response = await fetch('/api/auth/user/stats', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch user stats');
+      }
+
+      const stats = await response.json();
       this.userData = {
-        name: this.userData.name || 'Coach',
-        teamCount: 2,
-        upcomingEvents: 3,
-        playerCount: 24
+        ...this.userData,
+        teamCount: stats.teamCount,
+        upcomingEvents: stats.upcomingEvents,
+        playerCount: stats.playerCount
       };
+    },
 
-      this.upcomingEvents = [
-        {
-          id: 1,
-          title: 'Team Practice',
-          date: new Date(Date.now() + 86400000), // Tomorrow
-          time: '18:00',
-          location: 'Main Field'
-        },
-        {
-          id: 2,
-          title: 'Friendly Match',
-          date: new Date(Date.now() + 172800000), // Day after tomorrow
-          time: '14:00',
-          location: 'City Stadium'
-        },
-        {
-          id: 3,
-          title: 'Team Meeting',
-          date: new Date(Date.now() + 259200000), // In 3 days
-          time: '19:00',
-          location: 'Club House'
+    async loadUpcomingEvents() {
+      const token = localStorage.getItem('token');
+      const response = await fetch('/api/auth/user/upcoming-events', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
         }
-      ];
+      });
 
-      this.recentActivity = [
-        {
-          id: 1,
-          user: 'Alex Johnson',
-          action: 'added a new practice session',
-          time: '2 hours ago',
-          type: 'event'
-        },
-        {
-          id: 2,
-          user: 'Sarah Wilson',
-          action: 'joined the team',
-          time: '1 day ago',
-          type: 'team'
-        },
-        {
-          id: 3,
-          user: 'Mike Brown',
-          action: 'updated player statistics',
-          time: '2 days ago',
-          type: 'stats'
+      if (!response.ok) {
+        throw new Error('Failed to fetch upcoming events');
+      }
+
+      const events = await response.json();
+      this.upcomingEvents = events.map(event => ({
+        id: event.id,
+        title: event.title,
+        date: new Date(event.date),
+        time: event.time,
+        location: event.location,
+        team: event.team,
+        type: event.type
+      }));
+    },
+
+    async loadRecentActivity() {
+      const token = localStorage.getItem('token');
+      const response = await fetch('/api/auth/user/recent-activity', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
         }
-      ];
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch recent activity');
+      }
+
+      const activities = await response.json();
+      this.recentActivity = activities;
     },
 
     formatEventDate(date) {
@@ -332,27 +386,53 @@ export default {
       this.showModal = false;
     },
 
-    handleLogin(username, password) {
+    async handleLogin(username, password) {
       console.log('Login attempt:', username);
       
-      // Simulate API call - replace with your actual authentication
-      setTimeout(() => {
-        const userData = {
-          username: username,
-          name: username,
-          id: Date.now(),
-          role: 'coach'
-        };
+      try {
+        const response = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ username, password })
+        });
 
-        localStorage.setItem('user', JSON.stringify(userData));
+        const data = await response.json();
+
+        if (!response.ok) {
+          alert('Login failed: ' + (data.error || 'Unknown error'));
+          return;
+        }
+
+        // Store token and user data
+        localStorage.setItem('token', data.token);
+        
+        // Fetch user details
+        const userResponse = await fetch('/api/auth/me', {
+          headers: {
+            'Authorization': `Bearer ${data.token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (userResponse.ok) {
+          const userData = await userResponse.json();
+          localStorage.setItem('user', JSON.stringify(userData.user));
+          this.userData.name = userData.user.username;
+        }
+
         this.isLoggedIn = true;
-        this.userData.name = username;
         this.closeModal();
-        this.loadUserData();
+        
+        // Load fresh data after login
+        await this.loadUserData();
 
-        // Show success notification
         alert(`Welcome back, ${username}!`);
-      }, 1000);
+      } catch (error) {
+        console.error('Login error:', error);
+        alert('Login failed: Network error');
+      }
     },
 
     // Navigation methods
