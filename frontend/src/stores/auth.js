@@ -1,6 +1,15 @@
 import { defineStore } from 'pinia'
 import axios from 'axios'
 
+// Helper to set/remove axios auth header
+const setAxiosAuthHeader = (token) => {
+  if (token) {
+    axios.defaults.headers.common['Authorization'] = `Bearer ${token}`
+  } else {
+    delete axios.defaults.headers.common['Authorization']
+  }
+}
+
 export const useAuthStore = defineStore('auth', {
   state: () => ({
     user: JSON.parse(localStorage.getItem('user')) || null,
@@ -28,6 +37,9 @@ export const useAuthStore = defineStore('auth', {
 
         this.token = data.token;
         localStorage.setItem('token', data.token);
+        
+        // Update axios auth header
+        setAxiosAuthHeader(data.token);
 
         // Immediately load user after login
         await this.fetchUser();
@@ -76,6 +88,8 @@ export const useAuthStore = defineStore('auth', {
       this.token = null;
       localStorage.removeItem('token');
       localStorage.removeItem('user');
+      // Remove axios auth header
+      setAxiosAuthHeader(null);
       // Navigate to home page after logout
       if (typeof window !== 'undefined' && window.location) {
         window.location.href = '/';
@@ -89,6 +103,8 @@ export const useAuthStore = defineStore('auth', {
       
       if (token && user) {
         this.token = token;
+        // Set axios auth header
+        setAxiosAuthHeader(token);
         try {
           this.user = JSON.parse(user);
           // Verify token is still valid

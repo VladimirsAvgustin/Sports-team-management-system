@@ -1,7 +1,7 @@
 const express = require('express');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
-const JWT_SECRET = 'JWT_SECRET';
+const JWT_SECRET = 'your_jwt_secret';
 
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers.authorization;
@@ -198,8 +198,8 @@ module.exports = (db) => {
         // === GENERATE TOKEN ===
         const token = jwt.sign(
           { id: user.id, username: user.username, role: user.role },
-          'JWT_SECRET',  // <-- use a secret here (or from .env)
-          { expiresIn: '7d' } // token is valid for 7 days
+          JWT_SECRET,
+          { expiresIn: '7d' }
         );
   
         res.status(200).json({ 
@@ -527,6 +527,27 @@ router.post('/join-team', authenticateToken, async (req, res) => {
         }
       );
     });
+
+    // Создаем чат-комнату для команды, если ее еще нет
+    const existingRoom = await new Promise((resolve, reject) => {
+      db.get('SELECT id FROM chat_rooms WHERE team_id = ?', [team.id], (err, row) => {
+        if (err) reject(err);
+        else resolve(row);
+      });
+    });
+
+    if (!existingRoom) {
+      await new Promise((resolve, reject) => {
+        db.run(
+          'INSERT INTO chat_rooms (team_id, name) VALUES (?, ?)',
+          [team.id, `${team.name} Chat`],
+          function(err) {
+            if (err) reject(err);
+            else resolve();
+          }
+        );
+      });
+    }
 
     // Если пользователь - игрок, создаем для него статистику
     const userRole = await new Promise((resolve, reject) => {
@@ -913,6 +934,127 @@ function formatTimeAgo(timestamp) {
   if (diffInHours < 24) return `${Math.floor(diffInHours)} hours ago`;
   return `${Math.floor(diffInHours / 24)} days ago`;
 }
+
+// Upload team logo (Coach only)
+router.post('/teams/:teamId/logo', authenticateToken, (req, res) => {
+  const { teamId } = req.params;
+  const { logo } = req.body; // Base64 encoded image
+  const userId = req.user.id;
+
+  // Check if user is coach of this team
+  db.get('SELECT * FROM teams WHERE id = ? AND coach_id = ?', [teamId, userId], (err, team) => {
+    if (err) {
+      return res.status(500).json({ error: 'Database error' });
+    }
+
+    if (!team) {
+      return res.status(403).json({ error: 'Only the team coach can upload a logo' });
+    }
+
+    // Save logo (base64 string stored directly in DB for simplicity)
+    db.run('UPDATE teams SET logo = ? WHERE id = ?', [logo, teamId], function(updateErr) {
+      if (updateErr) {
+        return res.status(500).json({ error: 'Failed to save logo' });
+      }
+
+      res.json({ message: 'Logo uploaded successfully', logo });
+    });
+  });
+});
+
+// Delete team logo (Coach only)
+router.delete('/teams/:teamId/logo', authenticateToken, (req, res) => {
+  const { teamId } = req.params;
+  const userId = req.user.id;
+
+  db.get('SELECT * FROM teams WHERE id = ? AND coach_id = ?', [teamId, userId], (err, team) => {
+    if (err) {
+      return res.status(500).json({ error: 'Database error' });
+    }
+
+    if (!team) {
+      return res.status(403).json({ error: 'Only the team coach can delete the logo' });
+    }
+
+    db.run('UPDATE teams SET logo = NULL WHERE id = ?', [teamId], function(updateErr) {
+      if (updateErr) {
+        return res.status(500).json({ error: 'Failed to delete logo' });
+      }
+
+      res.json({ message: 'Logo deleted successfully' });
+    });
+  });
+});
+
+// Get team statistics summary
+router.get('/teams/:teamId/stats', (req, res) => {
+  const { teamId } = req.params;
+
+  // First get the count of past games from schedules
+  db.get(
+    `SELECT COUNT(*) as gameCount 
+     FROM schedules 
+     WHERE team_id = ? 
+       AND LOWER(event_type) = 'game' 
+       AND date(event_date) < date('now')`,
+    [teamId],
+    (err, gameResult) => {
+      if (err) {
+        return res.status(500).json({ error: 'Database error' });
+      }
+
+      const totalMatches = gameResult ? gameResult.gameCount : 0;
+
+      // Then get player stats
+      db.all(
+        `SELECT 
+          ps.user_id,
+          u.username,
+          ps.matches,
+          ps.goals,
+          ps.assists,
+          ps.yellow_cards,
+          ps.red_cards,
+          ps.attendance
+         FROM player_stats ps
+         INNER JOIN users u ON ps.user_id = u.id
+         WHERE u.team_id = ? AND u.role != 'Coach'`,
+        [teamId],
+        (err, players) => {
+          if (err) {
+            return res.status(500).json({ error: 'Database error' });
+          }
+
+          // Calculate team totals
+          const stats = {
+            totalPlayers: players.length,
+            totalMatches: totalMatches,
+            totalGoals: players.reduce((sum, p) => sum + (p.goals || 0), 0),
+            totalAssists: players.reduce((sum, p) => sum + (p.assists || 0), 0),
+            totalYellowCards: players.reduce((sum, p) => sum + (p.yellow_cards || 0), 0),
+            totalRedCards: players.reduce((sum, p) => sum + (p.red_cards || 0), 0),
+            avgAttendance: players.length > 0 
+              ? Math.round(players.reduce((sum, p) => sum + (p.attendance || 0), 0) / players.length) 
+              : 0,
+            topScorers: players
+              .filter(p => p.goals > 0)
+              .sort((a, b) => b.goals - a.goals)
+              .slice(0, 5),
+            topAssists: players
+              .filter(p => p.assists > 0)
+              .sort((a, b) => b.assists - a.assists)
+              .slice(0, 5),
+            goalsDistribution: players
+              .filter(p => p.goals > 0)
+              .map(p => ({ username: p.username, goals: p.goals }))
+          };
+
+          res.json(stats);
+        }
+      );
+    }
+  );
+});
 
   return router;
 };

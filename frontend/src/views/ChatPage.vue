@@ -5,9 +5,6 @@
       <div class="chat-sidebar">
         <div class="sidebar-header">
           <h2>Chats</h2>
-          <button class="refresh-btn" @click="loadChats" title="Refresh">
-            🔄
-          </button>
         </div>
 
         <!-- Tabs for Team Chats and Direct Messages -->
@@ -53,9 +50,6 @@
             <div class="room-meta">
               <span class="message-time" v-if="room.last_message_time">
                 {{ formatTime(room.last_message_time) }}
-              </span>
-              <span class="message-count" v-if="room.message_count">
-                {{ room.message_count }}
               </span>
             </div>
           </div>
@@ -202,10 +196,11 @@ export default {
       )
     })
 
-    const selectRoom = (roomId) => {
+    const selectRoom = async (roomId) => {
       selectedRoomId.value = roomId
       selectedDMUser.value = null
       selectedDMUsername.value = null
+      // This will trigger the watcher in ChatComponent which will call joinRoom
     }
 
     const selectDM = (userId, username) => {
@@ -266,20 +261,28 @@ export default {
     }
 
     onMounted(async () => {
+      console.log('ChatPage mounted')
       // Connect to socket
       if (!chatStore.isConnected) {
+        console.log('Connecting to socket...')
         chatStore.connect()
       }
 
       // Load all chats
+      console.log('Loading chats...')
       await loadChats()
+      console.log('Chats loaded:', rooms.value.length, 'rooms,', dmConversations.value.length, 'DM conversations')
 
       // Auto-select first room or conversation
       if (rooms.value.length > 0) {
+        console.log('Auto-selecting first room:', rooms.value[0].id)
         selectedRoomId.value = rooms.value[0].id
       } else if (dmConversations.value.length > 0) {
+        console.log('No rooms, auto-selecting first DM')
         activeTab.value = 'dms'
         selectDM(dmConversations.value[0].user_id, dmConversations.value[0].username)
+      } else {
+        console.log('No chats available')
       }
     })
 
@@ -315,7 +318,7 @@ export default {
 .chat-page {
   min-height: calc(100vh - 80px);
   padding: 2rem;
-  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  background: var(--background-color);
 }
 
 .chat-layout {
@@ -329,7 +332,7 @@ export default {
 
 /* Sidebar */
 .chat-sidebar {
-  background: white;
+  background: var(--card-bg, #fff);
   border-radius: 12px;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
   display: flex;
@@ -342,13 +345,13 @@ export default {
   justify-content: space-between;
   align-items: center;
   padding: 1.5rem;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid var(--border-color, #e2e8f0);
 }
 
 .sidebar-header h2 {
   margin: 0;
   font-size: 1.5rem;
-  color: #1e293b;
+  color: var(--text-color);
 }
 
 .refresh-btn {
@@ -362,7 +365,7 @@ export default {
 }
 
 .refresh-btn:hover {
-  background: #f1f5f9;
+  background: var(--hover-bg, #f1f5f9);
 }
 
 .rooms-list {
@@ -373,7 +376,7 @@ export default {
 .empty-rooms {
   padding: 2rem 1.5rem;
   text-align: center;
-  color: #64748b;
+  color: var(--text-secondary, #64748b);
 }
 
 .empty-rooms .hint {
@@ -387,11 +390,11 @@ export default {
   padding: 1rem 1.5rem;
   cursor: pointer;
   transition: background 0.2s;
-  border-bottom: 1px solid #f1f5f9;
+  border-bottom: 1px solid var(--border-color, #f1f5f9);
 }
 
 .room-item:hover {
-  background: #f8fafc;
+  background: var(--hover-bg, #f8fafc);
 }
 
 .room-item.active {
@@ -421,13 +424,13 @@ export default {
 .room-info h4 {
   margin: 0 0 0.25rem 0;
   font-size: 1rem;
-  color: #1e293b;
+  color: var(--text-color);
 }
 
 .last-message {
   margin: 0;
   font-size: 0.875rem;
-  color: #64748b;
+  color: var(--text-secondary, #64748b);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -436,7 +439,7 @@ export default {
 .no-messages {
   margin: 0;
   font-size: 0.875rem;
-  color: #94a3b8;
+  color: var(--text-secondary, #94a3b8);
   font-style: italic;
 }
 
@@ -449,7 +452,7 @@ export default {
 
 .message-time {
   font-size: 0.75rem;
-  color: #94a3b8;
+  color: var(--text-secondary, #94a3b8);
 }
 
 .message-count {
@@ -469,7 +472,7 @@ export default {
 }
 
 .no-chat-selected {
-  background: white;
+  background: var(--card-bg, #fff);
   border-radius: 12px;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
   display: flex;
@@ -480,7 +483,7 @@ export default {
 
 .empty-state {
   text-align: center;
-  color: #64748b;
+  color: var(--text-secondary, #64748b);
 }
 
 .empty-icon {
@@ -491,7 +494,7 @@ export default {
 
 .empty-state h3 {
   margin: 0 0 0.5rem 0;
-  color: #1e293b;
+  color: var(--text-color);
 }
 
 .empty-state p {
@@ -502,7 +505,7 @@ export default {
 /* Tabs */
 .chat-tabs {
   display: flex;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid var(--border-color, #e2e8f0);
 }
 
 .tab-btn {
@@ -512,7 +515,7 @@ export default {
   border: none;
   font-size: 1rem;
   font-weight: 600;
-  color: #64748b;
+  color: var(--text-secondary, #64748b);
   cursor: pointer;
   transition: all 0.2s;
   position: relative;
@@ -520,7 +523,7 @@ export default {
 
 .tab-btn:hover {
   color: #667eea;
-  background: #f8fafc;
+  background: var(--hover-bg, #f8fafc);
 }
 
 .tab-btn.active {
@@ -553,7 +556,7 @@ export default {
 /* New DM Button */
 .new-dm-btn-container {
   padding: 1rem 1.5rem;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid var(--border-color, #e2e8f0);
 }
 
 .new-dm-btn {
@@ -597,7 +600,7 @@ export default {
 }
 
 .modal-content {
-  background: white;
+  background: var(--card-bg, #fff);
   border-radius: 12px;
   width: 90%;
   max-width: 500px;
@@ -612,20 +615,20 @@ export default {
   justify-content: space-between;
   align-items: center;
   padding: 1.5rem;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid var(--border-color, #e2e8f0);
 }
 
 .modal-header h3 {
   margin: 0;
   font-size: 1.25rem;
-  color: #1e293b;
+  color: var(--text-color);
 }
 
 .close-modal {
   background: none;
   border: none;
   font-size: 1.5rem;
-  color: #64748b;
+  color: var(--text-secondary, #64748b);
   cursor: pointer;
   width: 32px;
   height: 32px;
@@ -637,7 +640,7 @@ export default {
 }
 
 .close-modal:hover {
-  background: #f1f5f9;
+  background: var(--hover-bg, #f1f5f9);
 }
 
 .modal-body {
@@ -648,12 +651,14 @@ export default {
 .search-input {
   width: 100%;
   padding: 0.75rem 1rem;
-  border: 2px solid #e2e8f0;
+  border: 2px solid var(--border-color, #e2e8f0);
   border-radius: 8px;
   font-size: 1rem;
   margin-bottom: 1rem;
   outline: none;
   transition: border-color 0.2s;
+  background: var(--input-bg, #fff);
+  color: var(--text-color);
 }
 
 .search-input:focus {
@@ -676,7 +681,7 @@ export default {
 }
 
 .user-item:hover {
-  background: #f8fafc;
+  background: var(--hover-bg, #f8fafc);
 }
 
 .user-avatar {
@@ -695,12 +700,12 @@ export default {
 
 .user-info h4 {
   margin: 0 0 0.25rem 0;
-  color: #1e293b;
+  color: var(--text-color);
 }
 
 .user-info p {
   margin: 0;
-  color: #64748b;
+  color: var(--text-secondary, #64748b);
   font-size: 0.875rem;
 }
 
@@ -710,16 +715,16 @@ export default {
 }
 
 .rooms-list::-webkit-scrollbar-track {
-  background: #f1f5f9;
+  background: var(--scrollbar-track, #f1f5f9);
 }
 
 .rooms-list::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
+  background: var(--scrollbar-thumb, #cbd5e1);
   border-radius: 3px;
 }
 
 .rooms-list::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+  background: var(--scrollbar-thumb-hover, #94a3b8);
 }
 
 /* Responsive */
@@ -735,5 +740,133 @@ export default {
   .chat-page {
     padding: 1rem;
   }
+}
+
+/* Dark mode specific overrides */
+html.dark-mode .chat-sidebar,
+html.dark-mode .no-chat-selected,
+html.dark-mode .modal-content {
+  background: #1e1e1e;
+}
+
+html.dark-mode .room-item:hover,
+html.dark-mode .user-item:hover,
+html.dark-mode .tab-btn:hover,
+html.dark-mode .refresh-btn:hover,
+html.dark-mode .close-modal:hover {
+  background: #2d2d2d;
+}
+
+html.dark-mode .room-item {
+  border-bottom-color: #333;
+}
+
+html.dark-mode .sidebar-header,
+html.dark-mode .chat-tabs,
+html.dark-mode .new-dm-btn-container,
+html.dark-mode .modal-header {
+  border-color: #333;
+}
+
+html.dark-mode .search-input {
+  background: #2d2d2d;
+  border-color: #444;
+}
+
+/* Dark mode text colors */
+html.dark-mode .sidebar-header h2,
+html.dark-mode .room-info h4,
+html.dark-mode .chat-header-info h3,
+html.dark-mode .modal-header h3,
+html.dark-mode .user-item span {
+  color: #e0e0e0 !important;
+}
+
+html.dark-mode .tab-btn {
+  color: #b0b0b0 !important;
+}
+
+html.dark-mode .tab-btn.active {
+  color: #667eea !important;
+}
+
+html.dark-mode .last-message,
+html.dark-mode .no-messages,
+html.dark-mode .empty-rooms,
+html.dark-mode .hint,
+html.dark-mode .message-time,
+html.dark-mode .online-count {
+  color: #888 !important;
+}
+
+html.dark-mode .new-dm-btn {
+  color: #e0e0e0 !important;
+}
+</style>
+
+<!-- Dark mode styles need to be unscoped to work with html.dark-mode -->
+<style>
+html.dark-mode .chat-page .chat-sidebar,
+html.dark-mode .chat-page .no-chat-selected,
+html.dark-mode .chat-page .modal-content {
+  background: #1e1e1e;
+}
+
+html.dark-mode .chat-page .room-item:hover,
+html.dark-mode .chat-page .user-item:hover,
+html.dark-mode .chat-page .tab-btn:hover,
+html.dark-mode .chat-page .refresh-btn:hover,
+html.dark-mode .chat-page .close-modal:hover {
+  background: #2d2d2d;
+}
+
+html.dark-mode .chat-page .room-item {
+  border-bottom-color: #333;
+}
+
+html.dark-mode .chat-page .sidebar-header,
+html.dark-mode .chat-page .chat-tabs,
+html.dark-mode .chat-page .new-dm-btn-container,
+html.dark-mode .chat-page .modal-header {
+  border-color: #333;
+}
+
+html.dark-mode .chat-page .search-input {
+  background: #2d2d2d;
+  border-color: #444;
+  color: #e0e0e0;
+}
+
+html.dark-mode .chat-page .sidebar-header h2,
+html.dark-mode .chat-page .room-info h4,
+html.dark-mode .chat-page .chat-header-info h3,
+html.dark-mode .chat-page .modal-header h3,
+html.dark-mode .chat-page .user-item span {
+  color: #e0e0e0 !important;
+}
+
+html.dark-mode .chat-page .tab-btn {
+  color: #b0b0b0 !important;
+}
+
+html.dark-mode .chat-page .tab-btn.active {
+  color: #667eea !important;
+}
+
+html.dark-mode .chat-page .last-message,
+html.dark-mode .chat-page .no-messages,
+html.dark-mode .chat-page .empty-rooms,
+html.dark-mode .chat-page .hint,
+html.dark-mode .chat-page .message-time,
+html.dark-mode .chat-page .online-count {
+  color: #888 !important;
+}
+
+html.dark-mode .chat-page .new-dm-btn {
+  color: #e0e0e0 !important;
+}
+
+html.dark-mode .chat-page .empty-state h3 {
+  color: #e0e0e0 !important;
 }
 </style>
