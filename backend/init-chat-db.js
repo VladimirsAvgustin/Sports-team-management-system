@@ -53,6 +53,20 @@ db.serialize(() => {
     }
   });
 
+  // Seed chat rooms for teams 1-5 (idempotent)
+  const seedTeams = [1, 2, 3, 4, 5]
+  seedTeams.forEach((teamId) => {
+    db.run(
+      `INSERT OR IGNORE INTO chat_rooms (team_id, name) VALUES (?, ?)`,
+      [teamId, `Team ${teamId} Chat`],
+      (err) => {
+        if (err) {
+          console.error(`Error seeding chat room for team ${teamId}:`, err.message)
+        }
+      }
+    )
+  })
+
   console.log('Chat database tables initialized');
 });
 

@@ -22,11 +22,11 @@
       <div
         v-for="message in sortedMessages"
         :key="message.id"
-        :class="['message', { 'own-message': message.userId === currentUserId }]"
+        :class="['message', { 'own-message': (message.userId || message.user_id) === currentUserId }]"
       >
         <div class="message-header">
           <span class="message-author">{{ message.username }}</span>
-          <span class="message-time">{{ formatTime(message.createdAt) }}</span>
+          <span class="message-time">{{ formatTime(message.createdAt || message.created_at) }}</span>
         </div>
         <div class="message-content">
           {{ message.message }}
@@ -151,6 +151,7 @@ export default {
     // Watch for room changes
     watch(() => props.roomId, async (newRoomId) => {
       if (newRoomId) {
+        console.log('ChatComponent: Room ID changed to', newRoomId)
         await chatStore.joinRoom(newRoomId)
       }
     }, { immediate: true })
@@ -161,6 +162,7 @@ export default {
     }, { deep: true })
 
     onMounted(async () => {
+      console.log('ChatComponent mounted with roomId:', props.roomId)
       // Connect to socket if not already connected
       if (!chatStore.isConnected) {
         chatStore.connect()
@@ -202,7 +204,7 @@ export default {
   display: flex;
   flex-direction: column;
   height: 100%;
-  background: white;
+  background: var(--card-bg, #fff);
   border-radius: 12px;
   overflow: hidden;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
@@ -272,7 +274,7 @@ export default {
   flex: 1;
   overflow-y: auto;
   padding: 1.5rem;
-  background: #f8fafc;
+  background: var(--messages-bg, #f8fafc);
 }
 
 .empty-state {
@@ -280,17 +282,19 @@ export default {
   align-items: center;
   justify-content: center;
   height: 100%;
-  color: #94a3b8;
+  color: var(--text-secondary, #94a3b8);
   font-size: 1rem;
 }
 
 .message {
   margin-bottom: 1rem;
   padding: 0.75rem 1rem;
-  background: white;
+  background: var(--card-bg, #fff);
   border-radius: 12px;
   max-width: 70%;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border: 0.5px solid #080808;
+  color: var(--text-color);
 }
 
 .own-message {
@@ -327,7 +331,7 @@ export default {
 
 .typing-indicator {
   padding: 0.5rem 1rem;
-  color: #64748b;
+  color: var(--text-secondary, #64748b);
   font-size: 0.875rem;
   font-style: italic;
 }
@@ -336,18 +340,20 @@ export default {
   display: flex;
   gap: 0.75rem;
   padding: 1rem 1.5rem;
-  background: white;
-  border-top: 1px solid #e2e8f0;
+  background: var(--card-bg, #fff);
+  border-top: 1px solid var(--border-color, #e2e8f0);
 }
 
 .message-input {
   flex: 1;
   padding: 0.75rem 1rem;
-  border: 2px solid #e2e8f0;
+  border: 2px solid var(--border-color, #e2e8f0);
   border-radius: 24px;
   font-size: 1rem;
   outline: none;
   transition: border-color 0.2s;
+  background: var(--input-bg, #fff);
+  color: var(--text-color);
 }
 
 .message-input:focus {
@@ -355,7 +361,7 @@ export default {
 }
 
 .message-input:disabled {
-  background: #f1f5f9;
+  background: var(--disabled-bg, #f1f5f9);
   cursor: not-allowed;
 }
 
@@ -390,15 +396,73 @@ export default {
 }
 
 .messages-container::-webkit-scrollbar-track {
-  background: #f1f5f9;
+  background: var(--scrollbar-track, #f1f5f9);
 }
 
 .messages-container::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
+  background: var(--scrollbar-thumb, #cbd5e1);
   border-radius: 3px;
 }
 
 .messages-container::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+  background: var(--scrollbar-thumb-hover, #94a3b8);
+}
+</style>
+
+<!-- Dark mode styles unscoped -->
+<style>
+html.dark-mode .chat-container {
+  background: #1e1e1e;
+}
+
+html.dark-mode .messages-container {
+  background: #121212;
+}
+
+html.dark-mode .message {
+  background: #2d2d2d;
+  color: #e0e0e0;
+  border-color: #444;
+}
+
+html.dark-mode .own-message {
+  background: linear-gradient(135deg, #5a67d8 0%, #6b46c1 100%);
+  color: white;
+  border-color: #5a67d8;
+}
+
+html.dark-mode .own-message .message-author {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+html.dark-mode .message-author {
+  color: #b0b0b0;
+}
+
+html.dark-mode .message-input-container {
+  background: #1e1e1e;
+  border-color: #333;
+}
+
+html.dark-mode .message-input {
+  background: #2d2d2d;
+  border-color: #444;
+  color: #e0e0e0;
+}
+
+html.dark-mode .message-input::placeholder {
+  color: #888;
+}
+
+html.dark-mode .message-input:disabled {
+  background: #1a1a1a;
+}
+
+html.dark-mode .typing-indicator {
+  color: #888;
+}
+
+html.dark-mode .empty-state {
+  color: #888;
 }
 </style>

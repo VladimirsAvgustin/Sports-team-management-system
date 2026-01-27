@@ -243,42 +243,68 @@ module.exports = (db) => {
   router.get('/dm-conversations', authenticateToken, (req, res) => {
     const userId = req.user.id;
 
+    // First, get all unique users we've chatted with
     db.all(
       `SELECT DISTINCT
        CASE 
          WHEN dm.sender_id = ? THEN dm.receiver_id
          ELSE dm.sender_id
-       END as user_id,
-       CASE 
-         WHEN dm.sender_id = ? THEN receiver.username
-         ELSE sender.username
-       END as username,
-       CASE 
-         WHEN dm.sender_id = ? THEN receiver.email
-         ELSE sender.email
-       END as email,
-       (SELECT message FROM direct_messages 
-        WHERE (sender_id = ? AND receiver_id = user_id) 
-        OR (receiver_id = ? AND sender_id = user_id)
-        ORDER BY created_at DESC LIMIT 1) as last_message,
-       (SELECT created_at FROM direct_messages 
-        WHERE (sender_id = ? AND receiver_id = user_id) 
-        OR (receiver_id = ? AND sender_id = user_id)
-        ORDER BY created_at DESC LIMIT 1) as last_message_time,
-       (SELECT COUNT(*) FROM direct_messages 
-        WHERE receiver_id = ? AND sender_id = user_id AND is_read = 0) as unread_count
+       END as user_id
        FROM direct_messages dm
-       INNER JOIN users sender ON dm.sender_id = sender.id
-       INNER JOIN users receiver ON dm.receiver_id = receiver.id
-       WHERE dm.sender_id = ? OR dm.receiver_id = ?
-       ORDER BY last_message_time DESC`,
-      [userId, userId, userId, userId, userId, userId, userId, userId, userId, userId],
-      (err, conversations) => {
+       WHERE dm.sender_id = ? OR dm.receiver_id = ?`,
+      [userId, userId, userId],
+      (err, userIds) => {
         if (err) {
+          console.error('Error fetching DM user IDs:', err);
           return res.status(500).json({ error: 'Database error' });
         }
 
-        res.json(conversations);
+        if (userIds.length === 0) {
+          return res.json([]);
+        }
+
+        // Now get details for each conversation
+        const conversations = [];
+        let completed = 0;
+
+        userIds.forEach(({ user_id }) => {
+          db.get(
+            `SELECT 
+             u.id as user_id,
+             u.username,
+             u.email,
+             (SELECT message FROM direct_messages 
+              WHERE (sender_id = ? AND receiver_id = ?) 
+              OR (sender_id = ? AND receiver_id = ?)
+              ORDER BY created_at DESC LIMIT 1) as last_message,
+             (SELECT created_at FROM direct_messages 
+              WHERE (sender_id = ? AND receiver_id = ?) 
+              OR (sender_id = ? AND receiver_id = ?)
+              ORDER BY created_at DESC LIMIT 1) as last_message_time,
+             (SELECT COUNT(*) FROM direct_messages 
+              WHERE receiver_id = ? AND sender_id = ? AND is_read = 0) as unread_count
+             FROM users u
+             WHERE u.id = ?`,
+            [userId, user_id, user_id, userId, userId, user_id, user_id, userId, userId, user_id, user_id],
+            (err, conv) => {
+              completed++;
+              
+              if (!err && conv) {
+                conversations.push(conv);
+              }
+
+              if (completed === userIds.length) {
+                // Sort by last_message_time descending
+                conversations.sort((a, b) => {
+                  if (!a.last_message_time) return 1;
+                  if (!b.last_message_time) return -1;
+                  return new Date(b.last_message_time) - new Date(a.last_message_time);
+                });
+                res.json(conversations);
+              }
+            }
+          );
+        });
       }
     );
   });

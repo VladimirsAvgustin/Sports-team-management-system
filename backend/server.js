@@ -6,10 +6,17 @@ const path = require('path');
 const { Server } = require('socket.io');
 const http = require('http');
 const jwt = require('jsonwebtoken');
+const fs = require('fs');
 
 const app = express();
 const server = http.createServer(app);
 const PORT = 3000;
+
+// Create uploads directory if it doesn't exist
+const uploadsDir = path.join(__dirname, 'uploads', 'logos');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
 
 // Initialize Socket.io
 const io = new Server(server, {
@@ -32,7 +39,11 @@ app.use(cors({
 app.options('*', cors());
 
 
-app.use(bodyParser.json());
+app.use(bodyParser.json({ limit: '10mb' }));
+app.use(bodyParser.urlencoded({ limit: '10mb', extended: true }));
+
+// Serve static files for uploads
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Connecting to the database
 const dbPath = path.resolve(__dirname, 'database.sqlite');
@@ -77,8 +88,8 @@ io.use((socket, next) => {
   }
 
   try {
-    const decoded = jwt.verify(token, 'your-secret-key');
-    socket.userId = decoded.userId;
+    const decoded = jwt.verify(token, 'your_jwt_secret');
+    socket.userId = decoded.id;
     socket.username = decoded.username;
     next();
   } catch (err) {
@@ -89,6 +100,10 @@ io.use((socket, next) => {
 // Socket.io connection handling
 io.on('connection', (socket) => {
   console.log(`User connected: ${socket.username} (ID: ${socket.userId})`);
+
+  // Join user's personal room for DMs immediately on connection
+  socket.join(`user_${socket.userId}`);
+  console.log(`${socket.username} joined personal room user_${socket.userId}`);
 
   // Join a chat room
   socket.on('join_room', (roomId) => {
@@ -191,9 +206,6 @@ io.on('connection', (socket) => {
       }
     );
   });
-
-  // Join user's personal room for DMs
-  socket.join(`user_${socket.userId}`);
 
   // Mark DM as read
   socket.on('mark_dm_read', (dmId) => {

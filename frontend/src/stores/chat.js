@@ -21,7 +21,7 @@ export const useChatStore = defineStore('chat', {
   getters: {
     sortedMessages: (state) => {
       return [...state.messages].sort((a, b) => 
-        new Date(a.createdAt) - new Date(b.createdAt)
+        new Date(a.createdAt || a.created_at) - new Date(b.createdAt || b.created_at)
       )
     },
     
@@ -105,6 +105,7 @@ export const useChatStore = defineStore('chat', {
 
       // Direct Message event handlers
       this.socket.on('new_dm', (dmData) => {
+        console.log('Received new_dm event:', dmData)
         if (this.currentDM && dmData.senderId === this.currentDM.userId) {
           this.dmMessages.push(dmData)
           this.scrollToBottom()
@@ -122,15 +123,28 @@ export const useChatStore = defineStore('chat', {
           }
         } else {
           // Refresh conversations if new user
+          console.log('New conversation, refreshing list...')
           this.fetchDMConversations()
         }
       })
 
       this.socket.on('dm_sent', (dmData) => {
+        console.log('Received dm_sent event:', dmData)
         // Add sent message to current DM view
         if (this.currentDM && dmData.receiverId === this.currentDM.userId) {
           this.dmMessages.push(dmData)
           this.scrollToBottom()
+        }
+        
+        // Update or add to conversations list for sender
+        const convIndex = this.dmConversations.findIndex(c => c.user_id === dmData.receiverId)
+        if (convIndex !== -1) {
+          this.dmConversations[convIndex].last_message = dmData.message
+          this.dmConversations[convIndex].last_message_time = dmData.createdAt
+        } else {
+          // Refresh conversations if new conversation
+          console.log('New conversation for sender, refreshing list...')
+          this.fetchDMConversations()
         }
       })
 
@@ -170,8 +184,16 @@ export const useChatStore = defineStore('chat', {
           throw new Error('Failed to fetch messages')
         }
 
-        this.messages = await response.json()
+        const messages = await response.json()
+        this.messages = messages
         this.currentRoom = this.rooms.find(r => r.id === roomId)
+        
+        // If currentRoom is not found, create a temporary room object
+        if (!this.currentRoom) {
+          this.currentRoom = { id: roomId, name: `Room ${roomId}` }
+        }
+        
+        console.log(`Joining room ${roomId}, loaded ${messages.length} messages`)
         
         // Join room via socket
         this.socket.emit('join_room', roomId)
@@ -235,6 +257,7 @@ export const useChatStore = defineStore('chat', {
         }
 
         this.rooms = await response.json()
+        console.log('Fetched rooms:', this.rooms.length, this.rooms)
       } catch (error) {
         console.error('Error fetching rooms:', error)
       }
@@ -279,20 +302,21 @@ export const useChatStore = defineStore('chat', {
 
     // ========== Direct Message Methods ==========
 
-    // Fetch all users for DM
+    // Fetch team members for DM (only users from the same team)
     async fetchAllUsers() {
       try {
-        const response = await fetch('http://localhost:3000/api/chat/users', {
+        const response = await fetch('http://localhost:3000/api/chat/team-members', {
           headers: {
             'Authorization': `Bearer ${useAuthStore().token}`
           }
         })
 
         if (!response.ok) {
-          throw new Error('Failed to fetch users')
+          throw new Error('Failed to fetch team members')
         }
 
         this.allUsers = await response.json()
+        console.log('Fetched team members:', this.allUsers.length)
       } catch (error) {
         console.error('Error fetching users:', error)
       }
@@ -312,6 +336,7 @@ export const useChatStore = defineStore('chat', {
         }
 
         this.dmConversations = await response.json()
+        console.log('Fetched DM conversations:', this.dmConversations.length)
       } catch (error) {
         console.error('Error fetching DM conversations:', error)
       }
@@ -344,10 +369,19 @@ export const useChatStore = defineStore('chat', {
 
     // Send direct message
     sendDM(receiverId, message) {
-      if (!this.socket || !message.trim()) {
+      console.log('sendDM called:', { receiverId, message, socketConnected: !!this.socket, isConnected: this.isConnected })
+      
+      if (!this.socket) {
+        console.error('Socket not connected, cannot send DM')
+        return
+      }
+      
+      if (!message.trim()) {
+        console.error('Message is empty')
         return
       }
 
+      console.log('Emitting send_dm event...')
       this.socket.emit('send_dm', {
         receiverId,
         message: message.trim()

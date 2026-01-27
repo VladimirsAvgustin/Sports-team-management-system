@@ -10,6 +10,7 @@ import TeamPage from "../views/TeamPage.vue";
 import TeamSchedule from "../views/TeamSchedule.vue";
 import AdminPage from "../views/AdminPage.vue";
 import ChatPage from "../views/ChatPage.vue";
+import { useAuthStore } from "../stores/auth";
 
 const routes = [
   { path: "/", component: HomePage },
@@ -33,5 +34,18 @@ const router = createRouter({
   history: createWebHistory(),
   routes,
 });
+
+// Add navigation guard for authentication
+router.beforeEach((to, from, next) => {
+  const authStore = useAuthStore()
+  const requiresAuth = to.matched.some(record => record.meta.requiresAuth)
+  
+  if (requiresAuth && !authStore.isAuthenticated) {
+    // Redirect to home if trying to access protected route without auth
+    next('/')
+  } else {
+    next()
+  }
+})
 
 export default router;
