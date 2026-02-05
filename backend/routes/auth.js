@@ -1005,7 +1005,7 @@ router.get('/teams/:teamId/stats', (req, res) => {
 
       const totalMatches = gameResult ? gameResult.gameCount : 0;
 
-      // Then get player stats
+      // Get player stats
       db.all(
         `SELECT 
           ps.user_id,
@@ -1014,8 +1014,7 @@ router.get('/teams/:teamId/stats', (req, res) => {
           ps.goals,
           ps.assists,
           ps.yellow_cards,
-          ps.red_cards,
-          ps.attendance
+          ps.red_cards
          FROM player_stats ps
          INNER JOIN users u ON ps.user_id = u.id
          WHERE u.team_id = ? AND u.role != 'Coach'`,
@@ -1025,31 +1024,45 @@ router.get('/teams/:teamId/stats', (req, res) => {
             return res.status(500).json({ error: 'Database error' });
           }
 
-          // Calculate team totals
-          const stats = {
-            totalPlayers: players.length,
-            totalMatches: totalMatches,
-            totalGoals: players.reduce((sum, p) => sum + (p.goals || 0), 0),
-            totalAssists: players.reduce((sum, p) => sum + (p.assists || 0), 0),
-            totalYellowCards: players.reduce((sum, p) => sum + (p.yellow_cards || 0), 0),
-            totalRedCards: players.reduce((sum, p) => sum + (p.red_cards || 0), 0),
-            avgAttendance: players.length > 0 
-              ? Math.round(players.reduce((sum, p) => sum + (p.attendance || 0), 0) / players.length) 
-              : 0,
-            topScorers: players
-              .filter(p => p.goals > 0)
-              .sort((a, b) => b.goals - a.goals)
-              .slice(0, 5),
-            topAssists: players
-              .filter(p => p.assists > 0)
-              .sort((a, b) => b.assists - a.assists)
-              .slice(0, 5),
-            goalsDistribution: players
-              .filter(p => p.goals > 0)
-              .map(p => ({ username: p.username, goals: p.goals }))
-          };
+          // Get average attendance from attendance table (practices only)
+          db.get(`
+            SELECT 
+              COUNT(CASE WHEN a.status = 'present' THEN 1 END) * 100.0 / 
+              NULLIF(COUNT(*), 0) as avgAttendance
+            FROM attendance a
+            INNER JOIN schedules s ON a.event_id = s.id
+            WHERE s.team_id = ? AND LOWER(s.event_type) = 'practice'
+          `, [teamId], (err, attendanceResult) => {
+            if (err) {
+              console.error('Error getting attendance:', err);
+            }
 
-          res.json(stats);
+            // Calculate team totals
+            const stats = {
+              totalPlayers: players.length,
+              totalMatches: totalMatches,
+              totalGoals: players.reduce((sum, p) => sum + (p.goals || 0), 0),
+              totalAssists: players.reduce((sum, p) => sum + (p.assists || 0), 0),
+              totalYellowCards: players.reduce((sum, p) => sum + (p.yellow_cards || 0), 0),
+              totalRedCards: players.reduce((sum, p) => sum + (p.red_cards || 0), 0),
+              avgAttendance: attendanceResult?.avgAttendance 
+                ? Math.round(attendanceResult.avgAttendance) 
+                : 0,
+              topScorers: players
+                .filter(p => p.goals > 0)
+                .sort((a, b) => b.goals - a.goals)
+                .slice(0, 5),
+              topAssists: players
+                .filter(p => p.assists > 0)
+                .sort((a, b) => b.assists - a.assists)
+                .slice(0, 5),
+              goalsDistribution: players
+                .filter(p => p.goals > 0)
+                .map(p => ({ username: p.username, goals: p.goals }))
+            };
+
+            res.json(stats);
+          });
         }
       );
     }

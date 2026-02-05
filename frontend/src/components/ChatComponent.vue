@@ -4,9 +4,6 @@
     <div class="chat-header">
       <div class="chat-title">
         <h3>{{ currentRoom?.name || 'Chat' }}</h3>
-        <span class="online-status" v-if="isConnected">
-          <span class="status-dot"></span> Online
-        </span>
       </div>
       <button class="close-btn" @click="$emit('close')" v-if="showClose">
         ✕
