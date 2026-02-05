@@ -371,8 +371,7 @@ const statFields = [
   { key: 'goals', label: 'Goals' },
   { key: 'assists', label: 'Assists' },
   { key: 'yellow_cards', label: 'Yellow Cards' },
-  { key: 'red_cards', label: 'Red Cards' },
-  { key: 'attendance', label: 'Attendance %' }
+  { key: 'red_cards', label: 'Red Cards' }
 ]
 
 // Data fetching
@@ -476,8 +475,7 @@ const fetchPlayers = async () => {
           goals: player.goals || 0,
           assists: player.assists || 0,
           yellow_cards: player.yellow_cards || 0,
-          red_cards: player.red_cards || 0,
-          attendance: player.attendance || 0
+          red_cards: player.red_cards || 0
         }
       }))
     
@@ -575,8 +573,7 @@ const getStatIcon = (key) => {
     goals: '⚽',
     assists: '🎯',
     yellow_cards: '🟨',
-    red_cards: '🟥',
-    attendance: '📅'
+    red_cards: '🟥'
   }
   return icons[key] || '📊'
 }

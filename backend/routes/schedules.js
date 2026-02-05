@@ -76,78 +76,261 @@ module.exports = (db) => {
     );
   });
 
-  
-//   // Получить все посещения по команде
-//   router.get('/:teamId/attendances', (req, res) => {
-//     const teamId = req.params.teamId;
+  // ==================== ATTENDANCE ROUTES ====================
 
-//     const query = `
-//       SELECT a.*
-//       FROM attendances a
-//       JOIN schedules s ON a.event_id = s.id
-//       WHERE s.team_id = ?
-//     `;
+  // Get attendance for a specific event
+  router.get('/teams/:teamId/events/:eventId/attendance', (req, res) => {
+    const { teamId, eventId } = req.params;
 
-//     db.all(query, [teamId], (err, rows) => {
-//       if (err) {
-//         return res.status(500).json({ error: 'Ошибка при получении посещаемости' });
-//       }
-//       res.json(rows);
-//     });
-//   });
+    db.all(`
+      SELECT 
+        a.id,
+        a.user_id,
+        a.event_id,
+        a.status,
+        a.checked_at,
+        a.notes,
+        u.username,
+        u.email
+      FROM attendance a
+      INNER JOIN users u ON a.user_id = u.id
+      INNER JOIN schedules s ON a.event_id = s.id
+      WHERE s.id = ? AND s.team_id = ?
+    `, [eventId, teamId], (err, rows) => {
+      if (err) {
+        console.error('Error fetching attendance:', err);
+        return res.status(500).json({ error: 'Error fetching attendance' });
+      }
+      res.json(rows);
+    });
+  });
 
-//   // Добавить/обновить посещение
-//   router.post('/:teamId/attendances', (req, res) => {
-//     const { player_id, event_id, status } = req.body;
+  // Get all players with their attendance status for an event
+  router.get('/teams/:teamId/events/:eventId/attendance/full', (req, res) => {
+    const { teamId, eventId } = req.params;
 
-//     const checkQuery = `
-//       SELECT * FROM attendances WHERE player_id = ? AND event_id = ?
-//     `;
+    db.all(`
+      SELECT 
+        u.id as user_id,
+        u.username,
+        u.email,
+        COALESCE(a.status, 'unmarked') as status,
+        a.checked_at,
+        a.notes
+      FROM users u
+      LEFT JOIN attendance a ON u.id = a.user_id AND a.event_id = ?
+      WHERE u.team_id = ? AND u.role = 'Player'
+      ORDER BY u.username
+    `, [eventId, teamId], (err, rows) => {
+      if (err) {
+        console.error('Error fetching full attendance:', err);
+        return res.status(500).json({ error: 'Error fetching attendance' });
+      }
+      res.json(rows);
+    });
+  });
 
-//     db.get(checkQuery, [player_id, event_id], (err, row) => {
-//       if (err) {
-//         return res.status(500).json({ error: 'Ошибка при проверке посещаемости' });
-//       }
+  // Set/update attendance for a player at an event
+  router.post('/teams/:teamId/events/:eventId/attendance', (req, res) => {
+    const { teamId, eventId } = req.params;
+    const { user_id, status, notes } = req.body;
 
-//       if (row) {
-//         // обновить
-//         db.run(
-//           `UPDATE attendances SET status = ? WHERE player_id = ? AND event_id = ?`,
-//           [status, player_id, event_id],
-//           function (err) {
-//             if (err) return res.status(500).json({ error: 'Ошибка при обновлении посещаемости' });
-//             res.json({ updated: true });
-//           }
-//         );
-//       } else {
-//         // вставить
-//         db.run(
-//           `INSERT INTO attendances (player_id, event_id, status) VALUES (?, ?, ?)`,
-//           [player_id, event_id, status],
-//           function (err) {
-//             if (err) return res.status(500).json({ error: 'Ошибка при добавлении посещаемости' });
-//             res.json({ id: this.lastID });
-//           }
-//         );
-//       }
-//     });
-//   });
+    if (!user_id || !status) {
+      return res.status(400).json({ error: 'user_id and status are required' });
+    }
 
-//   // Удалить посещение
-//   router.delete('/:teamId/attendances', (req, res) => {
-//     const { player_id, event_id } = req.body;
+    // Verify event belongs to team
+    db.get('SELECT id FROM schedules WHERE id = ? AND team_id = ?', [eventId, teamId], (err, event) => {
+      if (err) {
+        return res.status(500).json({ error: 'Database error' });
+      }
+      if (!event) {
+        return res.status(404).json({ error: 'Event not found' });
+      }
 
-//     db.run(
-//       `DELETE FROM attendances WHERE player_id = ? AND event_id = ?`,
-//       [player_id, event_id],
-//       function (err) {
-//         if (err) {
-//           return res.status(500).json({ error: 'Ошибка при удалении посещаемости' });
-//         }
-//         res.json({ success: true });
-//       }
-//     );
-//   });
+      // Insert or update attendance
+      db.run(`
+        INSERT INTO attendance (user_id, event_id, status, notes)
+        VALUES (?, ?, ?, ?)
+        ON CONFLICT(user_id, event_id) DO UPDATE SET
+          status = excluded.status,
+          notes = excluded.notes,
+          checked_at = CURRENT_TIMESTAMP
+      `, [user_id, eventId, status, notes || null], function(err) {
+        if (err) {
+          console.error('Error setting attendance:', err);
+          return res.status(500).json({ error: 'Error setting attendance' });
+        }
+        res.json({ 
+          success: true, 
+          id: this.lastID,
+          user_id,
+          event_id: eventId,
+          status,
+          notes
+        });
+      });
+    });
+  });
+
+  // Bulk update attendance for an event
+  router.post('/teams/:teamId/events/:eventId/attendance/bulk', (req, res) => {
+    const { teamId, eventId } = req.params;
+    const { attendances } = req.body; // Array of { user_id, status, notes }
+
+    if (!Array.isArray(attendances)) {
+      return res.status(400).json({ error: 'attendances must be an array' });
+    }
+
+    // Verify event belongs to team
+    db.get('SELECT id FROM schedules WHERE id = ? AND team_id = ?', [eventId, teamId], (err, event) => {
+      if (err) {
+        return res.status(500).json({ error: 'Database error' });
+      }
+      if (!event) {
+        return res.status(404).json({ error: 'Event not found' });
+      }
+
+      const stmt = db.prepare(`
+        INSERT INTO attendance (user_id, event_id, status, notes)
+        VALUES (?, ?, ?, ?)
+        ON CONFLICT(user_id, event_id) DO UPDATE SET
+          status = excluded.status,
+          notes = excluded.notes,
+          checked_at = CURRENT_TIMESTAMP
+      `);
+
+      let errors = [];
+      attendances.forEach(({ user_id, status, notes }) => {
+        stmt.run([user_id, eventId, status, notes || null], (err) => {
+          if (err) errors.push({ user_id, error: err.message });
+        });
+      });
+
+      stmt.finalize((err) => {
+        if (err) {
+          return res.status(500).json({ error: 'Error updating attendance' });
+        }
+        if (errors.length > 0) {
+          return res.status(207).json({ partial: true, errors });
+        }
+        res.json({ success: true, updated: attendances.length });
+      });
+    });
+  });
+
+  // Delete attendance record
+  router.delete('/teams/:teamId/events/:eventId/attendance/:userId', (req, res) => {
+    const { teamId, eventId, userId } = req.params;
+
+    db.run(`
+      DELETE FROM attendance 
+      WHERE user_id = ? AND event_id = ? 
+        AND event_id IN (SELECT id FROM schedules WHERE team_id = ?)
+    `, [userId, eventId, teamId], function(err) {
+      if (err) {
+        return res.status(500).json({ error: 'Error deleting attendance' });
+      }
+      if (this.changes === 0) {
+        return res.status(404).json({ error: 'Attendance record not found' });
+      }
+      res.json({ success: true });
+    });
+  });
+
+  // Get attendance statistics for a player
+  router.get('/players/:userId/attendance', (req, res) => {
+    const { userId } = req.params;
+    const { teamId } = req.query;
+
+    let query = `
+      SELECT 
+        COUNT(*) as total_events,
+        SUM(CASE WHEN a.status = 'present' THEN 1 ELSE 0 END) as present_count,
+        SUM(CASE WHEN a.status = 'absent' THEN 1 ELSE 0 END) as absent_count,
+        SUM(CASE WHEN a.status = 'late' THEN 1 ELSE 0 END) as late_count,
+        SUM(CASE WHEN a.status = 'excused' THEN 1 ELSE 0 END) as excused_count
+      FROM attendance a
+      INNER JOIN schedules s ON a.event_id = s.id
+      WHERE a.user_id = ?
+    `;
+    
+    const params = [userId];
+    if (teamId) {
+      query += ' AND s.team_id = ?';
+      params.push(teamId);
+    }
+
+    db.get(query, params, (err, row) => {
+      if (err) {
+        return res.status(500).json({ error: 'Error fetching attendance stats' });
+      }
+      
+      const total = row.total_events || 0;
+      const present = row.present_count || 0;
+      
+      res.json({
+        ...row,
+        attendance_rate: total > 0 ? Math.round((present / total) * 100) : 0
+      });
+    });
+  });
+
+  // Get attendance statistics for a team (practices only)
+  router.get('/teams/:teamId/attendance/stats', (req, res) => {
+    const { teamId } = req.params;
+
+    // First get total practices count
+    db.get(`
+      SELECT COUNT(*) as total_practices 
+      FROM schedules 
+      WHERE team_id = ? AND LOWER(event_type) = 'practice'
+    `, [teamId], (err, practiceCount) => {
+      if (err) {
+        console.error('Error counting practices:', err);
+        return res.status(500).json({ error: 'Database error' });
+      }
+
+      const totalPractices = practiceCount?.total_practices || 0;
+
+      // Get per-player stats for practices only
+      db.all(`
+        SELECT 
+          u.id as user_id,
+          u.username,
+          COUNT(a.id) as total_marked,
+          SUM(CASE WHEN a.status = 'present' THEN 1 ELSE 0 END) as present_count,
+          SUM(CASE WHEN a.status = 'absent' OR a.status = 'excused' THEN 1 ELSE 0 END) as absent_count,
+          SUM(CASE WHEN a.status = 'late' THEN 1 ELSE 0 END) as late_count,
+          SUM(CASE WHEN a.status = 'excused' THEN 1 ELSE 0 END) as excused_count
+        FROM users u
+        LEFT JOIN attendance a ON u.id = a.user_id
+        LEFT JOIN schedules s ON a.event_id = s.id AND s.team_id = ? AND LOWER(s.event_type) = 'practice'
+        WHERE u.team_id = ? AND u.role = 'Player'
+        GROUP BY u.id
+        ORDER BY present_count DESC
+      `, [teamId, teamId], (err, rows) => {
+        if (err) {
+          console.error('Error fetching team attendance stats:', err);
+          return res.status(500).json({ error: 'Error fetching attendance stats' });
+        }
+        
+        // Calculate attendance rate for each player based on total practices
+        const stats = rows.map(row => ({
+          ...row,
+          total_practices: totalPractices,
+          attendance_rate: totalPractices > 0 
+            ? Math.round((row.present_count / totalPractices) * 100) 
+            : 0
+        }));
+        
+        res.json(stats);
+      });
+    });
+  });
+
+  // ==================== END ATTENDANCE ROUTES ====================
+
    // Получить игроков команды
   router.get('/teams/:teamId/players', (req, res) => {
     const teamId = req.params.teamId;

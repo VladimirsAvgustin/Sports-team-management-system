@@ -8,9 +8,6 @@
         </div>
         <div>
           <h3>{{ username }}</h3>
-          <span class="online-status" v-if="isConnected">
-            <span class="status-dot"></span> Online
-          </span>
         </div>
       </div>
     </div>
