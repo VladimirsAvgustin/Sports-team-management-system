@@ -161,6 +161,7 @@ export default {
   display: flex;
   flex-direction: column;
   height: 100%;
+  min-height: 0;
   background: var(--card-bg, #fff);
   border-radius: 12px;
   overflow: hidden;
@@ -229,6 +230,7 @@ export default {
 .messages-container {
   flex: 1;
   overflow-y: auto;
+  min-height: 0;
   padding: 1.5rem;
   background: var(--messages-bg, #f8fafc);
 }
