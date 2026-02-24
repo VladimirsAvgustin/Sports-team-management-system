@@ -25,7 +25,7 @@ const showCreateTeam = computed(() =>
 )
 
 const showJoinTeam = computed(() =>
-  auth.user?.role === 'Player' && !userTeam.value
+  (auth.user?.role === 'Player' || auth.user?.role === 'Coach') && !userTeam.value
 )
 
 // Whether user has a team
@@ -253,16 +253,19 @@ watch(() => auth.isAuthenticated, async () => {
   font-family: 'Arial', sans-serif;
 }
 
-html, body {
+html, body, #app {
   height: 100%;
+  min-height: 100vh;
   background-color: #f4f4f4;
   color: #333;
   transition: background 0.3s, color 0.3s;
 }
 
 /* ========== Dark Mode ========== */
-.dark-mode {
-  background-color: #222;
+.dark-mode,
+.dark-mode body,
+.dark-mode #app {
+  background-color: #121212;
   color: #f4f4f4;
 }
 

@@ -229,7 +229,19 @@ module.exports = (db) => {
             const decoded = jwt.verify(token, JWT_SECRET);
             // decoded = { id: ..., username: ..., role: ... }
 
-            res.status(200).json({ user: decoded });
+            // Fetch team_id from database for up-to-date info
+            db.get('SELECT team_id FROM users WHERE id = ?', [decoded.id], (err, row) => {
+              if (err) {
+                console.error(err.message);
+                return res.status(500).json({ error: 'Error fetching user data' });
+              }
+              res.status(200).json({ 
+                user: { 
+                  ...decoded, 
+                  team_id: row?.team_id || null 
+                } 
+              });
+            });
         } catch (error) {
             console.error(error.message);
             res.status(401).json({ error: 'Invalid token' });
@@ -557,7 +569,7 @@ router.post('/join-team', authenticateToken, async (req, res) => {
       });
     });
 
-    if (userRole === 'player') {
+    if (userRole && userRole.toLowerCase() === 'player') {
       await new Promise((resolve, reject) => {
         db.run(
           'INSERT OR IGNORE INTO player_stats (user_id, matches, goals, assists, yellow_cards, red_cards) VALUES (?, 0, 0, 0, 0, 0)',

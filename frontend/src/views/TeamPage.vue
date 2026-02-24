@@ -36,7 +36,7 @@
           </div>
           <div class="team-meta">
             <span class="meta-item">
-              <span class="meta-icon">👥</span>
+              <span class="meta-icon"></span>
               {{ sortedPlayers.length }} Players
             </span>
             <button @click="toggleChat" class="chat-toggle-btn" title="Team Chat">
@@ -532,7 +532,7 @@ const coach = computed(() => {
 })
 
 const isCoach = computed(() => {
-  return authStore.user?.role === 'Coach' && authStore.user.id === team.value.coach_id
+  return authStore.user?.role === 'Coach' && authStore.user?.team_id === team.value.id
 })
 
 const filteredPlayers = computed(() => {
@@ -845,6 +845,7 @@ watch(players, () => {
   margin: 0 auto;
   padding: 2rem;
   color: var(--text-color);
+  min-height: 100vh;
 }
 
 /* Team Hero Section */
@@ -966,10 +967,12 @@ watch(players, () => {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.9);
   padding: 0.5rem 1rem;
   border-radius: 25px;
   margin-bottom: 1rem;
+  color: #333;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
 }
 
 .code-label {
@@ -992,10 +995,13 @@ watch(players, () => {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.9);
   padding: 0.5rem 1rem;
   border-radius: 20px;
   font-size: 0.95rem;
+  color: #333;
+  font-weight: 600;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
 }
 
 .meta-icon {
@@ -1010,7 +1016,7 @@ watch(players, () => {
 }
 
 .stat-card {
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(10px);
   border-radius: 15px;
   padding: 1.25rem;
@@ -1018,11 +1024,14 @@ watch(players, () => {
   align-items: center;
   gap: 1rem;
   transition: transform 0.2s, background 0.2s;
+  color: #333;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
 }
 
 .stat-card:hover {
   transform: translateY(-3px);
-  background: rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 1);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
 }
 
 .stat-icon {
@@ -1038,12 +1047,49 @@ watch(players, () => {
   font-size: 1.75rem;
   font-weight: 700;
   line-height: 1;
+  color: #333;
 }
 
 .stat-label {
   font-size: 0.8rem;
-  opacity: 0.9;
+  opacity: 0.7;
   margin-top: 0.25rem;
+  color: #555;
+  text-transform: uppercase;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+/* Dark mode stat cards */
+:global(.dark-mode) .stat-card {
+  background: rgba(255, 255, 255, 0.15);
+  box-shadow: none;
+  color: #fff;
+}
+
+:global(.dark-mode) .stat-card:hover {
+  background: rgba(255, 255, 255, 0.25);
+  box-shadow: none;
+}
+
+:global(.dark-mode) .stat-value {
+  color: #fff;
+}
+
+:global(.dark-mode) .stat-label {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+:global(.dark-mode) .team-code-badge {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  box-shadow: none;
+}
+
+:global(.dark-mode) .meta-item {
+  background: rgba(255, 255, 255, 0.15);
+  color: white;
+  box-shadow: none;
 }
 
 /* Charts Section */

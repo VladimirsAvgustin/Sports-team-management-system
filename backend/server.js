@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
@@ -67,6 +68,56 @@ app.use('/api/admin', adminRoutes)
 
 const chatRoutes = require('./routes/chat')(db);
 app.use('/api/chat', chatRoutes);
+
+// Contact form - send email
+const nodemailer = require('nodemailer');
+
+const transporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: process.env.EMAIL_USER || 'vladimiravgustin123@gmail.com',
+    pass: process.env.EMAIL_PASS || ''
+  }
+});
+
+app.post('/api/contact', async (req, res) => {
+  const { name, email, subject, message } = req.body;
+
+  if (!name || !email || !subject || !message) {
+    return res.status(400).json({ error: 'All fields are required' });
+  }
+
+  const subjectLabels = {
+    general: 'General Question',
+    bug: 'Bug Report',
+    feature: 'Feature Request',
+    account: 'Account Issue',
+    other: 'Other'
+  };
+
+  const mailOptions = {
+    from: `"Sports Team Contact" <${process.env.EMAIL_USER || 'vladimiravgustin123@gmail.com'}>`,
+    to: 'vladimiravgustin123@gmail.com',
+    replyTo: email,
+    subject: `${subjectLabels[subject] || subject} - from ${name}`,
+    html: `
+      <p><strong>Name:</strong> ${name}</p>
+      <p><strong>Email:</strong> ${email}</p>
+      <p><strong>Subject:</strong> ${subjectLabels[subject] || subject}</p>
+      <hr/>
+      <p><strong>Message:</strong></p>
+      <p>${message.replace(/\n/g, '<br>')}</p>
+    `
+  };
+
+  try {
+    await transporter.sendMail(mailOptions);
+    res.status(200).json({ message: 'Email sent successfully' });
+  } catch (err) {
+    console.error('Error sending email:', err);
+    res.status(500).json({ error: 'Failed to send email. Please try again later.' });
+  }
+});
 
 // Handling non-existing routes
 app.use((req, res, next) => {
