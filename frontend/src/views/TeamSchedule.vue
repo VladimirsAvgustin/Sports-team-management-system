@@ -63,7 +63,7 @@
             </div>
             
             <div 
-              v-if="userRole === 'Coach' && day.events.length === 0" 
+              v-if="userRole === 'Coach'" 
               class="add-event-cell"
               @click="openAddModal(day.date.format('YYYY-MM-DD'))"
             >
@@ -134,6 +134,8 @@
     <div v-if="showEventModal" class="modal-overlay" @click.self="closeModal">
       <div class="modal-content">
         <h3>{{ modalMode === 'add' ? 'Add Event' : 'Edit Event' }}</h3>
+        
+        <div v-if="error" class="modal-error">{{ error }}</div>
         
         <div class="modal-form">
           <div class="form-row">
@@ -502,6 +504,7 @@ const filteredEvents = computed(() => {
 // Event management
 const openAddModal = (date) => {
   modalMode.value = 'add'
+  error.value = null
   currentEvent.value = {
     event_name: '',
     event_date: date || dayjs().format('YYYY-MM-DD'),
@@ -521,26 +524,47 @@ const closeModal = () => {
   showEventModal.value = false
 }
 
+const hasTimeConflict = (date, time, excludeId = null) => {
+  return events.value.some(e => {
+    if (excludeId && e.id === excludeId) return false
+    return e.event_date === date && e.event_time === time
+  })
+}
+
 const addEvent = async () => {
+  if (hasTimeConflict(currentEvent.value.event_date, currentEvent.value.event_time)) {
+    error.value = 'An event already exists at this date and time'
+    return
+  }
   try {
     const res = await axios.post(`/api/teams/${teamId.value}/schedule`, currentEvent.value)
     events.value.push(res.data)
     closeModal()
+    error.value = null
     quickAddText.value = ''
   } catch (err) {
     console.error(err)
-    error.value = 'Error adding event'
+    if (err.response?.data?.error) {
+      error.value = err.response.data.error
+    } else {
+      error.value = 'Error adding event'
+    }
   }
 }
 
 const startEdit = (event) => {
   modalMode.value = 'edit'
+  error.value = null
   currentEvent.value = { ...event }
   selectedEvent.value = null
   showEventModal.value = true
 }
 
 const saveEdit = async () => {
+  if (hasTimeConflict(currentEvent.value.event_date, currentEvent.value.event_time, currentEvent.value.id)) {
+    error.value = 'An event already exists at this date and time'
+    return
+  }
   try {
     const res = await axios.put(
       `/api/teams/${teamId.value}/schedule/${currentEvent.value.id}`,
@@ -548,12 +572,17 @@ const saveEdit = async () => {
     )
     const index = events.value.findIndex(e => e.id === currentEvent.value.id)
     if (index !== -1) {
-      events.value[index] = res.data
+      events.value[index] = { ...currentEvent.value }
     }
     closeModal()
+    error.value = null
   } catch (err) {
     console.error(err)
-    error.value = 'Error editing event'
+    if (err.response?.data?.error) {
+      error.value = err.response.data.error
+    } else {
+      error.value = 'Error editing event'
+    }
   }
 }
 
@@ -1387,6 +1416,21 @@ onMounted(async () => {
   font-size: 18px;
   font-weight: 700;
   color: var(--text-color);
+}
+
+.modal-error {
+  background: #fee2e2;
+  color: #dc2626;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 14px;
+  margin-bottom: 14px;
+  border: 1px solid #fca5a5;
+}
+
+.dark-mode .modal-error {
+  background: rgba(220, 38, 38, 0.15);
+  border-color: rgba(220, 38, 38, 0.3);
 }
 
 .modal-form {

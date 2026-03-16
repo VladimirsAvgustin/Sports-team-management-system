@@ -177,7 +177,7 @@ module.exports = (db) => {
     const userId = req.user.id;
 
     db.all(
-      `SELECT id, username, email, role FROM users WHERE id != ? ORDER BY username`,
+      `SELECT id, name, surname, (name || ' ' || surname) as username, email, role FROM users WHERE id != ? ORDER BY surname, name`,
       [userId],
       (err, users) => {
         if (err) {
@@ -194,12 +194,12 @@ module.exports = (db) => {
     const userId = req.user.id;
 
     db.all(
-      `SELECT u.id, u.username, u.email, u.role, t.name as team_name
+      `SELECT u.id, u.name, u.surname, (u.name || ' ' || u.surname) as username, u.email, u.role, t.name as team_name
        FROM users u
        LEFT JOIN teams t ON u.team_id = t.id
        WHERE u.team_id IN (SELECT team_id FROM users WHERE id = ?) 
        AND u.id != ?
-       ORDER BY u.username`,
+       ORDER BY u.surname, u.name`,
       [userId, userId],
       (err, members) => {
         if (err) {
@@ -219,8 +219,8 @@ module.exports = (db) => {
 
     db.all(
       `SELECT dm.*, 
-       sender.username as sender_username,
-       receiver.username as receiver_username
+       sender.name as sender_name, sender.surname as sender_surname,
+       receiver.name as receiver_name, receiver.surname as receiver_surname
        FROM direct_messages dm
        INNER JOIN users sender ON dm.sender_id = sender.id
        INNER JOIN users receiver ON dm.receiver_id = receiver.id
@@ -271,7 +271,8 @@ module.exports = (db) => {
           db.get(
             `SELECT 
              u.id as user_id,
-             u.username,
+             u.name, u.surname,
+             (u.name || ' ' || u.surname) as username,
              u.email,
              (SELECT message FROM direct_messages 
               WHERE (sender_id = ? AND receiver_id = ?) 

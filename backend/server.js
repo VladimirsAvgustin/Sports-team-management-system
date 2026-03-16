@@ -53,6 +53,89 @@ const db = new sqlite3.Database(dbPath, (err) => {
     console.error('Database connection error:', err.message);
   } else {
     console.log('Successful database connection');
+    // Initialize tables
+    db.run('PRAGMA foreign_keys = ON');
+    db.serialize(() => {
+      db.run(`CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        surname TEXT NOT NULL,
+        email TEXT NOT NULL UNIQUE,
+        password TEXT NOT NULL,
+        role TEXT NOT NULL DEFAULT 'user',
+        team_id INTEGER,
+        createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP
+      )`);
+      db.run(`CREATE TABLE IF NOT EXISTS teams (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        team_code TEXT,
+        coach_id INTEGER,
+        logo TEXT,
+        createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP
+      )`);
+      db.run(`CREATE TABLE IF NOT EXISTS player_stats (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL UNIQUE,
+        matches INTEGER DEFAULT 0,
+        goals INTEGER DEFAULT 0,
+        assists INTEGER DEFAULT 0,
+        yellow_cards INTEGER DEFAULT 0,
+        red_cards INTEGER DEFAULT 0,
+        attendance INTEGER DEFAULT 0,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      )`);
+      db.run(`CREATE TABLE IF NOT EXISTS schedules (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        team_id INTEGER NOT NULL,
+        event_name TEXT NOT NULL,
+        event_date TEXT NOT NULL,
+        location TEXT,
+        event_time TEXT,
+        event_type TEXT,
+        FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE
+      )`);
+      db.run(`CREATE TABLE IF NOT EXISTS attendance (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        event_id INTEGER NOT NULL,
+        status TEXT CHECK(status IN ('present', 'absent', 'late', 'excused')) DEFAULT 'absent',
+        checked_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        notes TEXT,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (event_id) REFERENCES schedules(id) ON DELETE CASCADE,
+        UNIQUE(user_id, event_id)
+      )`);
+      db.run(`CREATE TABLE IF NOT EXISTS chat_rooms (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        team_id INTEGER NOT NULL,
+        name TEXT NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE
+      )`);
+      db.run(`CREATE TABLE IF NOT EXISTS messages (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        room_id INTEGER NOT NULL,
+        user_id INTEGER NOT NULL,
+        username TEXT NOT NULL,
+        message TEXT NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (room_id) REFERENCES chat_rooms(id) ON DELETE CASCADE,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      )`);
+      db.run(`CREATE TABLE IF NOT EXISTS direct_messages (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        sender_id INTEGER NOT NULL,
+        receiver_id INTEGER NOT NULL,
+        message TEXT NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (sender_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (receiver_id) REFERENCES users(id) ON DELETE CASCADE
+      )`);
+      console.log('All tables initialized');
+    });
   }
 });
 
@@ -141,7 +224,8 @@ io.use((socket, next) => {
   try {
     const decoded = jwt.verify(token, 'your_jwt_secret');
     socket.userId = decoded.id;
-    socket.username = decoded.username;
+    socket.userFullName = (decoded.name || '') + ' ' + (decoded.surname || '');
+    socket.userFullName = socket.userFullName.trim();
     next();
   } catch (err) {
     next(new Error('Authentication error'));
@@ -150,32 +234,32 @@ io.use((socket, next) => {
 
 // Socket.io connection handling
 io.on('connection', (socket) => {
-  console.log(`User connected: ${socket.username} (ID: ${socket.userId})`);
+  console.log(`User connected: ${socket.userFullName} (ID: ${socket.userId})`);
 
   // Join user's personal room for DMs immediately on connection
   socket.join(`user_${socket.userId}`);
-  console.log(`${socket.username} joined personal room user_${socket.userId}`);
+  console.log(`${socket.userFullName} joined personal room user_${socket.userId}`);
 
   // Join a chat room
   socket.on('join_room', (roomId) => {
     socket.join(`room_${roomId}`);
-    console.log(`${socket.username} joined room ${roomId}`);
+    console.log(`${socket.userFullName} joined room ${roomId}`);
     
     // Notify others in the room
     socket.to(`room_${roomId}`).emit('user_joined', {
-      username: socket.username,
-      message: `${socket.username} joined the chat`
+      username: socket.userFullName,
+      message: `${socket.userFullName} joined the chat`
     });
   });
 
   // Leave a chat room
   socket.on('leave_room', (roomId) => {
     socket.leave(`room_${roomId}`);
-    console.log(`${socket.username} left room ${roomId}`);
+    console.log(`${socket.userFullName} left room ${roomId}`);
     
     socket.to(`room_${roomId}`).emit('user_left', {
-      username: socket.username,
-      message: `${socket.username} left the chat`
+      username: socket.userFullName,
+      message: `${socket.userFullName} left the chat`
     });
   });
 
@@ -186,7 +270,7 @@ io.on('connection', (socket) => {
     // Save message to database
     db.run(
       `INSERT INTO messages (room_id, user_id, username, message) VALUES (?, ?, ?, ?)`,
-      [roomId, socket.userId, socket.username, message],
+      [roomId, socket.userId, socket.userFullName, message],
       function(err) {
         if (err) {
           console.error('Error saving message:', err);
@@ -198,7 +282,7 @@ io.on('connection', (socket) => {
           id: this.lastID,
           roomId,
           userId: socket.userId,
-          username: socket.username,
+          username: socket.userFullName,
           message,
           createdAt: new Date().toISOString()
         };
@@ -213,14 +297,14 @@ io.on('connection', (socket) => {
   socket.on('typing', (data) => {
     const { roomId } = data;
     socket.to(`room_${roomId}`).emit('user_typing', {
-      username: socket.username
+      username: socket.userFullName
     });
   });
 
   socket.on('stop_typing', (data) => {
     const { roomId } = data;
     socket.to(`room_${roomId}`).emit('user_stop_typing', {
-      username: socket.username
+      username: socket.userFullName
     });
   });
 
@@ -242,7 +326,7 @@ io.on('connection', (socket) => {
         const dmData = {
           id: this.lastID,
           senderId: socket.userId,
-          senderUsername: socket.username,
+          senderUsername: socket.userFullName,
           receiverId,
           message,
           isRead: 0,
@@ -273,7 +357,7 @@ io.on('connection', (socket) => {
 
   // Handle disconnect
   socket.on('disconnect', () => {
-    console.log(`User disconnected: ${socket.username}`);
+    console.log(`User disconnected: ${socket.userFullName}`);
   });
 });
 

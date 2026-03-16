@@ -25,12 +25,12 @@ export default {
   methods: {
     async login() {
       try {
-        const response = await axios.post('http://localhost:3000/api/login', {
+        const response = await axios.post('http://localhost:3000/api/auth/login', {
           email: this.email,
           password: this.password
         })
         localStorage.setItem('token', response.data.token)
-        localStorage.setItem('role', response.data.role)
+        localStorage.setItem('user', JSON.stringify(response.data.user))
         this.$router.push('/')
       } catch (err) {
         this.error = 'Wrong login or password'

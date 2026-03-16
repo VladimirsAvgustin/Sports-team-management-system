@@ -15,7 +15,7 @@ const authenticateToken = (req, res, next) => {
 
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
-    req.user = decoded; // { id, username, role }
+    req.user = decoded; // { id, name, surname, role }
     next();
   } catch (err) {
     console.error('JWT verification failed:', err.message);
@@ -35,9 +35,9 @@ async function getMyTeam(token) {
 module.exports = (db) => {
     const router = express.Router();
     router.post('/register', async (req, res) => {
-        const { username, email, password, role, teamCode, createTeam, teamName } = req.body;
+        const { name, surname, email, password, role, teamCode, createTeam, teamName } = req.body;
       
-        if (!username || !email || !password) {
+        if (!name || !surname || !email || !password) {
           return res.status(400).json({ error: 'Please fill in all fields.' });
         }
       
@@ -58,8 +58,8 @@ module.exports = (db) => {
       
             const insertUser = (team_id = null) => {
               db.run(
-                'INSERT INTO users (username, role, email, password, team_id) VALUES (?, ?, ?, ?, ?)',
-                [username, userRole, email, hashedPassword, team_id],
+                'INSERT INTO users (name, surname, role, email, password, team_id) VALUES (?, ?, ?, ?, ?, ?)',
+                [name, surname, userRole, email, hashedPassword, team_id],
                 function (insertErr) {
                   if (insertErr) {
                     console.error(insertErr.message);
@@ -93,8 +93,8 @@ module.exports = (db) => {
       
               // Временная вставка юзера без team_id
               db.run(
-                'INSERT INTO users (username, role, email, password) VALUES (?, ?, ?, ?)',
-                [username, userRole, email, hashedPassword],
+                'INSERT INTO users (name, surname, role, email, password) VALUES (?, ?, ?, ?, ?)',
+                [name, surname, userRole, email, hashedPassword],
                 function (userInsertErr) {
                   if (userInsertErr) {
                     console.error(userInsertErr.message);
@@ -172,14 +172,14 @@ module.exports = (db) => {
 
   
   router.post('/login', (req, res) => {
-    const { username, password } = req.body;
-    console.log('Login request:', username, password);
+    const { email, password } = req.body;
+    console.log('Login request:', email);
     
-    if (!username || !password) {
-      return res.status(400).json({ error: 'Enter username and password' });
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Enter email and password' });
     }
   
-    db.get('SELECT * FROM users WHERE username = ?', [username], async (err, user) => {
+    db.get('SELECT * FROM users WHERE email = ?', [email], async (err, user) => {
       if (err) {
         console.error(err.message);
         return res.status(500).json({ error: 'Server error' });
@@ -197,15 +197,15 @@ module.exports = (db) => {
   
         // === GENERATE TOKEN ===
         const token = jwt.sign(
-          { id: user.id, username: user.username, role: user.role },
+          { id: user.id, name: user.name, surname: user.surname, role: user.role },
           JWT_SECRET,
           { expiresIn: '7d' }
         );
   
         res.status(200).json({ 
           message: 'Login successful', 
-          user: { id: user.id, username: user.username, role: user.role },
-          token // <-- Now the response will include the token
+          user: { id: user.id, name: user.name, surname: user.surname, role: user.role },
+          token
         });
   
       } catch (compareError) {
@@ -227,17 +227,20 @@ module.exports = (db) => {
 
         try {
             const decoded = jwt.verify(token, JWT_SECRET);
-            // decoded = { id: ..., username: ..., role: ... }
+            // decoded = { id: ..., name: ..., surname: ..., role: ... }
 
-            // Fetch team_id from database for up-to-date info
-            db.get('SELECT team_id FROM users WHERE id = ?', [decoded.id], (err, row) => {
+            // Fetch team_id and fresh name/surname from database for up-to-date info
+            db.get('SELECT name, surname, team_id FROM users WHERE id = ?', [decoded.id], (err, row) => {
               if (err) {
                 console.error(err.message);
                 return res.status(500).json({ error: 'Error fetching user data' });
               }
               res.status(200).json({ 
                 user: { 
-                  ...decoded, 
+                  id: decoded.id,
+                  name: row?.name || decoded.name,
+                  surname: row?.surname || decoded.surname,
+                  role: decoded.role,
                   team_id: row?.team_id || null 
                 } 
               });
@@ -329,7 +332,7 @@ module.exports = (db) => {
 router.get('/teams/:id/players', (req, res) => {
     const team_id = req.params.id;
 
-    db.all('SELECT id, username, email FROM users WHERE team_id = ?', [team_id], (err, rows) => {
+    db.all('SELECT id, name, surname, (name || \' \' || surname) as username, email FROM users WHERE team_id = ?', [team_id], (err, rows) => {
         if (err) {
             console.error(err.message);
             return res.status(500).json({ error: 'Error fetching players' });
@@ -572,7 +575,10 @@ router.post('/join-team', authenticateToken, async (req, res) => {
     if (userRole && userRole.toLowerCase() === 'player') {
       await new Promise((resolve, reject) => {
         db.run(
-          'INSERT OR IGNORE INTO player_stats (user_id, matches, goals, assists, yellow_cards, red_cards) VALUES (?, 0, 0, 0, 0, 0)',
+          `INSERT INTO player_stats (user_id, matches, goals, assists, yellow_cards, red_cards, attendance) 
+           VALUES (?, 0, 0, 0, 0, 0, 0)
+           ON CONFLICT(user_id) DO UPDATE SET
+             matches = 0, goals = 0, assists = 0, yellow_cards = 0, red_cards = 0, attendance = 0`,
           [userId],
           function(err) {
             if (err) reject(err);
@@ -585,7 +591,7 @@ router.post('/join-team', authenticateToken, async (req, res) => {
     // Возвращаем обновленные данные пользователя и команды
     const updatedUser = await new Promise((resolve, reject) => {
       db.get(
-        'SELECT id, username, email, role, team_id FROM users WHERE id = ?',
+        'SELECT id, name, surname, email, role, team_id FROM users WHERE id = ?',
         [userId],
         (err, row) => {
           if (err) reject(err);
@@ -872,7 +878,7 @@ router.get('/user/recent-activity', authenticateToken, async (req, res) => {
             'joined team' as action,
             t.name as description,
             u.id as timestamp,
-            u.username as user_name
+            (u.name || ' ' || u.surname) as user_name
           FROM users u
           JOIN teams t ON u.team_id = t.id
           WHERE t.coach_id = ? AND u.role = 'Player'
@@ -1021,7 +1027,8 @@ router.get('/teams/:teamId/stats', (req, res) => {
       db.all(
         `SELECT 
           ps.user_id,
-          u.username,
+          u.name, u.surname,
+          (u.name || ' ' || u.surname) as username,
           ps.matches,
           ps.goals,
           ps.assists,
@@ -1070,7 +1077,7 @@ router.get('/teams/:teamId/stats', (req, res) => {
                 .slice(0, 5),
               goalsDistribution: players
                 .filter(p => p.goals > 0)
-                .map(p => ({ username: p.username, goals: p.goals }))
+                .map(p => ({ name: p.name, surname: p.surname, goals: p.goals }))
             };
 
             res.json(stats);
