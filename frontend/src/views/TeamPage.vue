@@ -111,7 +111,7 @@
       </div>
       <div class="controls-right">
         <select v-model="sortBy" class="sort-select">
-          <option value="username">By Name</option>
+          <option value="name">By Name</option>
           <option value="goals">By Goals</option>
           <option value="assists">By Assists</option>
           <option value="matches">By Matches</option>
@@ -171,7 +171,7 @@
               </div>
               <div class="avatar-wrapper">
                 <div class="avatar-circle">
-                  {{ getInitials(player.username) }}
+                  {{ getInitials(fullName(player)) }}
                 </div>
               </div>
               <div class="quick-stats">
@@ -193,7 +193,7 @@
             <!-- Card Body -->
             <div class="card-body">
               <div class="player-identity">
-                <h3 class="player-name">{{ player.username }}</h3>
+                <h3 class="player-name">{{ fullName(player) }}</h3>
                 <p class="player-email">{{ player.email }}</p>
                 <div class="player-status">
                   <span class="status-indicator active"></span>
@@ -265,10 +265,10 @@
             <td>
               <div class="player-info-list">
                 <div class="avatar-circle-sm">
-                  {{ getInitials(player.username) }}
+                  {{ getInitials(fullName(player)) }}
                 </div>
                 <div>
-                  <h4>{{ player.username }}</h4>
+                  <h4>{{ fullName(player) }}</h4>
                   <p class="email-small">{{ player.email }}</p>
                 </div>
               </div>
@@ -334,7 +334,7 @@ const team = ref({ name: '', coach_id: null, team_code: '', logo: null })
 const players = ref([])
 const loading = ref(false)
 const searchQuery = ref('')
-const sortBy = ref('username')
+const sortBy = ref('name')
 const viewMode = ref('cards') // 'cards' or 'list'
 const toastMessage = ref('')
 const toastType = ref('')
@@ -500,7 +500,7 @@ const updatePlayerStats = async (player) => {
 }
 
 const confirmRemovePlayer = async (player) => {
-  if (confirm(`Are you sure you want to remove ${player.username} from the team?`)) {
+  if (confirm(`Are you sure you want to remove ${fullName(player)} from the team?`)) {
     await removePlayer(player.id)
   }
 }
@@ -539,20 +539,26 @@ const filteredPlayers = computed(() => {
   if (!searchQuery.value) return players.value
   const query = searchQuery.value.toLowerCase()
   return players.value.filter(p =>
-    p.username.toLowerCase().includes(query) ||
+    fullName(p).toLowerCase().includes(query) ||
     p.email.toLowerCase().includes(query)
   )
 })
 
 const sortedPlayers = computed(() => {
   return [...filteredPlayers.value].sort((a, b) => {
-    if (sortBy.value === 'username') return a.username.localeCompare(b.username)
+    if (sortBy.value === 'name') return fullName(a).localeCompare(fullName(b))
     return b.stats[sortBy.value] - a.stats[sortBy.value]
   })
 })
 
 // Helper methods
+const fullName = (player) => {
+  if (!player) return ''
+  return ((player.name || '') + ' ' + (player.surname || '')).trim() || player.username || ''
+}
+
 const getInitials = (name) => {
+  if (!name) return '?'
   return name.split(' ').map(n => n[0]).join('').toUpperCase()
 }
 
@@ -696,7 +702,7 @@ const onDrop = (event, targetIndex) => {
 const exportStats = () => {
   const headers = ['Player', 'Email', ...statFields.map(f => f.label)]
   const rows = sortedPlayers.value.map(p => [
-    p.username,
+    p.username || fullName(p),
     p.email,
     ...statFields.map(f => p.stats[f.key])
   ])
@@ -747,7 +753,7 @@ const renderCharts = () => {
     goalsChartInstance = new Chart(goalsChartRef.value.getContext('2d'), {
       type: 'doughnut',
       data: {
-        labels: playersWithGoals.map(p => p.username),
+        labels: playersWithGoals.map(p => fullName(p)),
         datasets: [{
           data: playersWithGoals.map(p => p.stats.goals),
           backgroundColor: colors.slice(0, playersWithGoals.length),
@@ -787,7 +793,7 @@ const renderCharts = () => {
     assistsChartInstance = new Chart(assistsChartRef.value.getContext('2d'), {
       type: 'doughnut',
       data: {
-        labels: playersWithAssists.map(p => p.username),
+        labels: playersWithAssists.map(p => fullName(p)),
         datasets: [{
           data: playersWithAssists.map(p => p.stats.assists),
           backgroundColor: colors.slice(0, playersWithAssists.length),

@@ -22,15 +22,29 @@ module.exports = (db) => {
       return res.status(400).json({ error: 'event_name и event_date обязательны' });
     }
 
-    db.run(
-      `INSERT INTO schedules (team_id, event_name, event_date, location, event_time, event_type)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [teamId, event_name, event_date, location, event_time, event_type],
-      function (err) {
+    // Check for time conflict
+    db.get(
+      `SELECT id FROM schedules WHERE team_id = ? AND event_date = ? AND event_time = ?`,
+      [teamId, event_date, event_time],
+      (err, existing) => {
         if (err) {
-          return res.status(500).json({ error: 'Ошибка при добавлении события' });
+          return res.status(500).json({ error: 'Ошибка при проверке конфликтов' });
         }
-        res.json({ id: this.lastID, team_id: teamId, event_name, event_date, location, event_time, event_type });
+        if (existing) {
+          return res.status(409).json({ error: 'An event already exists at this date and time' });
+        }
+
+        db.run(
+          `INSERT INTO schedules (team_id, event_name, event_date, location, event_time, event_type)
+           VALUES (?, ?, ?, ?, ?, ?)`,
+          [teamId, event_name, event_date, location, event_time, event_type],
+          function (err) {
+            if (err) {
+              return res.status(500).json({ error: 'Ошибка при добавлении события' });
+            }
+            res.json({ id: this.lastID, team_id: teamId, event_name, event_date, location, event_time, event_type });
+          }
+        );
       }
     );
   });
@@ -40,19 +54,33 @@ module.exports = (db) => {
     const { teamId, eventId } = req.params;
     const { event_name, event_date, location, event_time, event_type } = req.body;
 
-    db.run(
-      `UPDATE schedules 
-       SET event_name = ?, event_date = ?, location = ?, event_time = ?, event_type = ?
-       WHERE id = ? AND team_id = ?`,
-      [event_name, event_date, location, event_time, event_type, eventId, teamId],
-      function (err) {
+    // Check for time conflict (exclude current event)
+    db.get(
+      `SELECT id FROM schedules WHERE team_id = ? AND event_date = ? AND event_time = ? AND id != ?`,
+      [teamId, event_date, event_time, eventId],
+      (err, existing) => {
         if (err) {
-          return res.status(500).json({ error: 'Ошибка при обновлении события' });
+          return res.status(500).json({ error: 'Ошибка при проверке конфликтов' });
         }
-        if (this.changes === 0) {
-          return res.status(404).json({ error: 'Событие не найдено' });
+        if (existing) {
+          return res.status(409).json({ error: 'An event already exists at this date and time' });
         }
-        res.json({ success: true });
+
+        db.run(
+          `UPDATE schedules 
+           SET event_name = ?, event_date = ?, location = ?, event_time = ?, event_type = ?
+           WHERE id = ? AND team_id = ?`,
+          [event_name, event_date, location, event_time, event_type, eventId, teamId],
+          function (err) {
+            if (err) {
+              return res.status(500).json({ error: 'Ошибка при обновлении события' });
+            }
+            if (this.changes === 0) {
+              return res.status(404).json({ error: 'Событие не найдено' });
+            }
+            res.json({ success: true });
+          }
+        );
       }
     );
   });
@@ -90,7 +118,8 @@ module.exports = (db) => {
         a.status,
         a.checked_at,
         a.notes,
-        u.username,
+        u.name, u.surname,
+        (u.name || ' ' || u.surname) as username,
         u.email
       FROM attendance a
       INNER JOIN users u ON a.user_id = u.id
@@ -112,7 +141,8 @@ module.exports = (db) => {
     db.all(`
       SELECT 
         u.id as user_id,
-        u.username,
+        u.name, u.surname,
+        (u.name || ' ' || u.surname) as username,
         u.email,
         COALESCE(a.status, 'unmarked') as status,
         a.checked_at,
@@ -120,7 +150,7 @@ module.exports = (db) => {
       FROM users u
       LEFT JOIN attendance a ON u.id = a.user_id AND a.event_id = ?
       WHERE u.team_id = ? AND u.role = 'Player'
-      ORDER BY u.username
+      ORDER BY u.surname, u.name
     `, [eventId, teamId], (err, rows) => {
       if (err) {
         console.error('Error fetching full attendance:', err);
@@ -297,7 +327,7 @@ module.exports = (db) => {
       db.all(`
         SELECT 
           u.id as user_id,
-          u.username,
+          (u.name || ' ' || u.surname) as username,
           COUNT(a.id) as total_marked,
           SUM(CASE WHEN a.status = 'present' THEN 1 ELSE 0 END) as present_count,
           SUM(CASE WHEN a.status = 'absent' OR a.status = 'excused' THEN 1 ELSE 0 END) as absent_count,
@@ -338,7 +368,9 @@ module.exports = (db) => {
     db.all(`
         SELECT 
             u.id, 
-            u.username, 
+            (u.name || ' ' || u.surname) as username,
+            u.name,
+            u.surname, 
             u.email,
             ps.matches,
             ps.goals,

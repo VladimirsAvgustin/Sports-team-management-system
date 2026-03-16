@@ -5,8 +5,8 @@
       <span class="close-btn" @click="closeModal">&times;</span>
       <h2>Login</h2>
       <form @submit.prevent="submit">
-        <label for="username">Username:</label>
-        <input v-model="username" type="text" id="username" required />
+        <label for="email">Email:</label>
+        <input v-model="email" type="email" id="email" required />
 
         <label for="password">Password:</label>
         <input v-model="password" type="password" id="password" required />
@@ -25,17 +25,17 @@ import { ref } from 'vue'
 // объявляем, какие события эмитим наружу
 const emit = defineEmits(['close','login'])
 
-const username = ref('')
+const email = ref('')
 const password = ref('')
 const errorMessage = ref('')
 
 // просто эмитим наверх, App.vue поймает 'login' и запустит auth.login(...)
 function submit() {
-  if (!username.value || !password.value) {
+  if (!email.value || !password.value) {
     errorMessage.value = 'Поля не должны быть пустыми'
     return
   }
-  emit('login', username.value, password.value)
+  emit('login', email.value, password.value)
 }
 
 // крестик и клик по оверлейю

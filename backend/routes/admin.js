@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db'); // SQLite DB instance
 const jwt = require('jsonwebtoken');
-const JWT_SECRET = 'JWT_SECRET';
+const JWT_SECRET = 'your_jwt_secret';
 
 // --- Inline middleware ---
 
@@ -56,11 +56,11 @@ router.delete('/users/:id', authenticateToken, requireRole('admin'), async (req,
 
 // Update a user (admin only)
 router.put('/users/:id', authenticateToken, requireRole('admin'), async (req, res) => {
-  const { username, email, role, team_id } = req.body;
+  const { name, surname, email, role, team_id } = req.body;
   try {
     await db.run(
-      'UPDATE users SET username = ?, email = ?, role = ?, team_id = ? WHERE id = ?',
-      [username, email, role, team_id, req.params.id]
+      'UPDATE users SET name = ?, surname = ?, email = ?, role = ?, team_id = ? WHERE id = ?',
+      [name, surname, email, role, team_id, req.params.id]
     );
     res.json({ success: true });
   } catch (err) {

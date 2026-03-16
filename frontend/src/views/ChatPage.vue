@@ -72,13 +72,13 @@
             v-for="conv in dmConversations"
             :key="conv.user_id"
             :class="['room-item', { active: selectedDMUser === conv.user_id }]"
-            @click="selectDM(conv.user_id, conv.username)"
+            @click="selectDM(conv.user_id, convFullName(conv))"
           >
             <div class="room-icon">
-              <span>{{ getInitials(conv.username) }}</span>
+              <span>{{ getInitials(convFullName(conv)) }}</span>
             </div>
             <div class="room-info">
-              <h4>{{ conv.username }}</h4>
+              <h4>{{ convFullName(conv) }}</h4>
               <p class="last-message" v-if="conv.last_message">
                 {{ truncate(conv.last_message, 40) }}
               </p>
@@ -142,10 +142,10 @@
               @click="startNewDM(user)"
             >
               <div class="user-avatar">
-                {{ getInitials(user.username) }}
+                {{ getInitials(userFullName(user)) }}
               </div>
               <div class="user-info">
-                <h4>{{ user.username }}</h4>
+                <h4>{{ userFullName(user) }}</h4>
                 <p>{{ user.email }}</p>
               </div>
             </div>
@@ -190,10 +190,11 @@ export default {
     const filteredUsers = computed(() => {
       if (!userSearch.value) return chatStore.allUsers
       const search = userSearch.value.toLowerCase()
-      return chatStore.allUsers.filter(u => 
-        u.username.toLowerCase().includes(search) || 
-        u.email.toLowerCase().includes(search)
-      )
+      return chatStore.allUsers.filter(u => {
+        const name = userFullName(u).toLowerCase()
+        return name.includes(search) || 
+          u.email.toLowerCase().includes(search)
+      })
     })
 
     const selectRoom = async (roomId) => {
@@ -203,15 +204,15 @@ export default {
       // This will trigger the watcher in ChatComponent which will call joinRoom
     }
 
-    const selectDM = (userId, username) => {
+    const selectDM = (userId, displayName) => {
       selectedDMUser.value = userId
-      selectedDMUsername.value = username
+      selectedDMUsername.value = displayName
       selectedRoomId.value = null
-      chatStore.openDM(userId, username)
+      chatStore.openDM(userId, displayName)
     }
 
     const startNewDM = (user) => {
-      selectDM(user.id, user.username)
+      selectDM(user.id, userFullName(user))
       showNewDMModal.value = false
       userSearch.value = ''
       activeTab.value = 'dms'
@@ -221,6 +222,14 @@ export default {
       await chatStore.fetchRooms()
       await chatStore.fetchDMConversations()
       await chatStore.fetchAllUsers()
+    }
+
+    const convFullName = (conv) => {
+      return ((conv.name || '') + ' ' + (conv.surname || '')).trim() || conv.username || 'Unknown'
+    }
+
+    const userFullName = (user) => {
+      return ((user.name || '') + ' ' + (user.surname || '')).trim() || user.username || 'Unknown'
     }
 
     const getInitials = (name) => {
@@ -280,7 +289,7 @@ export default {
       } else if (dmConversations.value.length > 0) {
         console.log('No rooms, auto-selecting first DM')
         activeTab.value = 'dms'
-        selectDM(dmConversations.value[0].user_id, dmConversations.value[0].username)
+        selectDM(dmConversations.value[0].user_id, convFullName(dmConversations.value[0]))
       } else {
         console.log('No chats available')
       }
@@ -308,7 +317,9 @@ export default {
       loadChats,
       getInitials,
       truncate,
-      formatTime
+      formatTime,
+      convFullName,
+      userFullName
     }
   }
 }

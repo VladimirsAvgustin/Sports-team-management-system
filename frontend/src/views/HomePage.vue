@@ -254,7 +254,7 @@ export default {
       if (this.isLoggedIn && user) {
         try {
           const userData = JSON.parse(user);
-          this.userData.name = userData.name || userData.username;
+          this.userData.name = userData.name || ((userData.name || '') + ' ' + (userData.surname || '')).trim() || 'User';
         } catch (e) {
           console.error('Error parsing user data:', e);
         }
@@ -386,8 +386,8 @@ export default {
       this.showModal = false;
     },
 
-    async handleLogin(username, password) {
-      console.log('Login attempt:', username);
+    async handleLogin(email, password) {
+      console.log('Login attempt:', email);
       
       try {
         const response = await fetch('/api/auth/login', {
@@ -395,7 +395,7 @@ export default {
           headers: {
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify({ username, password })
+          body: JSON.stringify({ email, password })
         });
 
         const data = await response.json();
@@ -419,7 +419,7 @@ export default {
         if (userResponse.ok) {
           const userData = await userResponse.json();
           localStorage.setItem('user', JSON.stringify(userData.user));
-          this.userData.name = userData.user.username;
+          this.userData.name = userData.user.name + ' ' + userData.user.surname;
         }
 
         this.isLoggedIn = true;
@@ -428,7 +428,7 @@ export default {
         // Load fresh data after login
         await this.loadUserData();
 
-        alert(`Welcome back, ${username}!`);
+        alert(`Welcome back, ${this.userData.name}!`);
       } catch (error) {
         console.error('Login error:', error);
         alert('Login failed: Network error');

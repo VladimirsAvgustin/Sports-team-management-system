@@ -19,6 +19,11 @@ const user = computed(() => auth.user)
 const isPlayer = computed(() => user.value?.role === 'Player')
 const isCoach = computed(() => user.value?.role === 'Coach')
 
+const fullName = (obj) => {
+  if (!obj) return ''
+  return ((obj.name || '') + ' ' + (obj.surname || '')).trim() || ''
+}
+
 const getInitials = (name) => {
   if (!name) return '?'
   return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
@@ -130,7 +135,7 @@ onMounted(() => {
         <div class="profile-header-inner">
           <div class="avatar-section">
             <div class="profile-avatar" :class="getRoleBadgeClass(user?.role)">
-              {{ getInitials(user?.username) }}
+              {{ getInitials(fullName(user)) }}
             </div>
             <div class="role-badge" :class="getRoleBadgeClass(user?.role)">
               {{ user?.role }}
@@ -138,7 +143,7 @@ onMounted(() => {
           </div>
           
           <div class="profile-info">
-            <h1 class="profile-name">{{ user?.username }}</h1>
+            <h1 class="profile-name">{{ fullName(user) }}</h1>
             <p class="profile-email" v-if="user?.email">{{ user.email }}</p>
             <div class="profile-meta">
               <span v-if="team" class="meta-item team-meta">
@@ -205,8 +210,8 @@ onMounted(() => {
             <span class="rank" :class="{ gold: i === 0, silver: i === 1, bronze: i === 2 }">
               {{ i + 1 }}
             </span>
-            <div class="lb-avatar">{{ getInitials(player.username) }}</div>
-            <span class="lb-name">{{ player.username }}</span>
+            <div class="lb-avatar">{{ getInitials(fullName(player)) }}</div>
+            <span class="lb-name">{{ fullName(player) }}</span>
             <span class="lb-value">{{ player.goals }} goals</span>
           </div>
         </div>

@@ -48,9 +48,9 @@ const handleTeamJoined = (team) => {
   userTeam.value = team
 }
 
-async function handleLogin(username, password) {
+async function handleLogin(email, password) {
   try {
-    await auth.login(username, password)
+    await auth.login(email, password)
     closeLoginModal()
   } catch (e) {
     alert('Login error: ' + e.message)
@@ -222,7 +222,7 @@ watch(() => auth.isAuthenticated, async () => {
             to="/profile"
             class="login-btn"
           >
-            {{ auth.user?.username }}
+            {{ auth.user?.name }} {{ auth.user?.surname }}
           </router-link>
         </div>
       </nav>

@@ -6,7 +6,7 @@
       <input
         v-model="searchQuery"
         type="text"
-        placeholder="Search by username or email..."
+        placeholder="Search by name or email..."
       />
 
       <select v-model="selectedRole">
@@ -23,7 +23,8 @@
       <thead>
         <tr>
           <th>ID</th>
-          <th>Username</th>
+          <th>Name</th>
+          <th>Surname</th>
           <th>Email</th>
           <th>Role</th>
           <th>Team ID</th>
@@ -34,7 +35,10 @@
         <tr v-for="user in filteredUsers" :key="user.id">
           <td>{{ user.id }}</td>
           <td>
-            <input v-model="user.username" @change="updateUser(user)" />
+            <input v-model="user.name" @change="updateUser(user)" />
+          </td>
+          <td>
+            <input v-model="user.surname" @change="updateUser(user)" />
           </td>
           <td>
             <input v-model="user.email" @change="updateUser(user)" />
@@ -120,7 +124,7 @@ onMounted(async () => {
 const filteredUsers = computed(() => {
   return users.value.filter(user => {
     const matchesSearch =
-      user.username.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
+      ((user.name || '') + ' ' + (user.surname || '')).toLowerCase().includes(searchQuery.value.toLowerCase()) ||
       user.email.toLowerCase().includes(searchQuery.value.toLowerCase())
 
     const matchesRole = selectedRole.value

@@ -3,8 +3,13 @@
     <h1>Registration</h1>
     <form @submit.prevent="registerUser">
       <div class="form-group">
-        <label for="username">Username:</label>
-        <input v-model="form.username" type="text" id="username" required />
+        <label for="name">Name:</label>
+        <input v-model="form.name" type="text" id="name" required />
+      </div>
+
+      <div class="form-group">
+        <label for="surname">Surname:</label>
+        <input v-model="form.surname" type="text" id="surname" required />
       </div>
 
       <div class="form-group">
@@ -50,7 +55,8 @@ const router = useRouter()
 
 
 const form = ref({
-  username: '',
+  name: '',
+  surname: '',
   email: '',
   password: '',
   role: '',
@@ -65,7 +71,7 @@ const registerUser = async () => {
     const response = await axios.post('http://localhost:3000/api/auth/register', form.value)
     message.value = response.data.message
     success.value = true
-    form.value = { username: '', email: '', password: '', role: '' }
+    form.value = { name: '', surname: '', email: '', password: '', role: '' }
     setTimeout(() => {
       router.push('/') 
     }, 1000)
