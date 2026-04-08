@@ -3,21 +3,21 @@
     <!-- Header -->
     <div class="schedule-header">
       <div class="header-left">
-        <h1>📅 Schedule</h1>
-        <p class="header-subtitle">{{ upcomingCount }} upcoming event{{ upcomingCount !== 1 ? 's' : '' }}</p>
+        <h1>📅 {{ $t('schedule.title') }}</h1>
+        <p class="header-subtitle">{{ upcomingCount }} {{ upcomingCount !== 1 ? $t('schedule.upcomingEvents') : $t('schedule.upcomingEvent') }}</p>
       </div>
       <div class="header-actions">
         <button v-if="userRole === 'Coach'" @click="showStats = true; fetchAttendanceStats()" class="header-btn stats-btn">
-          📊 Stats
+          📊 {{ $t('schedule.stats') }}
         </button>
         <button v-if="userRole === 'Coach'" @click="openAddModal()" class="header-btn add-btn">
-          ＋ New Event
+          ＋ {{ $t('schedule.newEvent') }}
         </button>
         <div class="view-toggle">
-          <button @click="viewMode = 'week'" :class="{ active: viewMode === 'week' }" title="Week view">
+          <button @click="viewMode = 'week'" :class="{ active: viewMode === 'week' }" :title="$t('schedule.weekView')">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M3 10h18"/><path d="M10 4v18"/></svg>
           </button>
-          <button @click="viewMode = 'list'" :class="{ active: viewMode === 'list' }" title="List view">
+          <button @click="viewMode = 'list'" :class="{ active: viewMode === 'list' }" :title="$t('schedule.listView')">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>
           </button>
         </div>
@@ -32,7 +32,7 @@
         </button>
         <div class="week-title">
           <h2>{{ currentWeekRange }}</h2>
-          <button @click="currentWeek = dayjs()" class="today-btn" v-if="!currentWeek.isSame(dayjs(), 'week')">Today</button>
+          <button @click="currentWeek = dayjs()" class="today-btn" v-if="!currentWeek.isSame(dayjs(), 'week')">{{ $t('schedule.today') }}</button>
         </div>
         <button @click="changeWeek(1)" class="nav-btn">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 18l6-6-6-6"/></svg>
@@ -89,13 +89,13 @@
         </div>
         <div class="search-box">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-          <input v-model="searchQuery" placeholder="Search events..." />
+          <input v-model="searchQuery" :placeholder="$t('schedule.searchEvents')" />
         </div>
       </div>
       
       <div v-if="filteredEvents.length === 0" class="empty-state">
         <div class="empty-icon">📭</div>
-        <p>No events found</p>
+        <p>{{ $t('schedule.noEventsFound') }}</p>
       </div>
 
       <div class="events-list" v-else>
@@ -133,45 +133,45 @@
     <!-- Modal for adding/editing -->
     <div v-if="showEventModal" class="modal-overlay" @click.self="closeModal">
       <div class="modal-content">
-        <h3>{{ modalMode === 'add' ? 'Add Event' : 'Edit Event' }}</h3>
+        <h3>{{ modalMode === 'add' ? $t('schedule.addEvent') : $t('schedule.editEvent') }}</h3>
         
         <div v-if="error" class="modal-error">{{ error }}</div>
         
         <div class="modal-form">
           <div class="form-row">
-            <label>Title</label>
-            <input v-model="currentEvent.event_name" placeholder="Practice, Game, etc." />
+            <label>{{ $t('schedule.eventTitle') }}</label>
+            <input v-model="currentEvent.event_name" :placeholder="$t('schedule.practice') + ', ' + $t('schedule.game') + ', ' + $t('schedule.other')" />
           </div>
           
           <div class="form-row">
-            <label>Date</label>
+            <label>{{ $t('schedule.eventDate') }}</label>
             <input v-model="currentEvent.event_date" type="date" />
           </div>
           
           <div class="form-row">
-            <label>Time</label>
+            <label>{{ $t('schedule.eventTime') }}</label>
             <input v-model="currentEvent.event_time" type="time" />
           </div>
           
           <div class="form-row">
-            <label>Type</label>
+            <label>{{ $t('schedule.eventType') }}</label>
             <select v-model="currentEvent.event_type">
-              <option value="practice">Practice</option>
-              <option value="game">Game</option>
-              <option value="meeting">Meeting</option>
-              <option value="other">Other</option>
+              <option value="practice">{{ $t('schedule.practice') }}</option>
+              <option value="game">{{ $t('schedule.game') }}</option>
+              <option value="meeting">{{ $t('schedule.meeting') }}</option>
+              <option value="other">{{ $t('schedule.other') }}</option>
             </select>
           </div>
           
           <div class="form-row">
-            <label>Location</label>
-            <input v-model="currentEvent.location" placeholder="Where will the event take place?" />
+            <label>{{ $t('schedule.eventLocation') }}</label>
+            <input v-model="currentEvent.location" :placeholder="$t('schedule.eventLocation') + '?'" />
           </div>
           
           <div class="form-actions">
-            <button @click="closeModal">Cancel</button>
+            <button @click="closeModal">{{ $t('schedule.cancel') }}</button>
             <button @click="modalMode === 'add' ? addEvent() : saveEdit()" class="save">
-              {{ modalMode === 'add' ? 'Add' : 'Save' }}
+              {{ modalMode === 'add' ? $t('schedule.add') : $t('schedule.save') }}
             </button>
           </div>
         </div>
@@ -201,7 +201,7 @@
             <div class="meta-item">
               <div class="meta-icon">📅</div>
               <div class="meta-content">
-                <span class="meta-label">Date</span>
+                <span class="meta-label">{{ $t('schedule.date') }}</span>
                 <span class="meta-value">{{ dayjs(selectedEvent.event_date).format('dddd, D MMMM YYYY') }}</span>
               </div>
             </div>
@@ -209,7 +209,7 @@
             <div class="meta-item">
               <div class="meta-icon">🕐</div>
               <div class="meta-content">
-                <span class="meta-label">Time</span>
+                <span class="meta-label">{{ $t('schedule.time') }}</span>
                 <span class="meta-value">{{ selectedEvent.event_time }}</span>
               </div>
             </div>
@@ -217,25 +217,25 @@
             <div class="meta-item full-width">
               <div class="meta-icon">📍</div>
               <div class="meta-content">
-                <span class="meta-label">Location</span>
-                <span class="meta-value">{{ selectedEvent.location || 'Not specified' }}</span>
+                <span class="meta-label">{{ $t('schedule.location') }}</span>
+                <span class="meta-value">{{ selectedEvent.location || $t('schedule.notSpecified') }}</span>
               </div>
             </div>
           </div>
           
           <!-- Countdown or status -->
           <div class="event-countdown" v-if="isEventUpcoming(selectedEvent)">
-            <span class="countdown-label">⏳ Starts in</span>
+            <span class="countdown-label">⏳ {{ $t('schedule.startsIn') }}</span>
             <span class="countdown-value">{{ getTimeUntilEvent(selectedEvent) }}</span>
           </div>
           <div class="event-countdown past" v-else>
-            <span class="countdown-label">✓ Event completed</span>
+            <span class="countdown-label">✓ {{ $t('schedule.eventCompleted') }}</span>
           </div>
         </div>
         
         <!-- Player's own attendance (for practices only, before event date) -->
         <div v-if="selectedEvent.event_type === 'practice' && userRole === 'Player' && isEventUpcoming(selectedEvent)" class="attendance-section">
-          <h3>📋 Your Response</h3>
+          <h3>📋 {{ $t('schedule.yourResponse') }}</h3>
           <div class="attendance-choice">
             <button 
               @click="setMyAttendance('present')" 
@@ -243,7 +243,7 @@
               class="attend-btn yes"
             >
               <span class="btn-icon">✓</span>
-              <span class="btn-text">I'll be there</span>
+              <span class="btn-text">{{ $t('schedule.illBeThere') }}</span>
             </button>
             <button 
               @click="openDeclineModal()" 
@@ -251,18 +251,18 @@
               class="attend-btn no"
             >
               <span class="btn-icon">✗</span>
-              <span class="btn-text">Can't make it</span>
+              <span class="btn-text">{{ $t('schedule.cantMakeIt') }}</span>
             </button>
           </div>
           <div v-if="myAttendanceStatus && myAttendanceStatus !== 'present'" class="my-reason-card">
             <span class="reason-icon">💬</span>
-            <span>{{ myAttendanceNotes || 'No reason provided' }}</span>
+            <span>{{ myAttendanceNotes || $t('schedule.noReasonProvided') }}</span>
           </div>
         </div>
 
         <!-- Show attendance status if event passed -->
         <div v-if="selectedEvent.event_type === 'practice' && userRole === 'Player' && !isEventUpcoming(selectedEvent)" class="attendance-section past">
-          <h3>📋 Your Attendance</h3>
+          <h3>📋 {{ $t('schedule.yourAttendance') }}</h3>
           <div class="attendance-result" :class="myAttendanceStatus || 'unmarked'">
             <span class="result-icon">{{ getStatusIcon(myAttendanceStatus) }}</span>
             <span class="result-text">{{ getStatusDisplayText(myAttendanceStatus) }}</span>
@@ -271,7 +271,7 @@
         
         <!-- Coach view: all players attendance (for practices) -->
         <div v-if="selectedEvent.event_type === 'practice' && userRole === 'Coach'" class="attendance-section coach">
-          <h3>👥 Team Responses</h3>
+          <h3>👥 {{ $t('schedule.teamResponses') }}</h3>
           <div class="attendance-stats-bar">
             <div class="stat-segment yes" :style="{ width: getAttendancePercent('present') + '%' }">
               <span v-if="attendanceSummary.present > 0">{{ attendanceSummary.present }}</span>
@@ -284,9 +284,9 @@
             </div>
           </div>
           <div class="stats-legend">
-            <span class="legend-item yes">✓ Attending ({{ attendanceSummary.present }})</span>
-            <span class="legend-item no">✗ Can't attend ({{ attendanceSummary.absent }})</span>
-            <span class="legend-item pending">? No response ({{ attendanceSummary.unmarked }})</span>
+            <span class="legend-item yes">✓ {{ $t('schedule.attending') }} ({{ attendanceSummary.present }})</span>
+            <span class="legend-item no">✗ {{ $t('schedule.cantAttend') }} ({{ attendanceSummary.absent }})</span>
+            <span class="legend-item pending">? {{ $t('schedule.noResponse') }} ({{ attendanceSummary.unmarked }})</span>
           </div>
           
           <div class="attendees-grid">
@@ -309,10 +309,10 @@
         <!-- Coach buttons -->
         <div v-if="userRole === 'Coach'" class="event-detail-actions">
           <button @click="startEdit(selectedEvent)" class="edit-btn">
-            <span>✏️</span> Edit Event
+            <span>✏️</span> {{ $t('buttons.edit') }}
           </button>
           <button @click="deleteEvent(selectedEvent)" class="delete-btn">
-            <span>🗑️</span> Delete
+            <span>🗑️</span> {{ $t('buttons.delete') }}
           </button>
         </div>
       </div>
@@ -321,15 +321,15 @@
     <!-- Decline attendance modal -->
     <div v-if="showDeclineModal" class="modal-overlay" @click.self="showDeclineModal = false">
       <div class="modal-content decline-modal">
-        <h3>Why can't you attend?</h3>
+        <h3>{{ $t('schedule.whyCantAttend') }}</h3>
         <textarea 
           v-model="declineReason"
-          placeholder="Please describe the reason..."
+          :placeholder="$t('schedule.describeReason')"
           rows="4"
         ></textarea>
         <div class="modal-actions">
-          <button @click="showDeclineModal = false" class="modal-btn cancel-btn">Cancel</button>
-          <button @click="submitDecline" class="modal-btn confirm-btn" :disabled="!declineReason.trim()">Confirm</button>
+          <button @click="showDeclineModal = false" class="modal-btn cancel-btn">{{ $t('buttons.cancel') }}</button>
+          <button @click="submitDecline" class="modal-btn confirm-btn" :disabled="!declineReason.trim()">{{ $t('buttons.confirm') }}</button>
         </div>
       </div>
     </div>
@@ -337,14 +337,14 @@
     <!-- Statistics modal -->
     <div v-if="showStats" class="modal-overlay" @click.self="showStats = false">
       <div class="modal-content stats-modal">
-        <h3>📊 Practice Attendance Statistics</h3>
+        <h3>📊 {{ $t('schedule.attendanceStats') }}</h3>
         <table>
           <thead>
             <tr>
-              <th>Player</th>
-              <th>Attended</th>
-              <th>Missed</th>
-              <th>Rate</th>
+              <th>{{ $t('schedule.player') }}</th>
+              <th>{{ $t('schedule.attended') }}</th>
+              <th>{{ $t('schedule.missed') }}</th>
+              <th>{{ $t('schedule.rate') }}</th>
             </tr>
           </thead>
           <tbody>
@@ -367,7 +367,7 @@
           </tbody>
         </table>
         <div class="modal-actions">
-          <button @click="showStats = false" class="modal-btn cancel-btn">Close</button>
+          <button @click="showStats = false" class="modal-btn cancel-btn">{{ $t('buttons.close') }}</button>
         </div>
       </div>
     </div>
@@ -376,11 +376,13 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
 import axios from 'axios'
 import dayjs from 'dayjs'
 import { useAuthStore } from '../stores/auth'
 
+const { t } = useI18n()
 const auth = useAuthStore()
 const route = useRoute()
 const teamId = ref(route.params.id)
@@ -393,11 +395,11 @@ const searchQuery = ref('')
 const currentWeek = ref(dayjs())
 
 // Event type filters for list view
-const eventFilters = [
-  { value: 'practice', label: 'Practices', icon: '🏃' },
-  { value: 'game', label: 'Games', icon: '⚽' },
-  { value: 'meeting', label: 'Meetings', icon: '📋' },
-]
+const eventFilters = computed(() => [
+  { value: 'practice', label: t('schedule.practice'), icon: '🏃' },
+  { value: 'game', label: t('schedule.game'), icon: '⚽' },
+  { value: 'meeting', label: t('schedule.meeting'), icon: '📋' },
+])
 
 // Upcoming events count
 const upcomingCount = computed(() => {
@@ -701,11 +703,11 @@ const getTimeUntilEvent = (event) => {
 // Status display text
 const getStatusDisplayText = (status) => {
   const texts = {
-    present: 'Will attend',
-    absent: 'Can\'t attend',
-    excused: 'Excused',
-    late: 'Will be late',
-    unmarked: 'No response'
+    present: t('schedule.willAttend'),
+    absent: t('schedule.cantMakeIt'),
+    excused: t('schedule.excused'),
+    late: t('schedule.willBeLate'),
+    unmarked: t('schedule.noResponse')
   }
   return texts[status] || texts.unmarked
 }

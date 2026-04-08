@@ -15,19 +15,19 @@
     <!-- Messages Container -->
     <div class="messages-container" ref="messagesContainer">
       <div v-if="sortedMessages.length === 0" class="empty-state">
-        <p>No messages yet. Start the conversation!</p>
+        <p>{{ $t('chatPage.noMessages') }}</p>
       </div>
 
       <div
         v-for="message in sortedMessages"
         :key="message.id"
-        :class="['message', { 'own-message': (message.sender_id || message.senderId) === currentUserId }]"
+        :class="['message', { 'own-message': message.sender_id === currentUserId }]"
       >
         <div class="message-header">
           <span class="message-author">
-            {{ (message.sender_id || message.senderId) === currentUserId ? 'You' : username }}
+            {{ message.sender_id === currentUserId ? 'You' : username }}
           </span>
-          <span class="message-time">{{ formatTime(message.created_at || message.createdAt) }}</span>
+          <span class="message-time">{{ formatTime(message.created_at) }}</span>
         </div>
         <div class="message-content">
           {{ message.message }}
@@ -40,7 +40,7 @@
       <input
         v-model="newMessage"
         @keyup.enter="sendMessage"
-        placeholder="Type a message..."
+        :placeholder="$t('chatPage.typeMessage')"
         class="message-input"
         :disabled="!isConnected"
       />
@@ -49,7 +49,7 @@
         :disabled="!newMessage.trim() || !isConnected"
         class="send-btn"
       >
-        <span>Send</span>
+        <span>{{ $t('buttons.send') }}</span>
       </button>
     </div>
   </div>
@@ -82,7 +82,7 @@ export default {
     const messages = computed(() => chatStore.dmMessages)
     const sortedMessages = computed(() => {
       return [...messages.value].sort((a, b) => 
-        new Date(a.created_at || a.createdAt) - new Date(b.created_at || b.createdAt)
+        new Date(a.created_at) - new Date(b.created_at)
       )
     })
     const isConnected = computed(() => chatStore.isConnected)

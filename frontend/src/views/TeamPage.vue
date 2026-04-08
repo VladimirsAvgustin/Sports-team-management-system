@@ -12,7 +12,7 @@
             </div>
             <div v-if="isCoach" class="logo-overlay">
               <span>📷</span>
-              <span class="overlay-text">Change Logo</span>
+              <span class="overlay-text">{{ $t('teamPage.changeLogo') }}</span>
             </div>
           </div>
           <input 
@@ -23,7 +23,7 @@
             style="display: none"
           />
           <button v-if="isCoach && team.logo" @click="deleteLogo" class="delete-logo-btn">
-            Remove Logo
+            {{ $t('teamPage.removeLogo') }}
           </button>
         </div>
 
@@ -31,13 +31,13 @@
         <div class="team-info-section">
           <h1 class="team-name">{{ team.name }}</h1>
           <div class="team-code-badge">
-            <span class="code-label">Team Code:</span>
+            <span class="code-label">{{ $t('teamPage.teamCode') }}</span>
             <span class="code-value">{{ team.team_code }}</span>
           </div>
           <div class="team-meta">
             <span class="meta-item">
               <span class="meta-icon"></span>
-              {{ sortedPlayers.length }} Players
+              {{ sortedPlayers.length }} {{ $t('teamPage.players') }}
             </span>
             <button @click="toggleChat" class="chat-toggle-btn" title="Team Chat">
               💬 Chat
@@ -53,28 +53,28 @@
           <span class="stat-icon">⚽</span>
           <div class="stat-content">
             <span class="stat-value">{{ teamStats.totalGoals }}</span>
-            <span class="stat-label">Total Goals</span>
+            <span class="stat-label">{{ $t('teamPage.totalGoals') }}</span>
           </div>
         </div>
         <div class="stat-card">
           <span class="stat-icon">🎯</span>
           <div class="stat-content">
             <span class="stat-value">{{ teamStats.totalAssists }}</span>
-            <span class="stat-label">Total Assists</span>
+            <span class="stat-label">{{ $t('teamPage.totalAssists') }}</span>
           </div>
         </div>
         <div class="stat-card">
           <span class="stat-icon">🏟️</span>
           <div class="stat-content">
             <span class="stat-value">{{ teamStats.totalMatches }}</span>
-            <span class="stat-label">Matches Played</span>
+            <span class="stat-label">{{ $t('teamPage.matchesPlayed') }}</span>
           </div>
         </div>
         <div class="stat-card">
           <span class="stat-icon">📊</span>
           <div class="stat-content">
             <span class="stat-value">{{ teamStats.avgAttendance }}%</span>
-            <span class="stat-label">Avg Attendance</span>
+            <span class="stat-label">{{ $t('teamPage.avgAttendance') }}</span>
           </div>
         </div>
       </div>
@@ -83,11 +83,11 @@
     <!-- Goals Distribution Chart (for Coach) -->
     <div v-if="isCoach && sortedPlayers.length > 0" class="charts-section">
       <div class="chart-container">
-        <h3>Goals Distribution</h3>
+        <h3>{{ $t('teamPage.goalsDistribution') }}</h3>
         <canvas ref="goalsChartRef"></canvas>
       </div>
       <div class="chart-container">
-        <h3>Assists Distribution</h3>
+        <h3>{{ $t('teamPage.assistsDistribution') }}</h3>
         <canvas ref="assistsChartRef"></canvas>
       </div>
     </div>
@@ -104,34 +104,34 @@
       <div class="search-container">
         <input 
           v-model="searchQuery" 
-          placeholder="Search players..." 
+          :placeholder="$t('teamPage.searchPlayers')" 
           class="search-input"
         >
         <span class="search-icon">🔍</span>
       </div>
       <div class="controls-right">
         <select v-model="sortBy" class="sort-select">
-          <option value="name">By Name</option>
-          <option value="goals">By Goals</option>
-          <option value="assists">By Assists</option>
-          <option value="matches">By Matches</option>
+          <option value="name">{{ $t('teamPage.byName') }}</option>
+          <option value="goals">{{ $t('teamPage.byGoals') }}</option>
+          <option value="assists">{{ $t('teamPage.byAssists') }}</option>
+          <option value="matches">{{ $t('teamPage.byMatches') }}</option>
         </select>
         <div class="view-toggle">
           <button 
             @click="viewMode = 'cards'" 
             :class="{ active: viewMode === 'cards' }"
-            title="Card view" 
+            :title="$t('teamPage.cardsView')" 
           >
             <i class="fas fa-th-large"></i>
-            <span class="visually-hidden">Cards</span>
+            <span class="visually-hidden">{{ $t('teamPage.cardsView') }}</span>
           </button>
           <button 
             @click="viewMode = 'list'" 
             :class="{ active: viewMode === 'list' }"
-            title="List view"
+            :title="$t('teamPage.listView')"
           >
             <i class="fas fa-list"></i>
-            <span class="visually-hidden">List</span>
+            <span class="visually-hidden">{{ $t('teamPage.listView') }}</span>
           </button>
         </div>
         <!-- <button 
@@ -197,7 +197,7 @@
                 <p class="player-email">{{ player.email }}</p>
                 <div class="player-status">
                   <span class="status-indicator active"></span>
-                  <span class="status-text">Active Player</span>
+                  <span class="status-text">{{ $t('teamPage.activePlayer') }}</span>
                 </div>
               </div>
 
@@ -242,7 +242,7 @@
             <div class="card-footer" v-if="isCoach">
               <button @click="confirmRemovePlayer(player)" class="remove-btn">
                 <i class="fas fa-user-minus"></i>
-                <span>Remove</span>
+                <span>{{ $t('teamPage.remove') }}</span>
               </button>
             </div>
           </div>
@@ -297,15 +297,15 @@
 
     <!-- Empty State -->
     <div v-if="!loading && sortedPlayers.length === 0" class="empty-state">
-      <h3>No Players Found</h3>
-      <p v-if="searchQuery">Try adjusting your search query</p>
-      <p v-else>This team currently has no players</p>
+      <h3>{{ $t('teamPage.noPlayers') }}</h3>
+      <p v-if="searchQuery">{{ $t('teamPage.tryAdjustingSearch') }}</p>
+      <p v-else>{{ $t('teamPage.noPlayers') }}</p>
     </div>
 
     <!-- Loading Overlay -->
     <div v-if="loading" class="loading-overlay">
       <div class="loading-spinner"></div>
-      <p>Loading team data...</p>
+      <p>{{ $t('messages.loading') }}</p>
     </div>
 
     <!-- Toast Notification -->
@@ -317,6 +317,7 @@
 
 <script setup>
 import { ref, computed, onMounted, watch, nextTick } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
 import axios from 'axios'
 import { useAuthStore } from '../stores/auth'
@@ -324,6 +325,7 @@ import { useChatStore } from '../stores/chat'
 import Chart from 'chart.js/auto'
 import ChatComponent from '../components/ChatComponent.vue'
 
+const { t } = useI18n()
 const route = useRoute()
 const authStore = useAuthStore()
 const chatStore = useChatStore()
@@ -366,13 +368,13 @@ const assistsChartRef = ref(null)
 let goalsChartInstance = null
 let assistsChartInstance = null
 
-const statFields = [
-  { key: 'matches', label: 'Matches' },
-  { key: 'goals', label: 'Goals' },
-  { key: 'assists', label: 'Assists' },
-  { key: 'yellow_cards', label: 'Yellow Cards' },
-  { key: 'red_cards', label: 'Red Cards' }
-]
+const statFields = computed(() => [
+  { key: 'matches', label: t('teamPage.matches') },
+  { key: 'goals', label: t('teamPage.goals') },
+  { key: 'assists', label: t('teamPage.assists') },
+  { key: 'yellow_cards', label: t('teamPage.yellowCards') },
+  { key: 'red_cards', label: t('teamPage.redCards') }
+])
 
 // Data fetching
 const fetchTeamData = async () => {
@@ -423,13 +425,13 @@ const handleLogoUpload = async (event) => {
 
   // Validate file type
   if (!file.type.startsWith('image/')) {
-    showToast('Please select an image file', 'error')
+    showToast(t('messages.selectImageFile'), 'error')
     return
   }
 
   // Validate file size (max 2MB)
   if (file.size > 2 * 1024 * 1024) {
-    showToast('Image size must be less than 2MB', 'error')
+    showToast(t('messages.imageSizeTooLarge'), 'error')
     return
   }
 
@@ -440,25 +442,25 @@ const handleLogoUpload = async (event) => {
     try {
       const res = await axios.post(`/api/auth/teams/${teamId}/logo`, { logo: base64 })
       team.value.logo = res.data.logo
-      showToast('Logo uploaded successfully')
+      showToast(t('messages.logoUploadSuccess'))
     } catch (err) {
       console.error('Error uploading logo:', err)
-      showToast('Failed to upload logo', 'error')
+      showToast(t('messages.uploadError'), 'error')
     }
   }
   reader.readAsDataURL(file)
 }
 
 const deleteLogo = async () => {
-  if (!confirm('Are you sure you want to remove the team logo?')) return
+  if (!confirm(t('teamPage.removeLogoConfirm'))) return
 
   try {
     await axios.delete(`/api/auth/teams/${teamId}/logo`)
     team.value.logo = null
-    showToast('Logo removed successfully')
+    showToast(t('teamPage.logoRemoved'))
   } catch (err) {
     console.error('Error deleting logo:', err)
-    showToast('Failed to remove logo', 'error')
+    showToast(t('messages.removeLogoError'), 'error')
   }
 }
 
@@ -489,11 +491,11 @@ const fetchPlayers = async () => {
 const updatePlayerStats = async (player) => {
   try {
     await axios.put(`/api/auth/players/${player.id}/stats`, player.stats)
-    showToast('Stats updated successfully')
+    showToast(t('messages.statsUpdated'))
     if (isCoach.value) renderCharts()
   } catch (err) {
     console.error('Error updating stats:', err)
-    showToast('Failed to update stats', 'error')
+    showToast(t('messages.error'), 'error')
     // Revert changes if update fails
     await fetchPlayers()
   }
@@ -509,11 +511,11 @@ const removePlayer = async (playerId) => {
   try {
     await axios.delete(`/api/auth/players/${playerId}/team`)
     players.value = players.value.filter(p => p.id !== playerId)
-    showToast('Player removed successfully')
+    showToast(t('messages.playerRemoved'))
     if (isCoach.value) renderCharts()
   } catch (error) {
     console.error('Error removing player:', error)
-    showToast('Failed to remove player', 'error')
+    showToast(t('messages.error'), 'error')
   }
 }
 

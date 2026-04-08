@@ -12,6 +12,7 @@ const fs = require('fs');
 const app = express();
 const server = http.createServer(app);
 const PORT = 3000;
+const HOST = '0.0.0.0'; // Listen on all interfaces
 
 // Create uploads directory if it doesn't exist
 const uploadsDir = path.join(__dirname, 'uploads', 'logos');
@@ -19,25 +20,48 @@ if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
 
-// Initialize Socket.io
+// Dynamic CORS origin configuration for development
+// Allows localhost, 127.0.0.1, and any local network IPs (192.168.x.x, etc)
+const corsOriginCheck = (origin, callback) => {
+  // Allow development origins
+  const allowedOrigins = [
+    'http://localhost:5173',
+    'http://localhost:5174',
+    'http://127.0.0.1:5173',
+    'http://127.0.0.1:5174'
+  ];
+  
+  // Allow any local network IPs (192.168.x.x, 10.x.x.x, 172.x.x.x)
+  const isLocalNetworkIP = /^https?:\/\/(192\.168\.|10\.|172\.(1[6-9]|2[0-9]|3[01])|127\.)/;
+  
+  if (!origin || allowedOrigins.includes(origin) || isLocalNetworkIP.test(origin)) {
+    callback(null, true);
+  } else {
+    console.log('CORS blocked:', origin);
+    callback(new Error('Not allowed by CORS'));
+  }
+};
+
+// Initialize Socket.io with dynamic CORS
 const io = new Server(server, {
   cors: {
-    origin: ['http://localhost:5173', 'http://localhost:5174'],
+    origin: corsOriginCheck,
     methods: ['GET', 'POST'],
     credentials: true
   }
 });
+
 app.use((req, res, next) => {
   next();
 });
 
-// Middleware
+// Middleware - Express CORS with dynamic origin check
 app.use(cors({  
-  origin: ['http://localhost:5173', 'http://localhost:5174'],
+  origin: corsOriginCheck,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   credentials: true
 }));
-app.options('*', cors());
+app.options('*', cors({ origin: corsOriginCheck }));
 
 
 app.use(bodyParser.json({ limit: '10mb' }));
@@ -130,9 +154,19 @@ const db = new sqlite3.Database(dbPath, (err) => {
         sender_id INTEGER NOT NULL,
         receiver_id INTEGER NOT NULL,
         message TEXT NOT NULL,
+        is_read INTEGER DEFAULT 0,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (sender_id) REFERENCES users(id) ON DELETE CASCADE,
         FOREIGN KEY (receiver_id) REFERENCES users(id) ON DELETE CASCADE
+      )`);
+      db.run(`CREATE TABLE IF NOT EXISTS password_resets (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        token_hash TEXT NOT NULL UNIQUE,
+        expires_at INTEGER NOT NULL,
+        used_at INTEGER,
+        created_at INTEGER DEFAULT (strftime('%s', 'now')),
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
       )`);
       console.log('All tables initialized');
     });
@@ -325,12 +359,11 @@ io.on('connection', (socket) => {
 
         const dmData = {
           id: this.lastID,
-          senderId: socket.userId,
-          senderUsername: socket.userFullName,
-          receiverId,
+          sender_id: socket.userId,
+          receiver_id: receiverId,
           message,
-          isRead: 0,
-          createdAt: new Date().toISOString()
+          is_read: 0,
+          created_at: new Date().toISOString()
         };
 
         // Send to receiver if they're online
@@ -362,6 +395,8 @@ io.on('connection', (socket) => {
 });
 
 // Start the server
-server.listen(PORT, () => {
-  console.log(`Server started at http://localhost:${PORT}`);
+server.listen(PORT, HOST, () => {
+  console.log(`Server started at http://0.0.0.0:${PORT}`);
+  console.log(`Local access: http://localhost:${PORT}`);
+  console.log(`Network access: http://192.168.31.212:${PORT}`);
 });

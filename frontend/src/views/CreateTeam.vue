@@ -1,18 +1,18 @@
 <template>
   <div class="create-team-page">
-    <h1>Create a New Team</h1>
+    <h1>{{ $t('team.create') }}</h1>
     <form @submit.prevent="createTeam">
       <div class="form-group">
-        <label for="name">Team Name:</label>
+        <label for="name">{{ $t('team.teamName') }}:</label>
         <input type="text" id="name" v-model="teamName" required />
       </div>
 
       <div class="form-group">
-        <label for="teamCode">Team Code (auto-generated):</label>
+        <label for="teamCode">{{ $t('team.teamCodeAuto') }}:</label>
         <input type="text" id="teamCode" v-model="teamCode" readonly />
       </div>
 
-      <button type="submit" class="btn">Create Team</button>
+      <button type="submit" class="btn">{{ $t('team.create') }}</button>
     </form>
   </div>
 </template>
@@ -20,9 +20,11 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import axios from 'axios'
+import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
 import { useRouter } from 'vue-router'
 
+const { t } = useI18n()
 const auth = useAuthStore()
 const router = useRouter()
 
@@ -61,12 +63,11 @@ async function createTeam() {
     // Refresh user data to get the team ID
     await auth.fetchUser()
 
-    alert('Team successfully created!')
-    const newTeam = response.data.team
-    router.push(`/team/${newTeam.id}`)
+    alert(t('messages.teamCreated'))
+    router.push('/')
   } catch (error) {
     console.error(error)
-    alert('Error while creating the team: ' + (error.response?.data.error || error.message))
+    alert(t('messages.error') + ': ' + (error.response?.data.error || error.message))
   }
 }
 

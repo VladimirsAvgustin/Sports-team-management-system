@@ -1,9 +1,11 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
 import { useRouter } from 'vue-router'
 import axios from 'axios'
 
+const { t } = useI18n()
 const auth = useAuthStore()
 const router = useRouter()
 
@@ -90,21 +92,21 @@ const statCards = computed(() => {
   
   if (isPlayer.value) {
     return [
-      { label: 'Matches', value: stats.value.matches || 0, icon: '⚽', color: '#667eea' },
-      { label: 'Goals', value: stats.value.goals || 0, icon: '🥅', color: '#4caf50' },
-      { label: 'Assists', value: stats.value.assists || 0, icon: '🤝', color: '#ff9800' },
-      { label: 'Yellow Cards', value: stats.value.yellow_cards || 0, icon: '🟨', color: '#ffc107' },
-      { label: 'Red Cards', value: stats.value.red_cards || 0, icon: '🟥', color: '#f44336' },
+      { label: t('profile.matches'), value: stats.value.matches || 0, icon: '⚽', color: '#667eea' },
+      { label: t('profile.goals'), value: stats.value.goals || 0, icon: '🥅', color: '#4caf50' },
+      { label: t('profile.assists'), value: stats.value.assists || 0, icon: '🤝', color: '#ff9800' },
+      { label: t('profile.yellowCards'), value: stats.value.yellow_cards || 0, icon: '🟨', color: '#ffc107' },
+      { label: t('profile.redCards'), value: stats.value.red_cards || 0, icon: '🟥', color: '#f44336' },
     ]
   }
   
   if (isCoach.value) {
     return [
-      { label: 'Players', value: stats.value.totalPlayers || 0, icon: '👥', color: '#667eea' },
-      { label: 'Matches', value: stats.value.totalMatches || 0, icon: '⚽', color: '#4caf50' },
-      { label: 'Total Goals', value: stats.value.totalGoals || 0, icon: '🥅', color: '#ff9800' },
-      { label: 'Total Assists', value: stats.value.totalAssists || 0, icon: '🤝', color: '#42a5f5' },
-      { label: 'Avg Attendance', value: (stats.value.avgAttendance || 0) + '%', icon: '📊', color: '#ab47bc' },
+      { label: t('profile.players'), value: stats.value.totalPlayers || 0, icon: '👥', color: '#667eea' },
+      { label: t('profile.matches'), value: stats.value.totalMatches || 0, icon: '⚽', color: '#4caf50' },
+      { label: t('profile.totalGoals'), value: stats.value.totalGoals || 0, icon: '🥅', color: '#ff9800' },
+      { label: t('profile.totalAssists'), value: stats.value.totalAssists || 0, icon: '🤝', color: '#42a5f5' },
+      { label: t('profile.avgAttendance'), value: (stats.value.avgAttendance || 0) + '%', icon: '📊', color: '#ab47bc' },
     ]
   }
   
@@ -125,7 +127,7 @@ onMounted(() => {
     <!-- Loading -->
     <div v-if="loading" class="loading-state">
       <div class="spinner"></div>
-      <p>Loading profile...</p>
+      <p>{{ $t('profile.loadingProfile') }}</p>
     </div>
 
     <div v-else class="profile-content">
@@ -150,7 +152,7 @@ onMounted(() => {
                 🏟️ {{ team.name }}
               </span>
               <span v-else class="meta-item no-team">
-                No team yet
+                {{ $t('profile.noTeamYet') }}
               </span>
             </div>
           </div>
@@ -158,7 +160,7 @@ onMounted(() => {
           <div class="header-actions">
             <button @click="handleLogout" class="logout-btn">
               <span class="btn-icon">🚪</span>
-              Logout
+              {{ $t('profile.logout') }}
             </button>
           </div>
         </div>
@@ -167,15 +169,15 @@ onMounted(() => {
       <!-- Quick Info Bar -->
       <div class="info-bar" v-if="team">
         <div class="info-bar-item">
-          <span class="info-label">Team</span>
+          <span class="info-label">{{ $t('profile.team') }}</span>
           <span class="info-value">{{ team.name }}</span>
         </div>
         <div class="info-bar-item" v-if="team.team_code">
-          <span class="info-label">Team Code</span>
+          <span class="info-label">{{ $t('profile.teamCode') }}</span>
           <span class="info-value code">{{ team.team_code }}</span>
         </div>
         <div class="info-bar-item" v-if="attendanceRate !== null">
-          <span class="info-label">Attendance</span>
+          <span class="info-label">{{ $t('profile.attendanceRate') }}</span>
           <span class="info-value" :class="{ 'good': attendanceRate >= 75, 'mid': attendanceRate >= 50 && attendanceRate < 75, 'low': attendanceRate < 50 }">
             {{ attendanceRate }}%
           </span>
@@ -185,7 +187,7 @@ onMounted(() => {
       <!-- Stats Cards -->
       <div v-if="statCards.length > 0" class="stats-section">
         <h2 class="section-title">
-          {{ isPlayer ? '📊 My Statistics' : '📊 Team Overview' }}
+          {{ isPlayer ? $t('profile.myStatistics') : $t('profile.teamOverview') }}
         </h2>
         <div class="stats-grid">
           <div 
@@ -204,7 +206,7 @@ onMounted(() => {
 
       <!-- Top Scorers (Coach only) -->
       <div v-if="isCoach && stats?.topScorers?.length > 0" class="leaderboard-section">
-        <h2 class="section-title">🏆 Top Scorers</h2>
+        <h2 class="section-title">{{ $t('profile.topScorers') }}</h2>
         <div class="leaderboard-list">
           <div v-for="(player, i) in stats.topScorers" :key="player.user_id" class="leaderboard-item">
             <span class="rank" :class="{ gold: i === 0, silver: i === 1, bronze: i === 2 }">
@@ -212,7 +214,7 @@ onMounted(() => {
             </span>
             <div class="lb-avatar">{{ getInitials(fullName(player)) }}</div>
             <span class="lb-name">{{ fullName(player) }}</span>
-            <span class="lb-value">{{ player.goals }} goals</span>
+            <span class="lb-value">{{ player.goals }} {{ $t('profile.goalsCount') }}</span>
           </div>
         </div>
       </div>
@@ -220,8 +222,8 @@ onMounted(() => {
       <!-- No team state -->
       <div v-if="!team" class="no-team-card">
         <div class="no-team-icon">🏟️</div>
-        <h3>No Team Yet</h3>
-        <p>Join a team with a code or create your own to get started.</p>
+        <h3>{{ $t('profile.noTeamYet') }}</h3>
+        <p>{{ $t('profile.joinTeamPrompt') }}</p>
       </div>
     </div>
   </div>

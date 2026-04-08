@@ -1,6 +1,6 @@
 <template>
   <div>
-    <h1>About Us</h1>
-    <p>We provide the best sports management system for teams.</p>
+    <h1>{{ $t('about.title') }}</h1>
+    <p>{{ $t('about.description') }}</p>
   </div>
 </template>

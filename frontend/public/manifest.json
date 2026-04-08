@@ -1,0 +1,93 @@
+{
+  "name": "Sports Team Management System",
+  "short_name": "Sports Team",
+  "description": "Система управления спортивной командой",
+  "start_url": "/?pwa=true",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui", "browser"],
+  "orientation": "portrait-primary",
+  "theme_color": "#667eea",
+  "background_color": "#ffffff",
+  "categories": ["sports", "productivity"],
+  "prefer_related_applications": false,
+  "screenshots": [
+    {
+      "src": "/screenshot-small.png",
+      "sizes": "540x720",
+      "type": "image/png",
+      "mode": "any",
+      "form_factor": "narrow"
+    },
+    {
+      "src": "/screenshot-large.png",
+      "sizes": "1080x1440",
+      "type": "image/png",
+      "mode": "any",
+      "form_factor": "wide"
+    }
+  ],
+  "icons": [
+    {
+      "src": "/launchericon-48x48.png",
+      "sizes": "48x48",
+      "type": "image/png"
+    },
+    {
+      "src": "/launchericon-72x72.png",
+      "sizes": "72x72",
+      "type": "image/png"
+    },
+    {
+      "src": "/launchericon-96x96.png",
+      "sizes": "96x96",
+      "type": "image/png"
+    },
+    {
+      "src": "/launchericon-144x144.png",
+      "sizes": "144x144",
+      "type": "image/png"
+    },
+    {
+      "src": "/launchericon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/launchericon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Создать команду",
+      "short_name": "Новая команда",
+      "description": "Быстро создать новую команду",
+      "url": "/create-team",
+      "icons": [{ "src": "/launchericon-96x96.png", "sizes": "96x96", "type": "image/png" }]
+    },
+    {
+      "name": "Присоединиться к команде",
+      "short_name": "Присоединиться",
+      "description": "Присоединиться к существующей команде",
+      "url": "/join-team",
+      "icons": [{ "src": "/launchericon-96x96.png", "sizes": "96x96", "type": "image/png" }]
+    }
+  ],
+  "share_target": {
+    "action": "/share",
+    "method": "POST",
+    "enctype": "multipart/form-data",
+    "params": {
+      "files": [
+        {
+          "name": "file",
+          "accept": ["text/*", "application/*"]
+        }
+      ]
+    }
+  }
+}

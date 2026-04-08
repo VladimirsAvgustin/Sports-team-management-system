@@ -4,7 +4,9 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "gen-cert": "node generate-cert.js",
     "dev": "vite",
+    "dev:https": "npm run gen-cert && vite",
     "build": "vite build",
     "preview": "vite preview"
   },
@@ -21,6 +23,7 @@
     "pinia": "^3.0.2",
     "socket.io-client": "^4.8.1",
     "vue": "^3.5.13",
+    "vue-i18n": "^11.3.0",
     "vue-router": "^4.5.1"
   },
   "devDependencies": {

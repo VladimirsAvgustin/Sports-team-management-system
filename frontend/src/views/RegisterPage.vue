@@ -1,35 +1,35 @@
 <template>
   <div class="register-page">
-    <h1>Registration</h1>
+    <h1>{{ $t('nav.register') }}</h1>
     <form @submit.prevent="registerUser">
       <div class="form-group">
-        <label for="name">Name:</label>
+        <label for="name">{{ $t('auth.name') }}:</label>
         <input v-model="form.name" type="text" id="name" required />
       </div>
 
       <div class="form-group">
-        <label for="surname">Surname:</label>
+        <label for="surname">{{ $t('auth.surname') }}:</label>
         <input v-model="form.surname" type="text" id="surname" required />
       </div>
 
       <div class="form-group">
-        <label for="email">Email:</label>
+        <label for="email">{{ $t('auth.email') }}:</label>
         <input v-model="form.email" type="email" id="email" required />
       </div>
 
       <div class="form-group">
-        <label for="password">Password:</label>
+        <label for="password">{{ $t('auth.password') }}:</label>
         <input v-model="form.password" type="password" id="password" required />
       </div>
       
       <div class="form-group">
-        <label for="TeamCode">Team Code(optional):</label>
+        <label for="TeamCode">{{ $t('team.teamCode') }} (optional):</label>
         <input v-model="form.teamCode" type="text" id="teamCode"  />
         </div>
 
       
       <div class="form-group">
-        <label for="role">Role:</label>
+        <label for="role">{{ $t('auth.role') }}:</label>
         <select v-model="form.role" id="role" required>
           <option disabled value="">Choose a role</option>
           <option value="Player">Player</option>
@@ -37,7 +37,7 @@
         </select>
       </div>
 
-      <button type="submit">Sign up</button>
+      <button type="submit">{{ $t('nav.register') }}</button>
     </form>
 
     <div v-if="message" :class="{'success': success, 'error': !success}">
