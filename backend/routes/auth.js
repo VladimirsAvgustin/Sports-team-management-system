@@ -1,7 +1,17 @@
 const express = require('express');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
+const nodemailer = require('nodemailer');
 const JWT_SECRET = 'your_jwt_secret';
+
+const mailTransporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: process.env.EMAIL_USER || 'vladimiravgustin123@gmail.com',
+    pass: process.env.EMAIL_PASS || ''
+  }
+});
 
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers.authorization;
@@ -213,6 +223,129 @@ module.exports = (db) => {
         res.status(500).json({ error: 'Password verification error' });
       }
     });
+  });
+
+  router.post('/forgot-password', (req, res) => {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ error: 'Email is required' });
+    }
+
+    db.get('SELECT id, email FROM users WHERE email = ?', [email], (err, user) => {
+      if (err) {
+        console.error('Forgot password lookup error:', err.message);
+        return res.status(500).json({ error: 'Server error' });
+      }
+
+      // Return the same message even when user does not exist to avoid email enumeration.
+      if (!user) {
+        return res.status(200).json({ message: 'If the account exists, a reset link has been sent to email.' });
+      }
+
+      const rawToken = crypto.randomBytes(32).toString('hex');
+      const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+      const expiresAt = Math.floor(Date.now() / 1000) + (60 * 60); // 1 hour
+      const frontendBaseUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+      const resetLink = `${frontendBaseUrl}/reset-password?token=${rawToken}`;
+
+      db.serialize(() => {
+        db.run('DELETE FROM password_resets WHERE user_id = ? OR expires_at <= strftime(\'%s\', \'now\')', [user.id]);
+        db.run(
+          'INSERT INTO password_resets (user_id, token_hash, expires_at) VALUES (?, ?, ?)',
+          [user.id, tokenHash, expiresAt],
+          async (insertErr) => {
+            if (insertErr) {
+              console.error('Forgot password token insert error:', insertErr.message);
+              return res.status(500).json({ error: 'Server error' });
+            }
+
+            try {
+              await mailTransporter.sendMail({
+                from: `"Sports Team Management" <${process.env.EMAIL_USER || 'vladimiravgustin123@gmail.com'}>`,
+                to: user.email,
+                subject: 'Password reset request',
+                html: `
+                  <p>You requested a password reset.</p>
+                  <p>Click the link below to set a new password:</p>
+                  <p><a href="${resetLink}">${resetLink}</a></p>
+                  <p>This link is valid for 1 hour.</p>
+                  <p>If you did not request this, ignore this email.</p>
+                `
+              });
+
+              return res.status(200).json({ message: 'If the account exists, a reset link has been sent to email.' });
+            } catch (mailErr) {
+              console.error('Forgot password mail error:', mailErr.message);
+              return res.status(500).json({ error: 'Failed to send reset email' });
+            }
+          }
+        );
+      });
+    });
+  });
+
+  router.post('/reset-password', async (req, res) => {
+    const { token, password } = req.body;
+
+    if (!token || !password) {
+      return res.status(400).json({ error: 'Token and new password are required' });
+    }
+
+    if (String(password).length < 6) {
+      return res.status(400).json({ error: 'Password must be at least 6 characters long' });
+    }
+
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+
+    db.get(
+      `SELECT pr.id, pr.user_id
+       FROM password_resets pr
+       WHERE pr.token_hash = ?
+         AND pr.used_at IS NULL
+         AND pr.expires_at > strftime('%s', 'now')`,
+      [tokenHash],
+      async (findErr, resetRow) => {
+        if (findErr) {
+          console.error('Reset password lookup error:', findErr.message);
+          return res.status(500).json({ error: 'Server error' });
+        }
+
+        if (!resetRow) {
+          return res.status(400).json({ error: 'Reset token is invalid or expired' });
+        }
+
+        try {
+          const hashedPassword = await bcrypt.hash(password, 10);
+
+          db.serialize(() => {
+            db.run('UPDATE users SET password = ? WHERE id = ?', [hashedPassword, resetRow.user_id], (updateErr) => {
+              if (updateErr) {
+                console.error('Reset password update user error:', updateErr.message);
+                return res.status(500).json({ error: 'Server error' });
+              }
+
+              db.run(
+                'UPDATE password_resets SET used_at = strftime(\'%s\', \'now\') WHERE id = ?',
+                [resetRow.id],
+                (markErr) => {
+                  if (markErr) {
+                    console.error('Reset password mark token error:', markErr.message);
+                    return res.status(500).json({ error: 'Server error' });
+                  }
+
+                  db.run('DELETE FROM password_resets WHERE user_id = ? AND id != ?', [resetRow.user_id, resetRow.id]);
+                  return res.status(200).json({ message: 'Password reset successfully' });
+                }
+              );
+            });
+          });
+        } catch (hashErr) {
+          console.error('Reset password hash error:', hashErr.message);
+          return res.status(500).json({ error: 'Server error' });
+        }
+      }
+    );
   });
   
       

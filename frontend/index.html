@@ -2,15 +2,41 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no, maximum-scale=1.0" />
+    <meta name="theme-color" content="#667eea" />
+    <meta name="description" content="Sports Team Management System - Управление спортивной командой" />
+    
+    <!-- iOS PWA Support -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Sports Team" />
+    <meta name="apple-mobile-web-app-status-bar" content="black-translucent" />
+    
+    <!-- Android PWA Support -->
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="msapplication-starturl" content="/?pwa=true" />
+    <meta name="msapplication-TileColor" content="#667eea" />
+    
+    <!-- Icons and manifest -->
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Vite + Vue</title>
-
-
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="apple-touch-icon" href="/launchericon-192x192.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/launchericon-192x192.png" />
+    
+    <title>Sports Team Management</title>
   </head> 
   <body>
     <div id="app"></div>
     
     <script type="module" src="/src/main.js"></script>
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/service-worker.js', { scope: '/' })
+            .then(reg => console.log('[PWA] Service Worker registered'))
+            .catch(err => console.error('[PWA] Service Worker registration failed:', err))
+        })
+      }
+    </script>
   </body>
 </html>

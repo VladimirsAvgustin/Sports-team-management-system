@@ -2,6 +2,21 @@ import { defineStore } from 'pinia'
 import { io } from 'socket.io-client'
 import { useAuthStore } from './auth'
 
+// Determine API base URL dynamically based on hostname
+const getApiBaseUrl = () => {
+  const hostname = window.location.hostname
+  const port = 3000
+  
+  if (hostname === 'localhost' || hostname === '127.0.0.1') {
+    return `http://localhost:${port}`
+  }
+  
+  // For network access (e.g., 192.168.x.x, device IP)
+  return `http://${hostname}:${port}`
+}
+
+const API_BASE_URL = getApiBaseUrl()
+
 export const useChatStore = defineStore('chat', {
   state: () => ({
     socket: null,
@@ -40,7 +55,7 @@ export const useChatStore = defineStore('chat', {
         return
       }
 
-      this.socket = io('http://localhost:3000', {
+      this.socket = io(API_BASE_URL, {
         auth: {
           token: authStore.token
         },
@@ -106,19 +121,19 @@ export const useChatStore = defineStore('chat', {
       // Direct Message event handlers
       this.socket.on('new_dm', (dmData) => {
         console.log('Received new_dm event:', dmData)
-        if (this.currentDM && dmData.senderId === this.currentDM.userId) {
+        if (this.currentDM && dmData.sender_id === this.currentDM.userId) {
           this.dmMessages.push(dmData)
           this.scrollToBottom()
           // Mark as read immediately if chat is open
-          this.markDMAsRead(dmData.senderId)
+          this.markDMAsRead(dmData.sender_id)
         }
         
         // Update or add to conversations list
-        const convIndex = this.dmConversations.findIndex(c => c.user_id === dmData.senderId)
+        const convIndex = this.dmConversations.findIndex(c => c.user_id === dmData.sender_id)
         if (convIndex !== -1) {
           this.dmConversations[convIndex].last_message = dmData.message
-          this.dmConversations[convIndex].last_message_time = dmData.createdAt
-          if (!this.currentDM || this.currentDM.userId !== dmData.senderId) {
+          this.dmConversations[convIndex].last_message_time = dmData.created_at
+          if (!this.currentDM || this.currentDM.userId !== dmData.sender_id) {
             this.dmConversations[convIndex].unread_count++
           }
         } else {
@@ -131,16 +146,16 @@ export const useChatStore = defineStore('chat', {
       this.socket.on('dm_sent', (dmData) => {
         console.log('Received dm_sent event:', dmData)
         // Add sent message to current DM view
-        if (this.currentDM && dmData.receiverId === this.currentDM.userId) {
+        if (this.currentDM && dmData.receiver_id === this.currentDM.userId) {
           this.dmMessages.push(dmData)
           this.scrollToBottom()
         }
         
         // Update or add to conversations list for sender
-        const convIndex = this.dmConversations.findIndex(c => c.user_id === dmData.receiverId)
+        const convIndex = this.dmConversations.findIndex(c => c.user_id === dmData.receiver_id)
         if (convIndex !== -1) {
           this.dmConversations[convIndex].last_message = dmData.message
-          this.dmConversations[convIndex].last_message_time = dmData.createdAt
+          this.dmConversations[convIndex].last_message_time = dmData.created_at
         } else {
           // Refresh conversations if new conversation
           console.log('New conversation for sender, refreshing list...')
@@ -174,7 +189,7 @@ export const useChatStore = defineStore('chat', {
 
       try {
         // Fetch room details
-        const response = await fetch(`http://localhost:3000/api/chat/room/${roomId}/messages`, {
+        const response = await fetch(`${API_BASE_URL}/api/chat/room/${roomId}/messages`, {
           headers: {
             'Authorization': `Bearer ${useAuthStore().token}`
           }
@@ -246,7 +261,7 @@ export const useChatStore = defineStore('chat', {
     // Fetch all chat rooms
     async fetchRooms() {
       try {
-        const response = await fetch('http://localhost:3000/api/chat/rooms', {
+        const response = await fetch(`${API_BASE_URL}/api/chat/rooms`, {
           headers: {
             'Authorization': `Bearer ${useAuthStore().token}`
           }
@@ -266,7 +281,7 @@ export const useChatStore = defineStore('chat', {
     // Get or create room for a team
     async getTeamRoom(teamId) {
       try {
-        const response = await fetch(`http://localhost:3000/api/chat/team/${teamId}/room`, {
+        const response = await fetch(`${API_BASE_URL}/api/chat/team/${teamId}/room`, {
           headers: {
             'Authorization': `Bearer ${useAuthStore().token}`
           }
@@ -305,7 +320,7 @@ export const useChatStore = defineStore('chat', {
     // Fetch team members for DM (only users from the same team)
     async fetchAllUsers() {
       try {
-        const response = await fetch('http://localhost:3000/api/chat/team-members', {
+        const response = await fetch(`${API_BASE_URL}/api/chat/team-members`, {
           headers: {
             'Authorization': `Bearer ${useAuthStore().token}`
           }
@@ -325,7 +340,7 @@ export const useChatStore = defineStore('chat', {
     // Fetch DM conversations
     async fetchDMConversations() {
       try {
-        const response = await fetch('http://localhost:3000/api/chat/dm-conversations', {
+        const response = await fetch(`${API_BASE_URL}/api/chat/dm-conversations`, {
           headers: {
             'Authorization': `Bearer ${useAuthStore().token}`
           }
@@ -345,7 +360,7 @@ export const useChatStore = defineStore('chat', {
     // Open DM with a user
     async openDM(userId, username) {
       try {
-        const response = await fetch(`http://localhost:3000/api/chat/dm/${userId}`, {
+        const response = await fetch(`${API_BASE_URL}/api/chat/dm/${userId}`, {
           headers: {
             'Authorization': `Bearer ${useAuthStore().token}`
           }
@@ -391,7 +406,7 @@ export const useChatStore = defineStore('chat', {
     // Mark DMs as read
     async markDMAsRead(userId) {
       try {
-        await fetch(`http://localhost:3000/api/chat/dm/mark-read/${userId}`, {
+        await fetch(`${API_BASE_URL}/api/chat/dm/mark-read/${userId}`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${useAuthStore().token}`

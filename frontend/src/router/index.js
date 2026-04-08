@@ -10,6 +10,8 @@ import TeamPage from "../views/TeamPage.vue";
 import TeamSchedule from "../views/TeamSchedule.vue";
 import AdminPage from "../views/AdminPage.vue";
 import ChatPage from "../views/ChatPage.vue";
+import ForgotPasswordPage from "../views/ForgotPasswordPage.vue";
+import ResetPasswordPage from "../views/ResetPasswordPage.vue";
 import { useAuthStore } from "../stores/auth";
 
 const routes = [
@@ -17,6 +19,8 @@ const routes = [
   { path: "/about", component: AboutPage },
   { path: "/contact", component: ContactPage },
   { path: "/register", component: RegisterPage },
+  { path: "/forgot-password", component: ForgotPasswordPage },
+  { path: "/reset-password", component: ResetPasswordPage },
   { path: "/services/:type", component: ServicesPage },
   { path: "/create-team", component: CreateTeam },
   { path: '/profile', component: ProfilePage },

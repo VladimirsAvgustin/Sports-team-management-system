@@ -13,7 +13,7 @@
     <!-- Messages Container -->
     <div class="messages-container" ref="messagesContainer">
       <div v-if="messages.length === 0" class="empty-state">
-        <p>No messages yet. Start the conversation!</p>
+        <p>{{ $t('chatPage.noMessages') }}</p>
       </div>
 
       <div
@@ -32,7 +32,7 @@
 
       <!-- Typing Indicator -->
       <div v-if="typingUsers.length > 0" class="typing-indicator">
-        <span>{{ typingUsers.join(', ') }} {{ typingUsers.length > 1 ? 'are' : 'is' }} typing...</span>
+        <span>{{ typingUsers.join(', ') }} {{ typingUsers.length > 1 ? $t('chatPage.areTyping') : $t('chatPage.isTyping') }}</span>
       </div>
     </div>
 
@@ -43,7 +43,7 @@
         @keyup.enter="sendMessage"
         @input="handleTyping"
         @blur="handleStopTyping"
-        placeholder="Type a message..."
+        :placeholder="$t('chatPage.typeMessage')"
         class="message-input"
         :disabled="!isConnected"
       />
@@ -52,7 +52,7 @@
         :disabled="!newMessage.trim() || !isConnected"
         class="send-btn"
       >
-        <span>Send</span>
+        <span>{{ $t('buttons.send') }}</span>
       </button>
     </div>
   </div>

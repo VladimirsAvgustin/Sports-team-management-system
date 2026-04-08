@@ -1,34 +1,34 @@
 <template>
   <div class="admin-container">
-    <h1>User Management</h1>
+    <h1>{{ $t('admin.title') }}</h1>
 
     <div class="filters">
       <input
         v-model="searchQuery"
         type="text"
-        placeholder="Search by name or email..."
+        :placeholder="$t('admin.searchPlaceholder')"
       />
 
       <select v-model="selectedRole">
-        <option value="">All Roles</option>
-        <option value="Admin">Admin</option>
-        <option value="Coach">Coach</option>
-        <option value="Player">Player</option>
+        <option value="">{{ $t('admin.allRoles') }}</option>
+        <option value="Admin">{{ $t('admin.admin') }}</option>
+        <option value="Coach">{{ $t('admin.coach') }}</option>
+        <option value="Player">{{ $t('admin.player') }}</option>
       </select>
     </div>
 
-    <div v-if="loading" class="loading">Loading...</div>
+    <div v-if="loading" class="loading">{{ $t('admin.loading') }}</div>
 
     <table v-else class="users-table">
       <thead>
         <tr>
-          <th>ID</th>
-          <th>Name</th>
-          <th>Surname</th>
-          <th>Email</th>
-          <th>Role</th>
-          <th>Team ID</th>
-          <th>Actions</th>
+          <th>{{ $t('admin.id') }}</th>
+          <th>{{ $t('admin.name') }}</th>
+          <th>{{ $t('admin.surname') }}</th>
+          <th>{{ $t('admin.email') }}</th>
+          <th>{{ $t('admin.role') }}</th>
+          <th>{{ $t('admin.teamId') }}</th>
+          <th>{{ $t('admin.actions') }}</th>
         </tr>
       </thead>
       <tbody>
@@ -45,16 +45,16 @@
           </td>
           <td>
             <select v-model="user.role" @change="updateUser(user)">
-              <option value="Admin">Admin</option>
-              <option value="Coach">Coach</option>
-              <option value="Player">Player</option>
+              <option value="Admin">{{ $t('admin.admin') }}</option>
+              <option value="Coach">{{ $t('admin.coach') }}</option>
+              <option value="Player">{{ $t('admin.player') }}</option>
             </select>
           </td>
           <td>
             <input type="number" v-model.number="user.team_id" @change="updateUser(user)" />
           </td>
           <td>
-            <button class="btn btn-delete" @click="deleteUser(user.id)">Delete</button>
+            <button class="btn btn-delete" @click="deleteUser(user.id)">{{ $t('admin.delete') }}</button>
           </td>
         </tr>
       </tbody>
@@ -64,10 +64,12 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import axios from 'axios'
 import { useAuthStore } from '@/stores/auth'
 import { useRouter } from 'vue-router'
 
+const { t } = useI18n()
 const authStore = useAuthStore()
 const router = useRouter()
 
@@ -103,12 +105,12 @@ const updateUser = async (user) => {
 }
 
 const deleteUser = async (userId) => {
-  if (!confirm('Are you sure you want to delete this user?')) return
+  if (!confirm(t('admin.deleteConfirm'))) return
   try {
     await axios.delete(`/api/admin/users/${userId}`, getAuthConfig())
     users.value = users.value.filter(u => u.id !== userId)
   } catch (err) {
-    console.error('Error deleting user:', err)
+    console.error(t('admin.errorDeleting'), err)
   }
 }
 

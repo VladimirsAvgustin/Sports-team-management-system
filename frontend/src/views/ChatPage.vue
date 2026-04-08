@@ -1,10 +1,21 @@
 <template>
   <div class="chat-page">
+    <!-- Mobile sidebar toggle -->
+    <div class="mobile-sidebar-toggle">
+      <button @click="showSidebar = !showSidebar" class="toggle-btn">
+        ☰ {{ $t('chatPage.chats') }}
+      </button>
+    </div>
+
+    <!-- Overlay for mobile sidebar -->
+    <div v-if="showSidebar" class="sidebar-overlay" @click="showSidebar = false"></div>
+
     <div class="chat-layout">
       <!-- Sidebar with chat rooms list -->
-      <div class="chat-sidebar">
+      <div class="chat-sidebar" :class="{ 'show-mobile': showSidebar }">
         <div class="sidebar-header">
-          <h2>Chats</h2>
+          <h2>{{ $t('chatPage.chats') }}</h2>
+          <button @click="showSidebar = false" class="close-sidebar-btn">✕</button>
         </div>
 
         <!-- Tabs for Team Chats and Direct Messages -->
@@ -13,22 +24,21 @@
             :class="['tab-btn', { active: activeTab === 'teams' }]"
             @click="activeTab = 'teams'"
           >
-            Teams
+            {{ $t('chatPage.teams') }}
           </button>
           <button 
             :class="['tab-btn', { active: activeTab === 'dms' }]"
             @click="activeTab = 'dms'"
           >
-            Direct
-            <span v-if="totalUnreadDMs > 0" class="tab-badge">{{ totalUnreadDMs }}</span>
+            {{ $t('chatPage.directMessages') }}
           </button>
         </div>
 
         <!-- Team Chats List -->
         <div v-if="activeTab === 'teams'" class="rooms-list">
           <div v-if="rooms.length === 0" class="empty-rooms">
-            <p>No team chats yet</p>
-            <p class="hint">Join a team to start chatting!</p>
+            <p>{{ $t('chatPage.noTeamChats') }}</p>
+            <p class="hint">{{ $t('chatPage.joinTeamToChat') }}</p>
           </div>
 
           <div
@@ -45,7 +55,7 @@
               <p class="last-message" v-if="room.last_message">
                 {{ truncate(room.last_message, 40) }}
               </p>
-              <p class="no-messages" v-else>No messages yet</p>
+              <p class="no-messages" v-else>{{ $t('chatPage.noMessages') }}</p>
             </div>
             <div class="room-meta">
               <span class="message-time" v-if="room.last_message_time">
@@ -59,13 +69,13 @@
         <div v-else class="rooms-list">
           <div class="new-dm-btn-container">
             <button @click="showNewDMModal = true" class="new-dm-btn">
-              ➕ New Message
+              ➕ {{ $t('chatPage.newMessage') }}
             </button>
           </div>
 
           <div v-if="dmConversations.length === 0" class="empty-rooms">
-            <p>No conversations yet</p>
-            <p class="hint">Start a new conversation!</p>
+            <p>{{ $t('chatPage.noConversations') }}</p>
+            <p class="hint">{{ $t('chatPage.startConversation') }}</p>
           </div>
 
           <div
@@ -82,7 +92,7 @@
               <p class="last-message" v-if="conv.last_message">
                 {{ truncate(conv.last_message, 40) }}
               </p>
-              <p class="no-messages" v-else>No messages yet</p>
+              <p class="no-messages" v-else>{{ $t('chatPage.noMessages') }}</p>
             </div>
             <div class="room-meta">
               <span class="message-time" v-if="conv.last_message_time">
@@ -101,8 +111,8 @@
         <div v-if="!selectedRoomId && !selectedDMUser" class="no-chat-selected">
           <div class="empty-state">
             <span class="empty-icon">💬</span>
-            <h3>Select a chat to start messaging</h3>
-            <p>Choose a team chat or direct message from the sidebar</p>
+            <h3>{{ $t('chatPage.selectChat') }}</h3>
+            <p>{{ $t('chatPage.chooseChat') }}</p>
           </div>
         </div>
 
@@ -125,13 +135,13 @@
     <div v-if="showNewDMModal" class="modal-overlay" @click="showNewDMModal = false">
       <div class="modal-content" @click.stop>
         <div class="modal-header">
-          <h3>New Message</h3>
+          <h3>{{ $t('chatPage.newMessage') }}</h3>
           <button @click="showNewDMModal = false" class="close-modal">✕</button>
         </div>
         <div class="modal-body">
           <input 
             v-model="userSearch" 
-            placeholder="Search users..." 
+            :placeholder="$t('chatPage.searchUsers')" 
             class="search-input"
           >
           <div class="users-list">
@@ -158,6 +168,7 @@
 
 <script>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useChatStore } from '../stores/chat'
 import { useAuthStore } from '../stores/auth'
 import ChatComponent from '../components/ChatComponent.vue'
@@ -170,6 +181,7 @@ export default {
     DirectMessageComponent
   },
   setup() {
+    const { t } = useI18n()
     const chatStore = useChatStore()
     const authStore = useAuthStore()
     
@@ -179,6 +191,7 @@ export default {
     const activeTab = ref('teams')
     const showNewDMModal = ref(false)
     const userSearch = ref('')
+    const showSidebar = ref(false) // Mobile sidebar toggle
 
     const rooms = computed(() => chatStore.rooms)
     const dmConversations = computed(() => chatStore.dmConversations)
@@ -197,10 +210,16 @@ export default {
       })
     })
 
+    const isMobile = computed(() => window.innerWidth <= 768)
+
     const selectRoom = async (roomId) => {
       selectedRoomId.value = roomId
       selectedDMUser.value = null
       selectedDMUsername.value = null
+      // Close sidebar on mobile after selection
+      if (isMobile.value) {
+        showSidebar.value = false
+      }
       // This will trigger the watcher in ChatComponent which will call joinRoom
     }
 
@@ -208,6 +227,10 @@ export default {
       selectedDMUser.value = userId
       selectedDMUsername.value = displayName
       selectedRoomId.value = null
+      // Close sidebar on mobile after selection
+      if (isMobile.value) {
+        showSidebar.value = false
+      }
       chatStore.openDM(userId, displayName)
     }
 
@@ -253,7 +276,7 @@ export default {
       const diffInHours = (now - date) / (1000 * 60 * 60)
 
       if (diffInHours < 1) {
-        return 'Just now'
+        return t('chatPage.justNow')
       } else if (diffInHours < 24) {
         return date.toLocaleTimeString('en-US', {
           hour: '2-digit',
@@ -307,6 +330,8 @@ export default {
       activeTab,
       showNewDMModal,
       userSearch,
+      showSidebar,
+      isMobile,
       rooms,
       dmConversations,
       totalUnreadDMs,
@@ -363,6 +388,22 @@ export default {
   margin: 0;
   font-size: 1.5rem;
   color: var(--text-color);
+}
+
+.close-sidebar-btn {
+  display: none;
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  color: var(--text-secondary, #64748b);
+  cursor: pointer;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
 }
 
 .refresh-btn {
@@ -740,18 +781,120 @@ export default {
   background: var(--scrollbar-thumb-hover, #94a3b8);
 }
 
+/* Mobile sidebar toggle */
+.mobile-sidebar-toggle {
+  display: none;
+}
+
+.toggle-btn {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.toggle-btn:hover {
+  opacity: 0.9;
+  transform: translateY(-2px);
+}
+
+.toggle-btn:active {
+  transform: scale(0.98);
+}
+
+.sidebar-overlay {
+  display: none;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
+  .mobile-sidebar-toggle {
+    display: block;
+    margin-bottom: 1rem;
+  }
+
+  .toggle-btn {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .toggle-btn:active {
+    transform: scale(0.98);
+  }
+
+  .close-sidebar-btn {
+    display: flex !important;
+  }
+
+  .close-sidebar-btn:hover {
+    background: var(--hover-bg, #f1f5f9);
+  }
+
   .chat-layout {
     grid-template-columns: 1fr;
+    position: relative;
   }
 
   .chat-sidebar {
-    display: none;
+    position: fixed;
+    left: -100%;
+    top: 140px;
+    width: 280px;
+    height: calc(100vh - 200px);
+    z-index: 100;
+    transition: left 0.3s ease;
+    border-radius: 0;
+  }
+
+  .chat-sidebar.show-mobile {
+    left: 0;
+  }
+
+  .sidebar-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 50;
+    display: block;
   }
 
   .chat-page {
     padding: 1rem;
+  }
+}
+
+@media (min-width: 769px) {
+  .mobile-sidebar-toggle {
+    display: none;
+  }
+
+  .sidebar-overlay {
+    display: none;
+  }
+
+  .close-sidebar-btn {
+    display: none !important;
+  }
+
+  .chat-sidebar {
+    position: static !important;
+    left: auto !important;
+    width: auto !important;
+    height: auto !important;
   }
 }
 

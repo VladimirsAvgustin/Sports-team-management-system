@@ -2,13 +2,18 @@
 import { ref, onMounted, computed, watch } from 'vue'
 import { useAuthStore } from './stores/auth'
 import LoginModal from './components/LoginModal.vue'
+// import PWAInstallPrompt from './components/PWAInstallPrompt.vue' // DISABLED for now
+import MobileNav from './components/MobileNav.vue'
 import axios from 'axios'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import JoinTeamModal from './components/JoinTeamModal.vue'
+import { useI18n } from 'vue-i18n'
 
 // Authentication store
 const auth = useAuthStore()
 const router = useRouter()
+const route = useRoute()
+const { locale, t } = useI18n()
 
 // States
 const showLoginModal = ref(false)
@@ -53,7 +58,7 @@ async function handleLogin(email, password) {
     await auth.login(email, password)
     closeLoginModal()
   } catch (e) {
-    alert('Login error: ' + e.message)
+    alert(t('messages.loginError') + ': ' + e.message)
   }
 }
 
@@ -71,15 +76,15 @@ const handleJoin = async (teamCode) => {
     const result = await response.json()
 
     if (response.ok) {
-      alert('You have joined the team!')
+      alert(t('messages.teamJoined'))
       await fetchMyTeam()
       closeJoinTeamModal()
     } else {
-      alert(result.message || 'Failed to join the team')
+      alert(result.message || t('messages.failedToJoinTeam'))
     }
   } catch (err) {
     console.error(err)
-    alert('Something went wrong')
+    alert(t('messages.somethingWentWrong'))
   }
 }
 
@@ -89,6 +94,13 @@ function toggleDarkMode() {
   isDarkMode.value = !isDarkMode.value
   localStorage.setItem('darkMode', isDarkMode.value ? 'enabled' : 'disabled')
   document.documentElement.classList.toggle('dark-mode', isDarkMode.value)
+  document.body.classList.toggle('dark-mode', isDarkMode.value)
+}
+
+// Language toggle
+function toggleLanguage() {
+  locale.value = locale.value === 'en' ? 'lv' : 'en'
+  localStorage.setItem('locale', locale.value)
 }
 
 // Navigation
@@ -136,97 +148,49 @@ onMounted(async () => {
 
   isDarkMode.value = localStorage.getItem('darkMode') === 'enabled'
   document.documentElement.classList.toggle('dark-mode', isDarkMode.value)
+  document.body.classList.toggle('dark-mode', isDarkMode.value)
 })
 
 // If token changed (logged in/out) - refresh team
 watch(() => auth.isAuthenticated, async () => {
   await fetchMyTeam()
 })
+
+// Refresh team when navigating to home page
+watch(() => route.path, async (newPath) => {
+  if (newPath === '/') {
+    await fetchMyTeam()
+  }
+})
 </script>
 
 <template>
   <div id="app">
-    <header>
-      <nav>
-        <ul id="pc">
-          <li><router-link to="/">Home</router-link></li>
+    <!-- PWA Install Prompt - DISABLED for now -->
+    <!-- <PWAInstallPrompt /> -->
 
-          <li><router-link to="/contact">Contact</router-link></li>
-        </ul>
-
-        
-        <div class="team-actions">
-          <button 
-            v-if="showCreateTeam" 
-            @click="goToCreateTeam"
-            class="create-team-btn"
-          >
-            Create Team
-          </button>
-
-          <button 
-            v-if="hasTeam" 
-            @click="goToMyTeam"
-            class="create-team-btn"
-          >
-            {{ userTeam.name }}
-          </button>
-
-          <button 
-            v-if="hasTeam" 
-            @click="goToSchedule"
-            class="create-team-btn"
-          >
-            Schedule
-          </button>
-
-          <button 
-            v-if="isLoggedIn" 
-            @click="router.push('/chat')"
-            class="create-team-btn chat-btn"
-          >
-            💬 Chat
-          </button>
-
-          <button 
-          v-if="showJoinTeam" 
-          @click="openJoinTeamModal"
-          class="create-team-btn"
-        >
-          Join Team
-        </button>
-        </div>
-
-        <div class="nav-actions">
-          <button class="toggle-dark-mode" @click="toggleDarkMode">
-            {{ isDarkMode ? 'Light Mode' : 'Dark Mode' }}
-          </button>
-
-          <router-link
-          v-if="!isLoggedIn"
-          to="/register" class="login-btn registration-btn"
-          >
-            Registration
-          </router-link>
-         
-          <button
-            v-if="!isLoggedIn"
-            class="login-btn"
-            @click="openLoginModal"
-          >
-            Login
-          </button>
-
-          <router-link
-            v-else
-            to="/profile"
-            class="login-btn"
-          >
-            {{ auth.user?.name }} {{ auth.user?.surname }}
-          </router-link>
-        </div>
-      </nav>
-    </header>
+    <!-- Mobile Navigation Component -->
+    <MobileNav 
+      :is-logged-in="isLoggedIn"
+      :show-create-team="showCreateTeam"
+      :show-join-team="showJoinTeam"
+      :has-team="hasTeam"
+      :user-team="userTeam"
+      :is-dark-mode="isDarkMode"
+      :locale="locale"
+      :auth="auth"
+      @toggle-dark-mode="toggleDarkMode"
+      @toggle-language="toggleLanguage"
+      @open-login="openLoginModal"
+      @open-join-team="openJoinTeamModal"
+      @go-to-create-team="goToCreateTeam"
+      @go-to-team="goToMyTeam"
+      @go-to-schedule="goToSchedule"
+      @go-to-chat="() => router.push('/chat')"
+      @go-to-profile="() => router.push('/profile')"
+      @go-to-register="() => router.push('/register')"
+      @logout="auth.logout"
+    />
 
     <router-view :key="$route.fullPath" />
 
@@ -236,10 +200,10 @@ watch(() => auth.isAuthenticated, async () => {
       @login="handleLogin"
     />
     <JoinTeamModal
-    v-if="showJoinTeamModal"
-    @close="closeJoinTeamModal"
-    @join="handleJoin"
-  />
+      v-if="showJoinTeamModal"
+      @close="closeJoinTeamModal"
+      @join="handleJoin"
+    />
   </div>
 
 </template>
@@ -256,8 +220,8 @@ watch(() => auth.isAuthenticated, async () => {
 html, body, #app {
   height: 100%;
   min-height: 100vh;
-  background-color: #f4f4f4;
-  color: #333;
+  background-color: var(--background-color);
+  color: var(--text-color);
   transition: background 0.3s, color 0.3s;
 }
 
@@ -269,11 +233,6 @@ html, body, #app {
   color: #f4f4f4;
 }
 
-.dark-mode nav,
-.dark-mode footer {
-  background-color: #111;
-}
-
 .dark-mode .card,
 .dark-mode aside,
 .dark-mode .modal-content {
@@ -281,8 +240,7 @@ html, body, #app {
   color: white;
 }
 
-.dark-mode .btn,
-.dark-mode .toggle-dark-mode {
+.dark-mode .btn {
   background-color: #ff9800;
   color: black;
 }
@@ -290,115 +248,6 @@ html, body, #app {
 .dark-mode img {
   filter: brightness(0.8);
 }
-
-/* ========== Navigation ========== */
-nav {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  background: #0073e6;
-  padding: 15px 30px;
-}
-
-nav ul {
-  list-style: none;
-  display: flex;
-}
-
-nav ul li {
-  margin: 0 15px;
-  position: relative;
-}
-
-nav ul li a {
-  color: white;
-  text-decoration: none;
-  font-size: 16px;
-}
-
-nav ul li a:hover {
-  text-decoration: underline;
-}
-
-/* ========== Dropdown ========== */
-.dropdown-content {
-  display: none;
-  position: absolute;
-  background-color: white;
-  box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.2);
-  padding: 10px;
-  top: 100%;
-  left: 0;
-  min-width: 150px;
-  z-index: 100;
-}
-
-.dropdown:hover .dropdown-content {
-  display: block;
-}
-
-.dropdown-content li {
-  margin: 5px 0;
-}
-
-.dropdown-content li a {
-  color: #333;
-  text-decoration: none;
-}
-
-.dropdown-content li a:hover {
-  background: #f0f0f0;
-}
-
-/* ========== Buttons ========== */
-.btn,
-.toggle-dark-mode {
-  background: #122f4d;
-  color: white;
-  padding: 10px 15px;
-  border: none;
-  cursor: pointer;
-  border-radius: 5px;
-  font-size: 14px;
-  transition: background 0.3s, transform 0.2s;
-  margin-right: 20px;
-}
-
-.btn:hover,
-.toggle-dark-mode:hover {
-  background: #ff9800;
-  transform: scale(1.05);
-}
-
-.login-btn {
-  background-color: white;
-  color: #111;
-  border: 2px solid var(--primary-color);
-  padding: 8px 15px;
-  border-radius: 5px;
-  font-weight: bold;
-  cursor: pointer;
-  transition: background 0.3s, color 0.3s, border-color 0.3s;
-}
-
-.login-btn:hover {
-  background-color: var(--primary-color);
-  color: white;
-}
-
-.dark-mode .btn:hover,
-.toggle-dark-mode:hover {
-  background: #212faf;
-  transform: scale(1.05);
-}
-.dark-mode .login-btn {
-  background: #ff9800;
-}
-
-.dark-mode .login-btn:hover {
-  background: #e68900;
-}
-
 
 /* ========== Cards ========== */
 .card-container {
@@ -416,11 +265,11 @@ nav ul li a:hover {
   border-radius: 10px;
   text-align: center;
   box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
-  transition: transform 0.3s;
+  transition: box-shadow 0.2s;
 }
 
 .card:hover {
-  transform: scale(1.05);
+  box-shadow: 0px 6px 12px rgba(0, 0, 0, 0.14);
 }
 
 .card img {
@@ -514,22 +363,181 @@ footer {
 }
 
 /* ========== Responsive ========== */
+@media (max-width: 1024px) {
+  nav {
+    padding: 12px 20px;
+    gap: 8px;
+  }
+
+  nav ul {
+    gap: 15px;
+  }
+
+  .nav-actions {
+    gap: 8px;
+  }
+
+  .nav-actions button,
+  .nav-actions a {
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+
+  .team-actions {
+    gap: 8px;
+  }
+
+  .team-actions button {
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+}
+
 @media (max-width: 768px) {
   nav {
     flex-direction: column;
+    align-items: stretch;
+    padding: 10px;
   }
 
   nav ul {
     flex-direction: column;
+    gap: 0;
+    width: 100%;
   }
 
   nav ul li {
-    margin: 10px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  nav ul li a {
+    padding: 12px;
+    font-size: 15px;
+  }
+
+  .team-actions {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    gap: 8px;
+  }
+
+  .team-actions button {
+    width: 100%;
+    padding: 12px;
+    font-size: 14px;
+  }
+
+  .nav-actions {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    gap: 8px;
+  }
+
+  .nav-actions button,
+  .nav-actions a {
+    width: 100%;
+    padding: 12px;
+    font-size: 14px;
   }
 
   .card-container {
     flex-direction: column;
     align-items: center;
+  }
+
+  .card {
+    width: 100%;
+    max-width: 400px;
+  }
+
+  .modal-content {
+    max-width: 95%;
+  }
+
+  .registration-btn {
+    margin-right: 0;
+  }
+}
+
+@media (max-width: 480px) {
+  nav {
+    padding: 8px;
+    gap: 6px;
+    flex-direction: column;
+  }
+
+  nav ul {
+    flex-direction: column;
+    gap: 0;
+    width: 100%;
+  }
+
+  nav ul li {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  nav ul li a {
+    padding: 12px;
+    font-size: 14px;
+    width: 100%;
+  }
+
+  .team-actions,
+  .nav-actions {
+    gap: 6px;
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .team-actions button,
+  .nav-actions button,
+  .nav-actions a {
+    padding: 12px 8px;
+    font-size: 13px;
+    min-height: 48px;
+    width: 100%;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    overflow: hidden;
+  }
+
+  .create-team-btn {
+    padding: 12px;
+    font-size: 13px;
+    width: 100%;
+  }
+
+  .btn,
+  .toggle-dark-mode,
+  .toggle-lang-btn {
+    padding: 10px 8px;
+    font-size: 12px;
+    margin-right: 0;
+    width: 100%;
+  }
+
+  .login-btn {
+    width: 100%;
+    padding: 12px;
+    font-size: 13px;
+  }
+
+  .registration-btn {
+    margin-right: 0;
+  }
+}
+
+/* Landscape orientation */
+@media (max-height: 500px) and (orientation: landscape) {
+  nav {
+    padding: 8px;
+  }
+
+  nav ul li a {
+    padding: 8px;
+    font-size: 12px;
   }
 }
 
@@ -562,15 +570,14 @@ footer {
   border-radius: 8px;
   box-shadow: 0 4px 8px rgba(0,0,0,0.2);
   cursor: pointer;
-  transition: background 0.3s, transform 0.2s;
+  transition: background 0.3s;
 }
 
 .create-team-btn:hover {
   background: linear-gradient(45deg, #005bb5, #0099cc);
-  transform: scale(1.05);
 }
 .create-team-btn:active {
-  transform: scale(0.95);
+  opacity: 0.9;
 }
 .registration-btn {
   text-decoration: none;
@@ -600,6 +607,40 @@ footer {
 
 .create-team-btn:hover {
   opacity: 0.9;
-  transform: translateY(-1px);
+}
+
+/* LoginModal in Dark Mode */
+.dark-mode .modal-content {
+  background: #1f2937;
+  border: none;
+}
+
+.dark-mode .modal-content h2 {
+  color: #ffffff !important;
+}
+
+.dark-mode .modal-content label {
+  color: #ffffff !important;
+}
+
+.dark-mode .modal-content input {
+  background: #374151;
+  color: #ffffff;
+  border: 1px solid #4b5563;
+}
+
+.dark-mode .modal-content input:focus {
+  outline: 2px solid #60a5fa;
+  border-color: #60a5fa;
+}
+
+.dark-mode .modal-content .btn {
+  background: #fbbf24 !important;
+  color: #111827 !important;
+  border: none;
+}
+
+.dark-mode .modal-content .btn:hover {
+  background: #f59e0b !important;
 }
 </style>

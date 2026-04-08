@@ -2,20 +2,20 @@
   <div class="modal" @click.self="closeModal">
     <div class="modal-content">
       <span class="close-btn" @click="closeModal">&times;</span>
-      <h2>Join a Team</h2>
+      <h2>{{ $t('team.join') }}</h2>
       <form @submit.prevent="joinTeam">
-        <label for="teamCode">Team Code:</label>
+        <label for="teamCode">{{ $t('team.teamCode') }}:</label>
         <input
           v-model="teamCode"
           type="text"
           id="teamCode"
           required
-          placeholder="Enter code"
+          :placeholder="$t('team.enterTeamCode')"
         />
 
         <div class="actions">
-          <button type="submit" class="btn">Join</button>
-          <button type="button" class="btn cancel" @click="closeModal">Cancel</button>
+          <button type="submit" class="btn">{{ $t('buttons.join') || 'Join' }}</button>
+          <button type="button" class="btn cancel" @click="closeModal">{{ $t('buttons.cancel') }}</button>
         </div>
 
         <p v-if="error" class="error">{{ error }}</p>
@@ -26,6 +26,9 @@
 
 <script setup>
 import { ref } from 'vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const emit = defineEmits(['close', 'join'])
 
@@ -34,7 +37,7 @@ const error = ref('')
 
 function joinTeam() {
   if (!teamCode.value.trim()) {
-    error.value = 'Please enter a team code.'
+    error.value = t('messages.enterTeamCode')
     return
   }
   emit('join', teamCode.value.trim())

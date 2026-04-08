@@ -14,20 +14,20 @@
           <div class="hero-stats" v-if="isLoggedIn">
             <div class="stat">
               <div class="stat-number">{{ userData.teamCount }}</div>
-              <div class="stat-label">Teams</div>
+              <div class="stat-label">{{ $t('dashboard.teamCount') }}</div>
             </div>
             <div class="stat">
               <div class="stat-number">{{ userData.upcomingEvents }}</div>
-              <div class="stat-label">Upcoming Events</div>
+              <div class="stat-label">{{ $t('dashboard.upcomingEvents') }}</div>
             </div>
             <div class="stat">
               <div class="stat-number">{{ userData.playerCount }}</div>
-              <div class="stat-label">Players</div>
+              <div class="stat-label">{{ $t('dashboard.playerCount') }}</div>
             </div>
           </div>
           <div class="hero-actions">
             <button v-if="!isLoggedIn" class="btn btn-primary btn-large" @click="showLoginModal">
-              Get Started
+              {{ $t('nav.login') }}
             </button>
             <div v-else class="action-buttons">
               <button class="btn btn-primary" @click="goToDashboard">
@@ -36,11 +36,11 @@
               </button>
               <button class="btn btn-secondary" @click="goToCreateTeam">
                 <span class="btn-icon">➕</span>
-                Create Team
+                {{ $t('buttons.createTeam') }}
               </button>
               <button class="btn btn-outline" @click="goToSchedule">
                 <span class="btn-icon">📅</span>
-                Schedule
+                {{ $t('buttons.schedule') }}
               </button>
             </div>
           </div>
@@ -55,8 +55,8 @@
     <section class="features">
       <div class="container">
         <div class="section-header">
-          <h2>Everything You Need to Manage Your Team</h2>
-          <p>Powerful tools designed specifically for sports teams</p>
+          <h2>{{ $t('dashboard.features') }}</h2>
+          <p>{{ $t('dashboard.featuresDesc') }}</p>
         </div>
 
         <div class="features-grid">
