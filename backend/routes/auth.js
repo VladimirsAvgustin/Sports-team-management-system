@@ -4,14 +4,21 @@ const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const nodemailer = require('nodemailer');
 const JWT_SECRET = 'your_jwt_secret';
+const emailUser = process.env.EMAIL_USER || 'vladimiravgustin123@gmail.com';
+const emailPass = (process.env.EMAIL_PASS || '').replace(/\s+/g, '');
+const MAX_IMAGE_DATA_LENGTH = 3_200_000;
 
 const mailTransporter = nodemailer.createTransport({
   service: 'gmail',
   auth: {
-    user: process.env.EMAIL_USER || 'vladimiravgustin123@gmail.com',
-    pass: process.env.EMAIL_PASS || ''
+    user: emailUser,
+    pass: emailPass
   }
 });
+
+const normalizeImageData = (value) => (typeof value === 'string' ? value.trim() : '');
+const isSupportedImageDataUrl = (value) => /^data:image\/(png|jpe?g|webp|gif);base64,/i.test(value);
+const isValidImagePayload = (value) => Boolean(value) && isSupportedImageDataUrl(value) && value.length <= MAX_IMAGE_DATA_LENGTH;
 
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers.authorization;
@@ -44,6 +51,53 @@ async function getMyTeam(token) {
 
 module.exports = (db) => {
     const router = express.Router();
+    const normalizeRole = (role) => (typeof role === 'string' ? role.trim().toLowerCase() : '');
+    const dbGet = (sql, params = []) => new Promise((resolve, reject) => {
+      db.get(sql, params, (err, row) => {
+        if (err) reject(err);
+        else resolve(row);
+      });
+    });
+    const dbAll = (sql, params = []) => new Promise((resolve, reject) => {
+      db.all(sql, params, (err, rows) => {
+        if (err) reject(err);
+        else resolve(rows);
+      });
+    });
+    const dbRun = (sql, params = []) => new Promise((resolve, reject) => {
+      db.run(sql, params, function runCallback(err) {
+        if (err) reject(err);
+        else resolve(this);
+      });
+    });
+    const getUserProfile = (userId) => dbGet(
+      'SELECT id, name, surname, email, role, team_id, avatar FROM users WHERE id = ?',
+      [userId]
+    );
+    const getTeamById = (teamId) => dbGet('SELECT * FROM teams WHERE id = ?', [teamId]);
+    const getManagedTeamMembership = async (userId, teamId) => {
+      const user = await getUserProfile(userId);
+
+      if (!user || normalizeRole(user.role) !== 'coach') {
+        return null;
+      }
+
+      return Number(user.team_id) === Number(teamId) ? user : null;
+    };
+    const getOwnedTeam = async (userId, teamId) => {
+      const team = await getTeamById(teamId);
+      return team && Number(team.coach_id) === Number(userId) ? team : null;
+    };
+    const ensureTeamChatRoom = async (teamId, teamName) => {
+      const existingRoom = await dbGet('SELECT id FROM chat_rooms WHERE team_id = ?', [teamId]);
+
+      if (!existingRoom) {
+        await dbRun(
+          'INSERT INTO chat_rooms (team_id, name) VALUES (?, ?)',
+          [teamId, `${teamName} Chat`]
+        );
+      }
+    };
     router.post('/register', async (req, res) => {
         const { name, surname, email, password, role, teamCode, createTeam, teamName } = req.body;
       
@@ -159,6 +213,12 @@ module.exports = (db) => {
                 }
               );
             } else if (teamCode) {
+              if (userRole.toLowerCase() === 'coach') {
+                return res.status(400).json({
+                  error: 'Coaches must register first and then send a join request from the app.'
+                });
+              }
+
               db.get('SELECT id FROM teams WHERE team_code = ?', [teamCode], (teamErr, teamRow) => {
                 if (teamErr) {
                   console.error(teamErr.message);
@@ -262,7 +322,7 @@ module.exports = (db) => {
 
             try {
               await mailTransporter.sendMail({
-                from: `"Sports Team Management" <${process.env.EMAIL_USER || 'vladimiravgustin123@gmail.com'}>`,
+                from: `"Sports Team Management" <${emailUser}>`,
                 to: user.email,
                 subject: 'Password reset request',
                 html: `
@@ -277,6 +337,14 @@ module.exports = (db) => {
               return res.status(200).json({ message: 'If the account exists, a reset link has been sent to email.' });
             } catch (mailErr) {
               console.error('Forgot password mail error:', mailErr.message);
+
+              if (process.env.NODE_ENV !== 'production') {
+                return res.status(200).json({
+                  message: 'Password reset request was created, but email delivery is unavailable on this server right now.',
+                  resetLink
+                });
+              }
+
               return res.status(500).json({ error: 'Failed to send reset email' });
             }
           }
@@ -362,8 +430,8 @@ module.exports = (db) => {
             const decoded = jwt.verify(token, JWT_SECRET);
             // decoded = { id: ..., name: ..., surname: ..., role: ... }
 
-            // Fetch team_id and fresh name/surname from database for up-to-date info
-            db.get('SELECT name, surname, team_id FROM users WHERE id = ?', [decoded.id], (err, row) => {
+            // Fetch fresh profile fields from database for up-to-date info
+            db.get('SELECT name, surname, email, avatar, team_id, createdAt AS created_at FROM users WHERE id = ?', [decoded.id], (err, row) => {
               if (err) {
                 console.error(err.message);
                 return res.status(500).json({ error: 'Error fetching user data' });
@@ -373,8 +441,11 @@ module.exports = (db) => {
                   id: decoded.id,
                   name: row?.name || decoded.name,
                   surname: row?.surname || decoded.surname,
+                  email: row?.email || null,
+                  avatar: row?.avatar || null,
                   role: decoded.role,
-                  team_id: row?.team_id || null 
+                  team_id: row?.team_id || null,
+                  created_at: row?.created_at || null
                 } 
               });
             });
@@ -382,6 +453,115 @@ module.exports = (db) => {
             console.error(error.message);
             res.status(401).json({ error: 'Invalid token' });
         }
+    });
+
+
+    router.post('/avatar', authenticateToken, (req, res) => {
+      const userId = req.user.id;
+      const avatar = normalizeImageData(req.body?.avatar);
+
+      if (!isValidImagePayload(avatar)) {
+        return res.status(400).json({ error: 'Invalid avatar image' });
+      }
+
+      db.run('UPDATE users SET avatar = ? WHERE id = ?', [avatar, userId], function (err) {
+        if (err) {
+          console.error('Error saving user avatar:', err.message);
+          return res.status(500).json({ error: 'Failed to save avatar' });
+        }
+
+        return res.status(200).json({ message: 'Avatar uploaded successfully', avatar });
+      });
+    });
+
+    router.delete('/avatar', authenticateToken, (req, res) => {
+      const userId = req.user.id;
+
+      db.run('UPDATE users SET avatar = NULL WHERE id = ?', [userId], function (err) {
+        if (err) {
+          console.error('Error deleting user avatar:', err.message);
+          return res.status(500).json({ error: 'Failed to delete avatar' });
+        }
+
+        return res.status(200).json({ message: 'Avatar deleted successfully' });
+      });
+    });
+
+    router.post('/players/:id/avatar', authenticateToken, (req, res) => {
+      const playerId = req.params.id;
+      const coachId = req.user.id;
+      const avatar = normalizeImageData(req.body?.avatar);
+
+      if (!isValidImagePayload(avatar)) {
+        return res.status(400).json({ error: 'Invalid avatar image' });
+      }
+
+      db.get('SELECT team_id, role FROM users WHERE id = ?', [coachId], (coachErr, coach) => {
+        if (coachErr) {
+          console.error('Error fetching coach for avatar upload:', coachErr.message);
+          return res.status(500).json({ error: 'Database error' });
+        }
+
+        if (!coach || String(coach.role || '').toLowerCase() !== 'coach' || !coach.team_id) {
+          return res.status(403).json({ error: 'Only a coach from this team can update player avatars' });
+        }
+
+        db.get('SELECT id, team_id, role FROM users WHERE id = ?', [playerId], (playerErr, player) => {
+          if (playerErr) {
+            console.error('Error fetching player for avatar upload:', playerErr.message);
+            return res.status(500).json({ error: 'Database error' });
+          }
+
+          if (!player || player.team_id !== coach.team_id || String(player.role || '').toLowerCase() !== 'player') {
+            return res.status(404).json({ error: 'Player not found in your team' });
+          }
+
+          db.run('UPDATE users SET avatar = ? WHERE id = ?', [avatar, playerId], function (updateErr) {
+            if (updateErr) {
+              console.error('Error saving player avatar:', updateErr.message);
+              return res.status(500).json({ error: 'Failed to save avatar' });
+            }
+
+            return res.status(200).json({ message: 'Player avatar uploaded successfully', avatar });
+          });
+        });
+      });
+    });
+
+    router.delete('/players/:id/avatar', authenticateToken, (req, res) => {
+      const playerId = req.params.id;
+      const coachId = req.user.id;
+
+      db.get('SELECT team_id, role FROM users WHERE id = ?', [coachId], (coachErr, coach) => {
+        if (coachErr) {
+          console.error('Error fetching coach for avatar delete:', coachErr.message);
+          return res.status(500).json({ error: 'Database error' });
+        }
+
+        if (!coach || String(coach.role || '').toLowerCase() !== 'coach' || !coach.team_id) {
+          return res.status(403).json({ error: 'Only a coach from this team can update player avatars' });
+        }
+
+        db.get('SELECT id, team_id, role FROM users WHERE id = ?', [playerId], (playerErr, player) => {
+          if (playerErr) {
+            console.error('Error fetching player for avatar delete:', playerErr.message);
+            return res.status(500).json({ error: 'Database error' });
+          }
+
+          if (!player || player.team_id !== coach.team_id || String(player.role || '').toLowerCase() !== 'player') {
+            return res.status(404).json({ error: 'Player not found in your team' });
+          }
+
+          db.run('UPDATE users SET avatar = NULL WHERE id = ?', [playerId], function (updateErr) {
+            if (updateErr) {
+              console.error('Error deleting player avatar:', updateErr.message);
+              return res.status(500).json({ error: 'Failed to delete avatar' });
+            }
+
+            return res.status(200).json({ message: 'Player avatar deleted successfully' });
+          });
+        });
+      });
     });
 
 
@@ -465,7 +645,7 @@ module.exports = (db) => {
 router.get('/teams/:id/players', (req, res) => {
     const team_id = req.params.id;
 
-    db.all('SELECT id, name, surname, (name || \' \' || surname) as username, email FROM users WHERE team_id = ?', [team_id], (err, rows) => {
+    db.all('SELECT id, name, surname, (name || \' \' || surname) as username, email, role, avatar FROM users WHERE team_id = ?', [team_id], (err, rows) => {
         if (err) {
             console.error(err.message);
             return res.status(500).json({ error: 'Error fetching players' });
@@ -508,7 +688,7 @@ router.get('/teams/:teamId', async (req, res) => {
         return res.status(404).json({ error: 'Team not found' });
       }
   
-      db.all('SELECT * FROM users WHERE team_id = ?', [teamId], (err2, players) => {
+      db.all('SELECT id, name, surname, email, role, team_id, avatar FROM users WHERE team_id = ?', [teamId], (err2, players) => {
         if (err2) {
           console.error(err2.message);
           return res.status(500).json({ error: 'Error fetching players' });
@@ -583,6 +763,41 @@ router.put('/players/:id/stats', authenticateToken, (req, res) => {
   const playerId = req.params.id;
   const { matches, goals, assists, yellow_cards, red_cards } = req.body;
 
+  (async () => {
+    try {
+      const coach = await getUserProfile(req.user.id);
+
+      if (!coach || normalizeRole(coach.role) !== 'coach' || !coach.team_id) {
+        return res.status(403).json({ error: 'Only team coaches can update player statistics' });
+      }
+
+      const player = await dbGet('SELECT team_id, role FROM users WHERE id = ?', [playerId]);
+
+      if (!player || Number(player.team_id) !== Number(coach.team_id) || normalizeRole(player.role) !== 'player') {
+        return res.status(403).json({ error: 'Not authorized to update this player' });
+      }
+
+      await dbRun(
+        `INSERT INTO player_stats
+         (user_id, matches, goals, assists, yellow_cards, red_cards)
+         VALUES (?, ?, ?, ?, ?, ?)
+         ON CONFLICT(user_id) DO UPDATE SET
+           matches = excluded.matches,
+           goals = excluded.goals,
+           assists = excluded.assists,
+           yellow_cards = excluded.yellow_cards,
+           red_cards = excluded.red_cards`,
+        [playerId, matches, goals, assists, yellow_cards, red_cards]
+      );
+
+      return res.status(200).json({ message: 'Stats updated successfully' });
+    } catch (err) {
+      console.error('Error updating player stats:', err.message);
+      return res.status(500).json({ error: 'Error updating stats' });
+    }
+  })();
+  return;
+
   // Проверяем, что пользователь - тренер команды
   db.get(
     'SELECT team_id FROM users WHERE id = ?',
@@ -638,6 +853,104 @@ router.put('/players/:id/stats', authenticateToken, (req, res) => {
 router.post('/join-team', authenticateToken, async (req, res) => {
   const { teamCode } = req.body;
   const userId = req.user.id;
+  (async () => {
+    try {
+      const normalizedTeamCode = typeof teamCode === 'string' ? teamCode.trim().toUpperCase() : '';
+
+      if (!normalizedTeamCode) {
+        return res.status(400).json({ message: 'Team code is required' });
+      }
+
+      const user = await getUserProfile(userId);
+
+      if (!user) {
+        return res.status(404).json({ message: 'User not found' });
+      }
+
+      if (user.team_id) {
+        return res.status(400).json({ message: 'User already belongs to a team' });
+      }
+
+      const team = await dbGet('SELECT id, name, coach_id FROM teams WHERE team_code = ?', [normalizedTeamCode]);
+
+      if (!team) {
+        return res.status(404).json({ message: 'Team not found with this code' });
+      }
+
+      if (normalizeRole(user.role) === 'coach') {
+        const ownedTeam = await dbGet('SELECT id FROM teams WHERE coach_id = ?', [userId]);
+
+        if (ownedTeam) {
+          return res.status(409).json({ message: 'Main coaches cannot join another team as assistant coaches.' });
+        }
+
+        const pendingRequest = await dbGet(
+          `SELECT cjr.id, cjr.team_id, t.name AS team_name
+           FROM coach_join_requests cjr
+           JOIN teams t ON t.id = cjr.team_id
+           WHERE cjr.requester_user_id = ? AND cjr.status = 'pending'
+           ORDER BY cjr.id DESC
+           LIMIT 1`,
+          [userId]
+        );
+
+        if (pendingRequest) {
+          if (Number(pendingRequest.team_id) === Number(team.id)) {
+            return res.status(409).json({ message: 'Your assistant coach request for this team is already pending.' });
+          }
+
+          return res.status(409).json({
+            message: `You already have a pending assistant coach request for ${pendingRequest.team_name}.`
+          });
+        }
+
+        await dbRun(
+          `INSERT INTO coach_join_requests (team_id, requester_user_id, status)
+           VALUES (?, ?, 'pending')`,
+          [team.id, userId]
+        );
+
+        return res.status(202).json({
+          message: 'Assistant coach request sent to the main coach.',
+          requestCreated: true
+        });
+      }
+
+      await dbRun('UPDATE users SET team_id = ? WHERE id = ?', [team.id, userId]);
+      await ensureTeamChatRoom(team.id, team.name);
+
+      if (normalizeRole(user.role) === 'player') {
+        await dbRun(
+          `INSERT INTO player_stats (user_id, matches, goals, assists, yellow_cards, red_cards, attendance)
+           VALUES (?, 0, 0, 0, 0, 0, 0)
+           ON CONFLICT(user_id) DO UPDATE SET
+             matches = 0,
+             goals = 0,
+             assists = 0,
+             yellow_cards = 0,
+             red_cards = 0,
+             attendance = 0`,
+          [userId]
+        );
+      }
+
+      const updatedUser = await getUserProfile(userId);
+
+      return res.status(200).json({
+        message: 'Successfully joined the team',
+        user: updatedUser,
+        team: {
+          id: team.id,
+          name: team.name,
+          coach_id: team.coach_id
+        }
+      });
+    } catch (err) {
+      console.error('Error joining team:', err);
+      return res.status(500).json({ message: 'Internal server error', error: err.message });
+    }
+  })();
+  return;
 
   // Проверяем, что пользователь еще не состоит в команде
   try {
@@ -724,7 +1037,7 @@ router.post('/join-team', authenticateToken, async (req, res) => {
     // Возвращаем обновленные данные пользователя и команды
     const updatedUser = await new Promise((resolve, reject) => {
       db.get(
-        'SELECT id, name, surname, email, role, team_id FROM users WHERE id = ?',
+        'SELECT id, name, surname, email, avatar, role, team_id FROM users WHERE id = ?',
         [userId],
         (err, row) => {
           if (err) reject(err);
@@ -749,9 +1062,170 @@ router.post('/join-team', authenticateToken, async (req, res) => {
   }
 });
 
+router.get('/teams/:teamId/coach-requests', authenticateToken, async (req, res) => {
+  const { teamId } = req.params;
+
+  try {
+    const ownedTeam = await getOwnedTeam(req.user.id, teamId);
+
+    if (!ownedTeam) {
+      return res.status(403).json({ error: 'Only the main coach can review assistant coach requests' });
+    }
+
+    const requests = await dbAll(
+      `SELECT
+         cjr.id,
+         cjr.team_id,
+         cjr.requester_user_id,
+         cjr.status,
+         cjr.created_at,
+         u.name,
+         u.surname,
+         u.email,
+         u.avatar
+       FROM coach_join_requests cjr
+       JOIN users u ON u.id = cjr.requester_user_id
+       WHERE cjr.team_id = ? AND cjr.status = 'pending'
+       ORDER BY datetime(cjr.created_at) ASC, cjr.id ASC`,
+      [teamId]
+    );
+
+    res.status(200).json({ requests });
+  } catch (error) {
+    console.error('Error loading coach join requests:', error);
+    res.status(500).json({ error: 'Failed to load coach join requests' });
+  }
+});
+
+router.post('/teams/:teamId/coach-requests/:requestId/approve', authenticateToken, async (req, res) => {
+  const { teamId, requestId } = req.params;
+
+  try {
+    const ownedTeam = await getOwnedTeam(req.user.id, teamId);
+
+    if (!ownedTeam) {
+      return res.status(403).json({ error: 'Only the main coach can approve assistant coach requests' });
+    }
+
+    const request = await dbGet(
+      `SELECT id, team_id, requester_user_id, status
+       FROM coach_join_requests
+       WHERE id = ? AND team_id = ?`,
+      [requestId, teamId]
+    );
+
+    if (!request || request.status !== 'pending') {
+      return res.status(404).json({ error: 'Pending coach request not found' });
+    }
+
+    const requester = await getUserProfile(request.requester_user_id);
+
+    if (!requester || normalizeRole(requester.role) !== 'coach') {
+      return res.status(400).json({ error: 'Only coach accounts can be approved as assistants' });
+    }
+
+    if (requester.team_id) {
+      return res.status(409).json({ error: 'This coach already belongs to a team' });
+    }
+
+    const requesterOwnedTeam = await dbGet('SELECT id FROM teams WHERE coach_id = ?', [request.requester_user_id]);
+
+    if (requesterOwnedTeam) {
+      return res.status(409).json({ error: 'A main coach cannot also join another team as assistant' });
+    }
+
+    await dbRun('UPDATE users SET team_id = ? WHERE id = ?', [teamId, request.requester_user_id]);
+    await ensureTeamChatRoom(teamId, ownedTeam.name);
+    await dbRun(
+      `UPDATE coach_join_requests
+       SET status = 'approved',
+           updated_at = CURRENT_TIMESTAMP,
+           reviewed_by = ?,
+           reviewed_at = CURRENT_TIMESTAMP
+       WHERE id = ?`,
+      [req.user.id, requestId]
+    );
+    await dbRun(
+      `UPDATE coach_join_requests
+       SET status = 'rejected',
+           updated_at = CURRENT_TIMESTAMP,
+           reviewed_by = ?,
+           reviewed_at = CURRENT_TIMESTAMP
+       WHERE requester_user_id = ? AND status = 'pending' AND id != ?`,
+      [req.user.id, request.requester_user_id, requestId]
+    );
+
+    res.status(200).json({ message: 'Assistant coach approved successfully' });
+  } catch (error) {
+    console.error('Error approving coach request:', error);
+    res.status(500).json({ error: 'Failed to approve coach request' });
+  }
+});
+
+router.post('/teams/:teamId/coach-requests/:requestId/reject', authenticateToken, async (req, res) => {
+  const { teamId, requestId } = req.params;
+
+  try {
+    const ownedTeam = await getOwnedTeam(req.user.id, teamId);
+
+    if (!ownedTeam) {
+      return res.status(403).json({ error: 'Only the main coach can reject assistant coach requests' });
+    }
+
+    const request = await dbGet(
+      `SELECT id, status
+       FROM coach_join_requests
+       WHERE id = ? AND team_id = ?`,
+      [requestId, teamId]
+    );
+
+    if (!request || request.status !== 'pending') {
+      return res.status(404).json({ error: 'Pending coach request not found' });
+    }
+
+    await dbRun(
+      `UPDATE coach_join_requests
+       SET status = 'rejected',
+           updated_at = CURRENT_TIMESTAMP,
+           reviewed_by = ?,
+           reviewed_at = CURRENT_TIMESTAMP
+       WHERE id = ?`,
+      [req.user.id, requestId]
+    );
+
+    res.status(200).json({ message: 'Assistant coach request rejected' });
+  } catch (error) {
+    console.error('Error rejecting coach request:', error);
+    res.status(500).json({ error: 'Failed to reject coach request' });
+  }
+});
+
 router.delete('/players/:id/team', authenticateToken, async (req, res) => {
   const playerId = req.params.id;
   const coachId = req.user.id;
+
+  (async () => {
+    try {
+      const ownerTeam = await dbGet('SELECT id, name FROM teams WHERE coach_id = ?', [coachId]);
+
+      if (!ownerTeam) {
+        return res.status(403).json({ error: 'Only the main coach can remove players' });
+      }
+
+      const player = await dbGet('SELECT id, role FROM users WHERE id = ? AND team_id = ?', [playerId, ownerTeam.id]);
+
+      if (!player || normalizeRole(player.role) !== 'player') {
+        return res.status(404).json({ error: 'Player not found in your team' });
+      }
+
+      await dbRun('UPDATE users SET team_id = NULL WHERE id = ?', [playerId]);
+      return res.status(200).json({ message: 'Player removed from team' });
+    } catch (err) {
+      console.error('Error removing player from team:', err);
+      return res.status(500).json({ error: 'Server error' });
+    }
+  })();
+  return;
 
   try {
     // Проверяем, что запрос от тренера команды
@@ -802,6 +1276,35 @@ router.get('/user/stats', authenticateToken, async (req, res) => {
     let teamCount = 0;
     let upcomingEvents = 0;
     let playerCount = 0;
+
+    const normalizedRole = normalizeRole(userRole);
+    const user = await getUserProfile(userId);
+    const userTeamId = Number(user?.team_id) || null;
+
+    if (normalizedRole === 'coach') {
+      if (!userTeamId) {
+        return res.json({ teamCount: 0, upcomingEvents: 0, playerCount: 0 });
+      }
+
+      const [eventResult, playerResult] = await Promise.all([
+        dbGet(
+          `SELECT COUNT(*) as count FROM schedules
+           WHERE team_id = ? AND date(event_date) >= date('now')`,
+          [userTeamId]
+        ),
+        dbGet(
+          `SELECT COUNT(*) as count FROM users
+           WHERE team_id = ? AND role = 'Player'`,
+          [userTeamId]
+        )
+      ]);
+
+      return res.json({
+        teamCount: 1,
+        upcomingEvents: eventResult ? eventResult.count : 0,
+        playerCount: playerResult ? playerResult.count : 0
+      });
+    }
 
     if (userRole.toLowerCase() === 'coach') {
       // Get teams coached by this user
@@ -925,6 +1428,36 @@ router.get('/user/upcoming-events', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
     const userRole = req.user.role;
+
+    if (normalizeRole(userRole) === 'coach') {
+      const user = await getUserProfile(userId);
+      const teamId = Number(user?.team_id) || null;
+
+      if (!teamId) {
+        return res.json([]);
+      }
+
+      const events = await dbAll(
+        `SELECT s.*, t.name as team_name
+         FROM schedules s
+         JOIN teams t ON s.team_id = t.id
+         WHERE s.team_id = ?
+         AND date(s.event_date) >= date('now')
+         ORDER BY s.event_date ASC, s.event_time ASC
+         LIMIT 5`,
+        [teamId]
+      );
+
+      return res.json(events.map((event) => ({
+        id: event.id,
+        title: event.event_name,
+        date: event.event_date,
+        time: event.event_time,
+        location: event.location,
+        team: event.team_name,
+        type: event.event_type
+      })));
+    }
     
     let query;
     let params;
@@ -983,6 +1516,58 @@ router.get('/user/recent-activity', authenticateToken, async (req, res) => {
     const userRole = req.user.role;
     
     let activities = [];
+
+    if (normalizeRole(userRole) === 'coach') {
+      const user = await getUserProfile(userId);
+      const teamId = Number(user?.team_id) || null;
+
+      if (!teamId) {
+        return res.json([]);
+      }
+
+      const [eventActivities, teamActivities] = await Promise.all([
+        dbAll(
+          `SELECT
+             'event' as type,
+             'created event' as action,
+             event_name as description,
+             event_date as timestamp,
+             'System' as user_name
+           FROM schedules
+           WHERE team_id = ?
+           ORDER BY id DESC
+           LIMIT 5`,
+          [teamId]
+        ),
+        dbAll(
+          `SELECT
+             'team' as type,
+             'joined team' as action,
+             t.name as description,
+             u.createdAt as timestamp,
+             (u.name || ' ' || u.surname) as user_name
+           FROM users u
+           JOIN teams t ON u.team_id = t.id
+           WHERE u.team_id = ? AND u.role = 'Player'
+           ORDER BY u.id DESC
+           LIMIT 3`,
+          [teamId]
+        )
+      ]);
+
+      activities = [...eventActivities, ...teamActivities]
+        .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+        .slice(0, 5)
+        .map((activity, index) => ({
+          id: index + 1,
+          type: activity.type,
+          user: activity.user_name,
+          action: `${activity.action}: ${activity.description}`,
+          time: formatTimeAgo(activity.timestamp)
+        }));
+
+      return res.json(activities);
+    }
     
     if (userRole.toLowerCase() === 'coach') {
       // Get recent activities from coach's teams
@@ -1092,6 +1677,23 @@ router.post('/teams/:teamId/logo', authenticateToken, (req, res) => {
   const { logo } = req.body; // Base64 encoded image
   const userId = req.user.id;
 
+  (async () => {
+    try {
+      const coach = await getManagedTeamMembership(userId, teamId);
+
+      if (!coach) {
+        return res.status(403).json({ error: 'Only coaches from this team can upload a logo' });
+      }
+
+      await dbRun('UPDATE teams SET logo = ? WHERE id = ?', [logo, teamId]);
+      return res.json({ message: 'Logo uploaded successfully', logo });
+    } catch (error) {
+      console.error('Error uploading team logo:', error);
+      return res.status(500).json({ error: 'Failed to save logo' });
+    }
+  })();
+  return;
+
   // Check if user is coach of this team
   db.get('SELECT * FROM teams WHERE id = ? AND coach_id = ?', [teamId, userId], (err, team) => {
     if (err) {
@@ -1117,6 +1719,23 @@ router.post('/teams/:teamId/logo', authenticateToken, (req, res) => {
 router.delete('/teams/:teamId/logo', authenticateToken, (req, res) => {
   const { teamId } = req.params;
   const userId = req.user.id;
+
+  (async () => {
+    try {
+      const coach = await getManagedTeamMembership(userId, teamId);
+
+      if (!coach) {
+        return res.status(403).json({ error: 'Only coaches from this team can delete the logo' });
+      }
+
+      await dbRun('UPDATE teams SET logo = NULL WHERE id = ?', [teamId]);
+      return res.json({ message: 'Logo deleted successfully' });
+    } catch (error) {
+      console.error('Error deleting team logo:', error);
+      return res.status(500).json({ error: 'Failed to delete logo' });
+    }
+  })();
+  return;
 
   db.get('SELECT * FROM teams WHERE id = ? AND coach_id = ?', [teamId, userId], (err, team) => {
     if (err) {

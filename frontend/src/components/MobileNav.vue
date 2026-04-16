@@ -8,6 +8,38 @@
         </router-link>
       </div>
 
+      <!-- Desktop: Theme and Language Switchers -->
+      <div class="nav-utilities-desktop">
+        <button 
+          @click="handleToggleDarkMode"
+          class="util-btn"
+          :title="isDarkMode ? 'Light Mode' : 'Dark Mode'"
+          aria-label="Toggle theme"
+        >
+          <svg v-if="isDarkMode" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="4"></circle>
+            <path d="M12 2v2"></path>
+            <path d="M12 20v2"></path>
+            <path d="M4.93 4.93l1.41 1.41"></path>
+            <path d="M17.66 17.66l1.41 1.41"></path>
+            <path d="M2 12h2"></path>
+            <path d="M20 12h2"></path>
+            <path d="M4.93 19.07l1.41-1.41"></path>
+            <path d="M17.66 6.34l1.41-1.41"></path>
+          </svg>
+          <svg v-else width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+          </svg>
+        </button>
+        <button 
+          @click="handleToggleLanguage"
+          class="util-btn"
+          title="Change Language"
+        >
+          <span class="lang-badge">{{ localeProp === 'en' ? 'EN' : 'LV' }}</span>
+        </button>
+      </div>
+
       <!-- Hamburger для мобильных -->
       <button 
         @click="showMenu = !showMenu" 
@@ -31,6 +63,36 @@
           </button>
         </div>
 
+        <!-- Team Navigation (для страниц команды) -->
+        <div v-if="isOnTeamPage" class="nav-section team-pages-nav">
+          <h4 class="section-title">Team Pages</h4>
+          <router-link 
+            :to="`/team/${currentTeamId}/players`" 
+            class="nav-item team-nav-link"
+            :class="{ active: isOnPage('players') }"
+            @click="showMenu = false"
+          >
+            Players
+          </router-link>
+          <router-link 
+            v-if="isCoach"
+            :to="`/team/${currentTeamId}/statistics`" 
+            class="nav-item team-nav-link"
+            :class="{ active: isOnPage('statistics') }"
+            @click="showMenu = false"
+          >
+            Statistics
+          </router-link>
+          <router-link 
+            :to="`/team-schedule/${currentTeamId}`" 
+            class="nav-item team-nav-link"
+            :class="{ active: isOnPage('schedule') }"
+            @click="showMenu = false"
+          >
+            Schedule
+          </router-link>
+        </div>
+
         <!-- Утилиты в меню -->
         <div class="nav-section nav-utils-in-menu">
           <button 
@@ -38,15 +100,28 @@
             class="nav-btn small util-btn-menu"
             :title="isDarkMode ? 'Light Mode' : 'Dark Mode'"
           >
-            {{ isDarkMode ? '☀️ Light' : '🌙 Dark' }}
+            <svg v-if="isDarkMode" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="4"></circle>
+              <path d="M12 2v2"></path>
+              <path d="M12 20v2"></path>
+              <path d="M4.93 4.93l1.41 1.41"></path>
+              <path d="M17.66 17.66l1.41 1.41"></path>
+              <path d="M2 12h2"></path>
+              <path d="M20 12h2"></path>
+              <path d="M4.93 19.07l1.41-1.41"></path>
+              <path d="M17.66 6.34l1.41-1.41"></path>
+            </svg>
+            <svg v-else width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+            </svg>
+            {{ isDarkMode ? 'Light' : 'Dark' }}
           </button>
-          
           <button 
             @click="() => { handleToggleLanguage(); showMenu = false }"
             class="nav-btn small util-btn-menu"
             title="Change Language"
           >
-            {{ localeProp === 'en' ? '🇬🇧 EN' : '🇱🇻 LV' }}
+            <span class="lang-badge">{{ localeProp === 'en' ? 'EN' : 'LV' }}</span>
           </button>
         </div>
 
@@ -138,7 +213,10 @@
 </template>
 
 <script setup>
-import { ref, defineProps, defineEmits, onMounted, onUnmounted, watch } from 'vue'
+import { ref, defineProps, defineEmits, onMounted, onUnmounted, watch, computed } from 'vue'
+import { useRoute } from 'vue-router'
+
+const route = useRoute()
 
 const props = defineProps({
   isLoggedIn: Boolean,
@@ -146,6 +224,9 @@ const props = defineProps({
   showJoinTeam: Boolean,
   hasTeam: Boolean,
   userTeam: Object,
+  isOnTeamPage: Boolean,
+  currentTeamId: [String, Number],
+  showCoachTeamLinks: Boolean,
   isDarkMode: Boolean,
   locale: String,
   auth: Object
@@ -167,6 +248,39 @@ const emit = defineEmits([
 
 const showMenu = ref(false)
 const localeProp = ref(props.locale || 'en')
+const teamRouteNames = new Set([
+  'TeamPage',
+  'TeamPlayers',
+  'TeamStatistics',
+  'TeamSchedule'
+])
+
+const isOnTeamPage = computed(() => {
+  if (props.isOnTeamPage) {
+    return true
+  }
+
+  const routeName = typeof route.name === 'string' ? route.name : ''
+  const routeTeamId = route.params?.id || route.params?.teamId
+  const path = route.path || ''
+
+  if (teamRouteNames.has(routeName) && routeTeamId) {
+    return true
+  }
+
+  return path.startsWith('/team/') || path.startsWith('/team-schedule/') || path.startsWith('/teams/')
+})
+
+const currentTeamId = computed(() => props.currentTeamId || route.params?.id || route.params?.teamId || props.userTeam?.id || '')
+const isCoach = computed(() => props.showCoachTeamLinks)
+
+// Helper to check which page we're on
+const isOnPage = (page) => {
+  if (page === 'schedule') {
+    return route.name === 'TeamSchedule' || route.path.startsWith('/team-schedule/') || route.path.includes('/schedule')
+  }
+  return route.path.includes(`/${page}`)
+}
 
 // Watch for language changes
 watch(() => props.locale, (newLocale) => {
@@ -756,6 +870,219 @@ html.dark-mode .nav-btn.logout:hover {
     padding: 10px 12px;
     min-height: 40px;
     font-size: 14px;
+  }
+}
+
+/* Desktop utilities (Theme & Language) */
+.nav-utilities-desktop {
+  display: none;
+  align-items: center;
+  gap: 8px;
+}
+
+@media (min-width: 1024px) {
+  .nav-utilities-desktop {
+    display: flex;
+  }
+}
+
+.util-btn {
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  color: white;
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s;
+  min-width: 44px;
+  min-height: 36px;
+  justify-content: center;
+}
+
+.util-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: scale(1.05);
+}
+
+.util-btn i {
+  font-size: 16px;
+}
+
+.lang-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: bold;
+  min-width: 24px;
+}
+
+/* Desktop Team Navigation */
+.team-nav-desktop {
+  display: none;
+  gap: 8px;
+  align-items: center;
+}
+
+@media (min-width: 1024px) {
+  .team-nav-desktop {
+    display: flex;
+    margin-left: 24px;
+  }
+}
+
+.team-nav-btn {
+  padding: 8px 14px;
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+  min-height: 36px;
+}
+
+.team-nav-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.team-nav-btn.active {
+  background: rgba(255, 255, 255, 0.3);
+  border-color: rgba(255, 255, 255, 0.5);
+  font-weight: 600;
+}
+
+html.dark-mode .team-nav-btn {
+  background: rgba(26, 91, 181, 0.2);
+  border-color: rgba(26, 91, 181, 0.3);
+}
+
+html.dark-mode .team-nav-btn:hover {
+  background: rgba(26, 91, 181, 0.4);
+  border-color: rgba(26, 91, 181, 0.5);
+}
+
+html.dark-mode .team-nav-btn.active {
+  background: rgba(26, 91, 181, 0.6);
+  border-color: rgba(26, 91, 181, 0.8);
+}
+
+/* Team Pages Navigation */
+.team-pages-nav {
+  padding: 12px !important;
+  border-bottom: 2px solid #0073e6 !important;
+}
+
+html.dark-mode .team-pages-nav {
+  border-bottom: 2px solid #1a5bb5 !important;
+}
+
+.section-title {
+  font-size: 12px;
+  font-weight: bold;
+  text-transform: uppercase;
+  color: #0073e6;
+  margin-bottom: 8px;
+  letter-spacing: 0.5px;
+}
+
+html.dark-mode .section-title {
+  color: #1a5bb5;
+}
+
+.team-nav-link {
+  padding: 10px 14px !important;
+  font-size: 14px !important;
+  background: #f0f0f0;
+  color: #333 !important;
+  border-left: 3px solid transparent;
+  transition: all 0.2s;
+}
+
+.team-nav-link:hover {
+  background: #e0e0e0 !important;
+  border-left-color: #0073e6;
+}
+
+.team-nav-link.active {
+  background: #e3f2fd;
+  color: #0073e6 !important;
+  border-left-color: #0073e6;
+  font-weight: 600;
+}
+
+html.dark-mode .team-nav-link {
+  background: #333;
+  color: #f0f0f0 !important;
+}
+
+html.dark-mode .team-nav-link:hover {
+  background: #444 !important;
+  border-left-color: #1a5bb5;
+}
+
+html.dark-mode .team-nav-link.active {
+  background: #1a3a5c;
+  color: #1a5bb5 !important;
+  border-left-color: #1a5bb5;
+}
+
+/* Desktop: Team Pages Navigation adjustments */
+@media (min-width: 1024px) {
+  .team-pages-nav {
+    padding: 0 !important;
+    border: none !important;
+    gap: 4px;
+  }
+
+  .section-title {
+    display: none;
+  }
+
+  .team-nav-link {
+    padding: 8px 12px !important;
+    background: rgba(255, 255, 255, 0.1) !important;
+    color: white !important;
+    border: none !important;
+    font-size: 13px !important;
+    border-radius: 4px;
+    font-weight: 500;
+  }
+
+  .team-nav-link:hover {
+    background: rgba(255, 255, 255, 0.2) !important;
+    border: none !important;
+  }
+
+  .team-nav-link.active {
+    background: rgba(255, 255, 255, 0.3) !important;
+    color: white !important;
+    border: none !important;
+  }
+
+  html.dark-mode .team-nav-link {
+    background: rgba(26, 91, 181, 0.3) !important;
+  }
+
+  html.dark-mode .team-nav-link:hover {
+    background: rgba(26, 91, 181, 0.5) !important;
+  }
+
+  html.dark-mode .team-nav-link.active {
+    background: rgba(26, 91, 181, 0.7) !important;
+    color: white !important;
   }
 }
 </style>

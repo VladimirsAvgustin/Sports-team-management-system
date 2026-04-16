@@ -5,7 +5,8 @@
     "register": "Reģistrēties",
     "login": "Pierakstīties",
     "profile": "Profils",
-    "chat": "Čats"
+    "chat": "Čats",
+    "overview": "Pārskats"
   },
   "buttons": {
     "createTeam": "Izveidot komandu",
@@ -24,6 +25,7 @@
     "edit": "Rediģēt",
     "delete": "Dzēst",
     "getStarted": "Sākt",
+    "actions": "Darbības",
     "confirm": "Apstiprināt"
   },
   "auth": {
@@ -351,6 +353,9 @@
     "assists": "Piespēles",
     "yellowCards": "Dzeltanas kartītes",
     "redCards": "Sarkanas kartītes",
-    "tryAdjustingSearch": "Mēģiniet pielāgot jūsu meklēšanas vaicājumu"
+    "tryAdjustingSearch": "Mēģiniet pielāgot jūsu meklēšanas vaicājumu",
+    "teamSettings": "Komandas iestatījumi",
+    "teamStats": "Komandas statistika",
+    "playersInTeam": "Spēlētāji komandā"
   }
 }

@@ -1,132 +1,142 @@
 <template>
-  <div class="schedule-container">
-    <!-- Header -->
-    <div class="schedule-header">
-      <div class="header-left">
-        <h1>📅 {{ $t('schedule.title') }}</h1>
-        <p class="header-subtitle">{{ upcomingCount }} {{ upcomingCount !== 1 ? $t('schedule.upcomingEvents') : $t('schedule.upcomingEvent') }}</p>
-      </div>
-      <div class="header-actions">
-        <button v-if="userRole === 'Coach'" @click="showStats = true; fetchAttendanceStats()" class="header-btn stats-btn">
-          📊 {{ $t('schedule.stats') }}
-        </button>
-        <button v-if="userRole === 'Coach'" @click="openAddModal()" class="header-btn add-btn">
-          ＋ {{ $t('schedule.newEvent') }}
-        </button>
-        <div class="view-toggle">
-          <button @click="viewMode = 'week'" :class="{ active: viewMode === 'week' }" :title="$t('schedule.weekView')">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M3 10h18"/><path d="M10 4v18"/></svg>
-          </button>
-          <button @click="viewMode = 'list'" :class="{ active: viewMode === 'list' }" :title="$t('schedule.listView')">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>
-          </button>
+  <div class="schedule-page">
+    <div class="schedule-container">
+      <section class="schedule-hero">
+        <div class="hero-main">
+          <div class="schedule-header">
+            <div class="header-left">
+              <p class="header-eyebrow">Team calendar</p>
+              <h1>{{ $t('schedule.title') }}</h1>
+              <p class="header-subtitle">{{ upcomingCount }} {{ upcomingCount !== 1 ? $t('schedule.upcomingEvents') : $t('schedule.upcomingEvent') }}</p>
+            </div>
+            <div class="header-actions">
+              <button v-if="userRole === 'Coach'" @click="showStats = true; fetchAttendanceStats()" class="header-btn stats-btn">
+                {{ $t('schedule.stats') }}
+              </button>
+              <button v-if="userRole === 'Coach'" @click="openAddModal()" class="header-btn add-btn">
+                {{ $t('schedule.newEvent') }}
+              </button>
+            </div>
+          </div>
         </div>
-      </div>
-    </div>
-
-    <!-- Week view -->
-    <div v-if="viewMode === 'week'" class="week-view">
-      <div class="week-navigation">
-        <button @click="changeWeek(-1)" class="nav-btn">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg>
-        </button>
-        <div class="week-title">
-          <h2>{{ currentWeekRange }}</h2>
-          <button @click="currentWeek = dayjs()" class="today-btn" v-if="!currentWeek.isSame(dayjs(), 'week')">{{ $t('schedule.today') }}</button>
+        <div class="hero-controls">
+          <div class="view-toggle">
+            <button @click="viewMode = 'week'" :class="{ active: viewMode === 'week' }" :title="$t('schedule.weekView')">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M3 10h18"/><path d="M10 4v18"/></svg>
+            </button>
+            <button @click="viewMode = 'list'" :class="{ active: viewMode === 'list' }" :title="$t('schedule.listView')">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>
+            </button>
+          </div>
         </div>
-        <button @click="changeWeek(1)" class="nav-btn">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 18l6-6-6-6"/></svg>
-        </button>
-      </div>
+      </section>
 
-      <div class="calendar-grid">
-        <div v-for="day in daysOfWeek" :key="day.date" class="day-column" :class="{ 'today': day.isToday, 'has-events': day.events.length > 0 }">
-          <div class="day-header">
-            <div class="day-name">{{ day.dayName }}</div>
-            <div class="day-number" :class="{ 'today-number': day.isToday }">{{ day.date.format('D') }}</div>
+      <div class="schedule-surface">
+        <!-- Week view -->
+        <div v-if="viewMode === 'week'" class="week-view">
+          <div class="week-navigation">
+            <button @click="changeWeek(-1)" class="nav-btn">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg>
+            </button>
+            <div class="week-title">
+              <h2>{{ currentWeekRange }}</h2>
+              <button @click="currentWeek = dayjs()" class="today-btn" v-if="!currentWeek.isSame(dayjs(), 'week')">{{ $t('schedule.today') }}</button>
+            </div>
+            <button @click="changeWeek(1)" class="nav-btn">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 18l6-6-6-6"/></svg>
+            </button>
+          </div>
+
+          <div class="calendar-grid">
+            <div v-for="day in daysOfWeek" :key="day.date" class="day-column" :class="{ 'today': day.isToday, 'has-events': day.events.length > 0 }">
+              <div class="day-header">
+                <div class="day-name">{{ day.dayName }}</div>
+                <div class="day-number" :class="{ 'today-number': day.isToday }">{{ day.date.format('D') }}</div>
+              </div>
+              
+              <div class="day-events">
+                <div 
+                  v-for="event in day.events" 
+                  :key="event.id" 
+                  class="event-card"
+                  :class="[event.event_type, { 'past-event': !isEventUpcoming(event) }]"
+                  @click="selectEvent(event)"
+                >
+                  <div class="event-color-bar"></div>
+                  <div class="event-card-body">
+                    <div class="event-card-time">{{ formatTime(event.event_time) }}</div>
+                    <div class="event-card-title">{{ event.event_name }}</div>
+                    <div class="event-card-location" v-if="event.location">📍 {{ event.location }}</div>
+                  </div>
+                </div>
+                
+                <div 
+                  v-if="userRole === 'Coach'" 
+                  class="add-event-cell"
+                  @click="openAddModal(day.date.format('YYYY-MM-DD'))"
+                >
+                  <span>+</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- List view -->
+        <div v-if="viewMode === 'list'" class="list-view">
+          <div class="list-toolbar">
+            <div class="filter-chips">
+              <button 
+                v-for="filter in eventFilters" 
+                :key="filter.value" 
+                @click="typeFilter = typeFilter === filter.value ? '' : filter.value"
+                :class="['filter-chip', filter.value, { active: typeFilter === filter.value }]"
+              >
+                {{ filter.icon }} {{ filter.label }}
+              </button>
+            </div>
+            <div class="search-box">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+              <input v-model="searchQuery" :placeholder="$t('schedule.searchEvents')" />
+            </div>
           </div>
           
-          <div class="day-events">
-            <div 
-              v-for="event in day.events" 
-              :key="event.id" 
-              class="event-card"
-              :class="[event.event_type, { 'past-event': !isEventUpcoming(event) }]"
-              @click="selectEvent(event)"
-            >
-              <div class="event-color-bar"></div>
-              <div class="event-card-body">
-                <div class="event-card-time">{{ formatTime(event.event_time) }}</div>
-                <div class="event-card-title">{{ event.event_name }}</div>
-                <div class="event-card-location" v-if="event.location">📍 {{ event.location }}</div>
+          <div v-if="filteredEvents.length === 0" class="empty-state">
+            <div class="empty-icon"></div>
+            <p>{{ $t('schedule.noEventsFound') }}</p>
+          </div>
+
+          <div class="events-list" v-else>
+            <template v-for="(group, label) in groupedEvents" :key="label">
+              <div class="date-group-label">{{ label }}</div>
+              <div 
+                v-for="event in group" 
+                :key="event.id" 
+                class="list-event-card"
+                :class="[event.event_type, { 'past-event': !isEventUpcoming(event) }]"
+                @click="selectEvent(event)"
+              >
+                <div class="list-event-color"></div>
+                <div class="list-event-time">
+                  <span class="time-text">{{ formatTime(event.event_time) }}</span>
+                </div>
+                <div class="list-event-info">
+                  <div class="list-event-title">{{ event.event_name }}</div>
+                  <div class="list-event-meta">
+                    <span v-if="event.location"> {{ event.location }}</span>
+                  </div>
+                </div>
+                <div class="list-event-badge" :class="event.event_type">
+                  {{ getEventIcon(event.event_type) }} {{ getEventTypeLabel(event.event_type) }}
+                </div>
+                <div v-if="userRole === 'Coach'" class="list-event-actions">
+                  <button @click.stop="startEdit(event)" class="action-icon">✏️</button>
+                  <button @click.stop="deleteEvent(event)" class="action-icon delete">🗑️</button>
+                </div>
               </div>
-            </div>
-            
-            <div 
-              v-if="userRole === 'Coach'" 
-              class="add-event-cell"
-              @click="openAddModal(day.date.format('YYYY-MM-DD'))"
-            >
-              <span>+</span>
-            </div>
+            </template>
           </div>
         </div>
-      </div>
-    </div>
-
-    <!-- List view -->
-    <div v-if="viewMode === 'list'" class="list-view">
-      <div class="list-toolbar">
-        <div class="filter-chips">
-          <button 
-            v-for="filter in eventFilters" 
-            :key="filter.value" 
-            @click="typeFilter = typeFilter === filter.value ? '' : filter.value"
-            :class="['filter-chip', filter.value, { active: typeFilter === filter.value }]"
-          >
-            {{ filter.icon }} {{ filter.label }}
-          </button>
-        </div>
-        <div class="search-box">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-          <input v-model="searchQuery" :placeholder="$t('schedule.searchEvents')" />
-        </div>
-      </div>
-      
-      <div v-if="filteredEvents.length === 0" class="empty-state">
-        <div class="empty-icon">📭</div>
-        <p>{{ $t('schedule.noEventsFound') }}</p>
-      </div>
-
-      <div class="events-list" v-else>
-        <template v-for="(group, label) in groupedEvents" :key="label">
-          <div class="date-group-label">{{ label }}</div>
-          <div 
-            v-for="event in group" 
-            :key="event.id" 
-            class="list-event-card"
-            :class="[event.event_type, { 'past-event': !isEventUpcoming(event) }]"
-            @click="selectEvent(event)"
-          >
-            <div class="list-event-color"></div>
-            <div class="list-event-time">
-              <span class="time-text">{{ formatTime(event.event_time) }}</span>
-            </div>
-            <div class="list-event-info">
-              <div class="list-event-title">{{ event.event_name }}</div>
-              <div class="list-event-meta">
-                <span v-if="event.location">📍 {{ event.location }}</span>
-              </div>
-            </div>
-            <div class="list-event-badge" :class="event.event_type">
-              {{ getEventIcon(event.event_type) }} {{ getEventTypeLabel(event.event_type) }}
-            </div>
-            <div v-if="userRole === 'Coach'" class="list-event-actions">
-              <button @click.stop="startEdit(event)" class="action-icon">✏️</button>
-              <button @click.stop="deleteEvent(event)" class="action-icon delete">🗑️</button>
-            </div>
-          </div>
-        </template>
       </div>
     </div>
 
@@ -199,7 +209,6 @@
           
           <div class="event-meta-grid">
             <div class="meta-item">
-              <div class="meta-icon">📅</div>
               <div class="meta-content">
                 <span class="meta-label">{{ $t('schedule.date') }}</span>
                 <span class="meta-value">{{ dayjs(selectedEvent.event_date).format('dddd, D MMMM YYYY') }}</span>
@@ -207,7 +216,6 @@
             </div>
             
             <div class="meta-item">
-              <div class="meta-icon">🕐</div>
               <div class="meta-content">
                 <span class="meta-label">{{ $t('schedule.time') }}</span>
                 <span class="meta-value">{{ selectedEvent.event_time }}</span>
@@ -215,7 +223,6 @@
             </div>
             
             <div class="meta-item full-width">
-              <div class="meta-icon">📍</div>
               <div class="meta-content">
                 <span class="meta-label">{{ $t('schedule.location') }}</span>
                 <span class="meta-value">{{ selectedEvent.location || $t('schedule.notSpecified') }}</span>
@@ -225,7 +232,7 @@
           
           <!-- Countdown or status -->
           <div class="event-countdown" v-if="isEventUpcoming(selectedEvent)">
-            <span class="countdown-label">⏳ {{ $t('schedule.startsIn') }}</span>
+            <span class="countdown-label"> {{ $t('schedule.startsIn') }}</span>
             <span class="countdown-value">{{ getTimeUntilEvent(selectedEvent) }}</span>
           </div>
           <div class="event-countdown past" v-else>
@@ -235,7 +242,7 @@
         
         <!-- Player's own attendance (for practices only, before event date) -->
         <div v-if="selectedEvent.event_type === 'practice' && userRole === 'Player' && isEventUpcoming(selectedEvent)" class="attendance-section">
-          <h3>📋 {{ $t('schedule.yourResponse') }}</h3>
+          <h3> {{ $t('schedule.yourResponse') }}</h3>
           <div class="attendance-choice">
             <button 
               @click="setMyAttendance('present')" 
@@ -255,7 +262,7 @@
             </button>
           </div>
           <div v-if="myAttendanceStatus && myAttendanceStatus !== 'present'" class="my-reason-card">
-            <span class="reason-icon">💬</span>
+            <span class="reason-icon"></span>
             <span>{{ myAttendanceNotes || $t('schedule.noReasonProvided') }}</span>
           </div>
         </div>
@@ -309,10 +316,10 @@
         <!-- Coach buttons -->
         <div v-if="userRole === 'Coach'" class="event-detail-actions">
           <button @click="startEdit(selectedEvent)" class="edit-btn">
-            <span>✏️</span> {{ $t('buttons.edit') }}
+            <span></span> {{ $t('buttons.edit') }}
           </button>
           <button @click="deleteEvent(selectedEvent)" class="delete-btn">
-            <span>🗑️</span> {{ $t('buttons.delete') }}
+            <span></span> {{ $t('buttons.delete') }}
           </button>
         </div>
       </div>
@@ -337,7 +344,7 @@
     <!-- Statistics modal -->
     <div v-if="showStats" class="modal-overlay" @click.self="showStats = false">
       <div class="modal-content stats-modal">
-        <h3>📊 {{ $t('schedule.attendanceStats') }}</h3>
+        <h3>{{ $t('schedule.attendanceStats') }}</h3>
         <table>
           <thead>
             <tr>
@@ -385,7 +392,7 @@ import { useAuthStore } from '../stores/auth'
 const { t } = useI18n()
 const auth = useAuthStore()
 const route = useRoute()
-const teamId = ref(route.params.id)
+const teamId = ref(route.params.id || route.params.teamId)
 const events = ref([])
 const teamPlayers = ref([])
 const error = ref(null)
@@ -396,9 +403,9 @@ const currentWeek = ref(dayjs())
 
 // Event type filters for list view
 const eventFilters = computed(() => [
-  { value: 'practice', label: t('schedule.practice'), icon: '🏃' },
-  { value: 'game', label: t('schedule.game'), icon: '⚽' },
-  { value: 'meeting', label: t('schedule.meeting'), icon: '📋' },
+  { value: 'practice', label: t('schedule.practice'), icon: '' },
+  { value: 'game', label: t('schedule.game'), icon: '' },
+  { value: 'meeting', label: t('schedule.meeting'), icon: '' },
 ])
 
 // Upcoming events count
@@ -406,6 +413,37 @@ const upcomingCount = computed(() => {
   const now = dayjs()
   return events.value.filter(e => dayjs(`${e.event_date} ${e.event_time}`).isAfter(now)).length
 })
+
+const totalEvents = computed(() => events.value.length)
+
+const thisWeekCount = computed(() => {
+  const start = currentWeek.value.startOf('week')
+  const end = currentWeek.value.endOf('week')
+
+  return events.value.filter((event) => {
+    const stamp = dayjs(`${event.event_date} ${event.event_time}`)
+    return (stamp.isAfter(start) || stamp.isSame(start)) && (stamp.isBefore(end) || stamp.isSame(end))
+  }).length
+})
+
+const nextEvent = computed(() => {
+  const now = dayjs()
+
+  return [...events.value]
+    .filter((event) => dayjs(`${event.event_date} ${event.event_time}`).isAfter(now))
+    .sort((a, b) => dayjs(`${a.event_date} ${a.event_time}`).valueOf() - dayjs(`${b.event_date} ${b.event_time}`).valueOf())[0] || null
+})
+
+const nextEventTitle = computed(() => nextEvent.value?.event_name || 'No upcoming event')
+const nextEventMeta = computed(() => {
+  if (!nextEvent.value) {
+    return 'The calendar is clear right now.'
+  }
+
+  return `${dayjs(nextEvent.value.event_date).format('D MMM YYYY')} at ${formatTime(nextEvent.value.event_time)}`
+})
+
+const currentViewLabel = computed(() => viewMode.value === 'week' ? 'Weekly planner' : 'Event list')
 
 // Format time (e.g. "18:00" -> "6:00 PM" or keep 24h)
 const formatTime = (time) => {
@@ -664,10 +702,10 @@ const getInitials = (name) => {
 // Get event icon
 const getEventIcon = (type) => {
   const icons = {
-    practice: '🏃',
-    game: '⚽',
-    meeting: '📋',
-    other: '📌'
+    practice: '',
+    game: '',
+    meeting: '',
+    other: ''
   }
   return icons[type] || icons.other
 }
@@ -882,91 +920,250 @@ onMounted(async () => {
 
 <style scoped>
 /* ==================== LAYOUT ==================== */
+.schedule-page {
+  --page-bg: var(--background-color);
+  --page-surface: var(--card-bg);
+  --page-border: var(--border-color);
+  --page-text: var(--text-color);
+  --page-muted: var(--text-secondary);
+  --page-accent: #0b72e7;
+  --page-accent-soft: rgba(11, 114, 231, 0.14);
+  min-height: calc(100vh - 40px);
+  background:
+    radial-gradient(circle at top left, rgba(11, 114, 231, 0.12), transparent 32%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.05), transparent 20%),
+    var(--page-bg);
+  color: var(--page-text);
+}
+
+.dark-mode .schedule-page {
+  --page-accent: #6fb2ff;
+  --page-accent-soft: rgba(74, 144, 226, 0.22);
+  background:
+    radial-gradient(circle at top left, rgba(74, 144, 226, 0.2), transparent 34%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent 18%),
+    var(--page-bg);
+}
+
 .schedule-container {
-  max-width: 100%;
+  max-width: 1280px;
+  margin: 0 auto;
   padding: 24px;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
 /* ==================== HEADER ==================== */
+.schedule-hero,
+.stats-card,
+.schedule-surface {
+  background: var(--page-surface);
+  border: 1px solid var(--page-border);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.08);
+}
+
+.schedule-hero {
+  display: grid;
+  grid-template-columns: 1.2fr 320px;
+  gap: 0.75rem;
+  padding: 0.75rem 1.25rem;
+  border-radius: 28px;
+  background: linear-gradient(135deg, var(--page-accent-soft), transparent 65%), var(--page-surface);
+}
+
+.hero-main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
 .schedule-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 28px;
+  gap: 0.5rem;
+}
+
+.header-eyebrow,
+.summary-label,
+.stats-label {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.78rem;
+  color: var(--page-muted);
+  margin: 0;
 }
 
 .header-left h1 {
   margin: 0;
-  font-size: 26px;
+  font-size: clamp(1.5rem, 2.5vw, 2.5rem);
   font-weight: 700;
-  color: var(--text-color);
+  color: var(--page-text);
 }
 
 .header-subtitle {
   margin: 4px 0 0;
   font-size: 13px;
-  color: #9ca3af;
+  color: var(--page-muted);
 }
 
 .header-actions {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
+  flex-wrap: nowrap;
+  justify-content: flex-start;
+  flex: 0 0 auto;
 }
 
 .header-btn {
-  padding: 9px 18px;
-  border: none;
-  border-radius: 10px;
+  padding: 5px 12px;
+  border: 1px solid transparent;
+  border-radius: 6px;
   font-weight: 600;
-  font-size: 13px;
+  font-size: 11px;
   cursor: pointer;
   transition: all 0.2s;
+  flex: 0 0 auto;
 }
 
 .stats-btn {
-  background: #f3f4f6;
-  color: #374151;
+  margin-right: 0;
+}
+
+
+
+.stats-btn {
+  background: rgba(11, 114, 231, 0.08);
+  color: var(--page-accent);
+  border-color: rgba(11, 114, 231, 0.18);
 }
 
 .stats-btn:hover {
-  background: #e5e7eb;
+  background: rgba(11, 114, 231, 0.14);
 }
 
 .add-btn {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #0b72e7 0%, #0f4dbf 100%);
   color: white;
 }
 
 .add-btn:hover {
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+  box-shadow: 0 8px 18px rgba(11, 114, 231, 0.28);
+}
+
+.hero-controls {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
 }
 
 .view-toggle {
   display: flex;
-  background: #f3f4f6;
-  border-radius: 10px;
-  padding: 3px;
+  background: rgba(127, 127, 127, 0.08);
+  border-radius: 999px;
+  padding: 2px;
+  flex: 0 0 auto;
 }
 
 .view-toggle button {
-  padding: 7px 12px;
+  padding: 4px 10px;
   border: none;
-  border-radius: 8px;
+  border-radius: 999px;
   background: transparent;
   cursor: pointer;
-  color: #9ca3af;
+  color: var(--page-muted);
   display: flex;
   align-items: center;
   transition: all 0.2s;
+  font-size: 11px;
 }
 
 .view-toggle button.active {
-  background: white;
-  color: #374151;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  background: var(--page-accent-soft);
+  color: var(--page-accent);
+}
+
+.team-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.team-nav-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.6rem 0.95rem;
+  border-radius: 999px;
+  border: 1px solid var(--page-border);
+  background: var(--page-surface);
+  color: var(--page-muted);
+  text-decoration: none;
+  font-weight: 700;
+}
+
+.team-nav-link.active {
+  background: var(--page-accent-soft);
+  color: var(--page-accent);
+}
+
+.hero-side {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.hero-summary-card {
+  border: 1px solid var(--page-border);
+  border-radius: 22px;
+  padding: 1rem 1.1rem;
+  background: var(--page-surface);
+}
+
+.hero-summary-card.soft {
+  background: linear-gradient(135deg, var(--page-accent-soft), transparent 70%), var(--page-surface);
+}
+
+.hero-summary-card strong {
+  display: block;
+  margin: 0.35rem 0;
+  font-size: 1.1rem;
+}
+
+.hero-summary-card p {
+  margin: 0;
+  color: var(--page-muted);
+}
+
+.schedule-stats-strip {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.stats-card {
+  border-radius: 22px;
+  padding: 1.15rem 1.2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.stats-card strong {
+  font-size: 2rem;
+  line-height: 1;
+}
+
+.stats-card small {
+  color: var(--page-muted);
+}
+
+.schedule-surface {
+  margin-top: 1rem;
+  border-radius: 26px;
+  padding: 1.25rem;
 }
 
 /* ==================== WEEK VIEW ==================== */
@@ -987,18 +1184,18 @@ onMounted(async () => {
   height: 36px;
   border: none;
   border-radius: 10px;
-  background: #f3f4f6;
+  background: rgba(127, 127, 127, 0.08);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #6b7280;
+  color: var(--page-muted);
   transition: all 0.2s;
 }
 
 .nav-btn:hover {
-  background: #e5e7eb;
-  color: #374151;
+  background: var(--page-accent-soft);
+  color: var(--page-accent);
 }
 
 .week-title {
@@ -1011,15 +1208,15 @@ onMounted(async () => {
   margin: 0;
   font-size: 17px;
   font-weight: 600;
-  color: var(--text-color);
+  color: var(--page-text);
 }
 
 .today-btn {
   padding: 4px 12px;
-  border: 1.5px solid #667eea;
+  border: 1.5px solid var(--page-accent);
   border-radius: 6px;
   background: transparent;
-  color: #667eea;
+  color: var(--page-accent);
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
@@ -1027,7 +1224,7 @@ onMounted(async () => {
 }
 
 .today-btn:hover {
-  background: #667eea;
+  background: var(--page-accent);
   color: white;
 }
 
@@ -1039,22 +1236,26 @@ onMounted(async () => {
 }
 
 .day-column {
-  background: var(--card-bg, white);
+  background: var(--page-surface);
   border-radius: 14px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--page-border);
   overflow: hidden;
   transition: all 0.2s;
 }
 
 .day-column.today {
-  border-color: #667eea;
-  box-shadow: 0 0 0 1px #667eea;
+  border-color: var(--page-accent);
+  box-shadow: 0 0 0 1px var(--page-accent);
+}
+
+.day-column.has-events {
+  background: linear-gradient(180deg, rgba(11, 114, 231, 0.04), transparent 30%), var(--page-surface);
 }
 
 .day-header {
   padding: 12px 10px;
   text-align: center;
-  border-bottom: 1px solid #f3f4f6;
+  border-bottom: 1px solid rgba(127, 127, 127, 0.12);
 }
 
 .day-name {
@@ -1069,7 +1270,7 @@ onMounted(async () => {
 .day-number {
   font-size: 20px;
   font-weight: 700;
-  color: var(--text-color);
+  color: var(--page-text);
 }
 
 .day-number.today-number {
@@ -1078,7 +1279,7 @@ onMounted(async () => {
   line-height: 36px;
   margin: 0 auto;
   border-radius: 50%;
-  background: #667eea;
+  background: var(--page-accent);
   color: white;
 }
 

@@ -8,6 +8,7 @@ import axios from 'axios'
 import { useRouter, useRoute } from 'vue-router'
 import JoinTeamModal from './components/JoinTeamModal.vue'
 import { useI18n } from 'vue-i18n'
+import { hasCoachRole } from './utils/teamAccess'
 
 // Authentication store
 const auth = useAuthStore()
@@ -26,15 +27,48 @@ const isLoggedIn = computed(() => auth.isAuthenticated)
 
 // Whether to show create team button
 const showCreateTeam = computed(() =>
-  auth.user?.role === 'Coach' && !userTeam.value
+  hasCoachRole(auth.user) && !userTeam.value
 )
 
 const showJoinTeam = computed(() =>
-  (auth.user?.role === 'Player' || auth.user?.role === 'Coach') && !userTeam.value
+  ((auth.user?.role || '').toLowerCase() === 'player' || hasCoachRole(auth.user)) && !userTeam.value
 )
 
 // Whether user has a team
 const hasTeam = computed(() => !!userTeam.value)
+const teamRouteNames = new Set([
+  'TeamPage',
+  'TeamPlayers',
+  'TeamStatistics',
+  'TeamSchedule'
+])
+
+const isTeamSubpage = computed(() => {
+  const routeName = typeof route.name === 'string' ? route.name : ''
+  const routeTeamId = route.params?.id || route.params?.teamId
+  const path = route.path || ''
+
+  if (teamRouteNames.has(routeName) && routeTeamId) {
+    return true
+  }
+
+  return path.startsWith('/team/') || path.startsWith('/team-schedule/') || path.startsWith('/teams/')
+})
+
+const currentTeamId = computed(() => route.params.id || route.params.teamId || userTeam.value?.id || null)
+
+const showCoachTeamLinks = computed(() => {
+  if (!isTeamSubpage.value || !hasCoachRole(auth.user)) {
+    return false
+  }
+
+  const routeTeamId = Number(currentTeamId.value)
+  const userTeamId = Number(auth.user?.team_id ?? userTeam.value?.id)
+
+  return Number.isFinite(routeTeamId) &&
+    Number.isFinite(userTeamId) &&
+    routeTeamId === userTeamId
+})
 
 const openLoginModal  = () => showLoginModal.value = true
 const closeLoginModal = () => showLoginModal.value = false
@@ -76,8 +110,11 @@ const handleJoin = async (teamCode) => {
     const result = await response.json()
 
     if (response.ok) {
-      alert(t('messages.teamJoined'))
-      await fetchMyTeam()
+      alert(result.message || t('messages.teamJoined'))
+      if (result.team) {
+        await fetchMyTeam()
+        await auth.fetchUser()
+      }
       closeJoinTeamModal()
     } else {
       alert(result.message || t('messages.failedToJoinTeam'))
@@ -176,6 +213,9 @@ watch(() => route.path, async (newPath) => {
       :show-join-team="showJoinTeam"
       :has-team="hasTeam"
       :user-team="userTeam"
+      :is-on-team-page="isTeamSubpage"
+      :current-team-id="currentTeamId"
+      :show-coach-team-links="showCoachTeamLinks"
       :is-dark-mode="isDarkMode"
       :locale="locale"
       :auth="auth"
@@ -201,6 +241,7 @@ watch(() => route.path, async (newPath) => {
     />
     <JoinTeamModal
       v-if="showJoinTeamModal"
+      :is-coach="hasCoachRole(auth.user)"
       @close="closeJoinTeamModal"
       @join="handleJoin"
     />

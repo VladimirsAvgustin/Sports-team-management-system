@@ -80,15 +80,61 @@
       </div>
     </div>
 
-    <!-- Goals Distribution Chart (for Coach) -->
-    <div v-if="isCoach && sortedPlayers.length > 0" class="charts-section">
-      <div class="chart-container">
-        <h3>{{ $t('teamPage.goalsDistribution') }}</h3>
-        <canvas ref="goalsChartRef"></canvas>
+    <!-- Tabs Navigation -->
+    <div class="tabs-navigation">
+      <button 
+        v-for="tab in availableTabs" 
+        :key="tab.id"
+        @click="activeTab = tab.id"
+        :class="{
+          'tab-button': true,
+          'tab-button--active': activeTab === tab.id
+        }"
+      >
+        <span class="tab-icon">{{ tab.icon }}</span>
+        <span class="tab-label">{{ tab.label }}</span>
+      </button>
+    </div>
+
+    <!-- Overview Tab -->
+    <div v-if="activeTab === 'overview'" class="tab-content tab-overview">
+      <div class="overview-stats-detail">
+        <h3>{{ $t('teamPage.teamStats') }}</h3>
+        <div class="stats-detail-grid">
+          <div class="stat-detail-card">
+            <div class="stat-detail-icon">⚽</div>
+            <h4>{{ $t('teamPage.totalGoals') }}</h4>
+            <p class="stat-number">{{ teamStats.totalGoals }}</p>
+          </div>
+          <div class="stat-detail-card">
+            <div class="stat-detail-icon">🎯</div>
+            <h4>{{ $t('teamPage.totalAssists') }}</h4>
+            <p class="stat-number">{{ teamStats.totalAssists }}</p>
+          </div>
+          <div class="stat-detail-card">
+            <div class="stat-detail-icon">🏟️</div>
+            <h4>{{ $t('teamPage.matchesPlayed') }}</h4>
+            <p class="stat-number">{{ teamStats.totalMatches }}</p>
+          </div>
+          <div class="stat-detail-card">
+            <div class="stat-detail-icon">📊</div>
+            <h4>{{ $t('teamPage.avgAttendance') }}</h4>
+            <p class="stat-number">{{ teamStats.avgAttendance }}%</p>
+          </div>
+        </div>
       </div>
-      <div class="chart-container">
-        <h3>{{ $t('teamPage.assistsDistribution') }}</h3>
-        <canvas ref="assistsChartRef"></canvas>
+      <div class="overview-players-summary">
+        <h3>{{ $t('teamPage.playersInTeam') }}</h3>
+        <p class="players-count">{{ sortedPlayers.length }} {{ $t('teamPage.players') }}</p>
+        <div v-if="sortedPlayers.length > 0" class="top-performers">
+          <h4>Top Performers</h4>
+          <div class="top-performers-list">
+            <div v-for="player in sortedPlayers.slice(0, 5)" :key="player.id" class="top-performer-item">
+              <span class="performer-name">{{ fullName(player) }}</span>
+              <span class="performer-stats">⚽ {{ player.stats.goals }} | 🎯 {{ player.stats.assists }}</span>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -99,15 +145,17 @@
       </div>
     </transition>
 
-    <!-- Search and Controls -->
-    <div class="team-controls">
+    <!-- Players Tab -->
+    <div v-if="activeTab === 'players'" class="tab-content">
+      <!-- Search and Controls -->
+      <div class="team-controls">
       <div class="search-container">
         <input 
           v-model="searchQuery" 
           :placeholder="$t('teamPage.searchPlayers')" 
           class="search-input"
         >
-        <span class="search-icon">🔍</span>
+        <span class="search-icon"><i class="fas fa-search"></i></span>
       </div>
       <div class="controls-right">
         <select v-model="sortBy" class="sort-select">
@@ -292,11 +340,60 @@
         </tbody>
       </table>
     </div>
+    </div>
 
+    <!-- Statistics Tab (Coach Only) -->
+    <div v-if="activeTab === 'statistics' && isCoach" class="tab-content">
+      <div v-if="sortedPlayers.length > 0" class="charts-section">
+        <div class="chart-container">
+          <h3>{{ $t('teamPage.goalsDistribution') }}</h3>
+          <canvas ref="goalsChartRef"></canvas>
+        </div>
+        <div class="chart-container">
+          <h3>{{ $t('teamPage.assistsDistribution') }}</h3>
+          <canvas ref="assistsChartRef"></canvas>
+        </div>
+      </div>
+      <div v-else class="empty-state">
+        <p>{{ $t('teamPage.noPlayers') }}</p>
+      </div>
+    </div>
 
+    <!-- Settings Tab (Coach Only) -->
+    <div v-if="activeTab === 'settings' && isCoach" class="tab-content">
+      <div class="settings-section">
+        <h3>{{ $t('teamPage.teamSettings') }}</h3>
+        <div class="settings-group">
+          <label for="team-logo">{{ $t('teamPage.changeLogo') }}</label>
+          <div class="logo-upload-area">
+            <div class="team-logo" @click="triggerLogoUpload()" style="cursor: pointer; margin-bottom: 12px;">
+              <img v-if="team.logo" :src="team.logo" alt="Team Logo" class="logo-image" />
+              <div v-else class="logo-placeholder">
+                <span class="logo-initials">{{ getTeamInitials(team.name) }}</span>
+              </div>
+              <div class="logo-overlay">
+                <span>📷</span>
+                <span class="overlay-text">{{ $t('teamPage.changeLogo') }}</span>
+              </div>
+            </div>
+            <input 
+              type="file" 
+              ref="logoInput" 
+              @change="handleLogoUpload" 
+              accept="image/*" 
+              style="display: none"
+              id="team-logo"
+            />
+            <button v-if="team.logo" @click="deleteLogo" class="delete-logo-btn">
+              {{ $t('teamPage.removeLogo') }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <!-- Empty State -->
-    <div v-if="!loading && sortedPlayers.length === 0" class="empty-state">
+    <div v-if="!loading && sortedPlayers.length === 0 && activeTab === 'players'" class="empty-state">
       <h3>{{ $t('teamPage.noPlayers') }}</h3>
       <p v-if="searchQuery">{{ $t('teamPage.tryAdjustingSearch') }}</p>
       <p v-else>{{ $t('teamPage.noPlayers') }}</p>
@@ -330,6 +427,22 @@ const route = useRoute()
 const authStore = useAuthStore()
 const chatStore = useChatStore()
 const teamId = route.params.id
+
+// Tabs
+const activeTab = ref('overview')
+const availableTabs = computed(() => {
+  const tabs = [
+    { id: 'overview', label: 'Overview', icon: '👁️' },
+    { id: 'players', label: 'Players', icon: '👥' },
+  ]
+  if (isCoach.value) {
+    tabs.push(
+      { id: 'statistics', label: 'Statistics', icon: '📊' },
+      { id: 'settings', label: 'Settings', icon: '⚙️' }
+    )
+  }
+  return tabs
+})
 
 // Refs and state
 const team = ref({ name: '', coach_id: null, team_code: '', logo: null })
@@ -550,6 +663,14 @@ const sortedPlayers = computed(() => {
   return [...filteredPlayers.value].sort((a, b) => {
     if (sortBy.value === 'name') return fullName(a).localeCompare(fullName(b))
     return b.stats[sortBy.value] - a.stats[sortBy.value]
+  })
+})
+
+const topPerformers = computed(() => {
+  return [...players.value].sort((a, b) => {
+    const scoreA = (b.stats.goals * 2) + b.stats.assists
+    const scoreB = (a.stats.goals * 2) + a.stats.assists
+    return scoreB - scoreA
   })
 })
 
@@ -2277,6 +2398,323 @@ watch(players, () => {
   .drag-handle {
     top: 0.5rem;
     left: 0.5rem;
+  }
+}
+
+/* Tabs Navigation Styles */
+.tabs-navigation {
+  display: flex;
+  gap: 0.5rem;
+  padding: 1.5rem 2rem;
+  background: linear-gradient(135deg, rgba(var(--primary-rgb), 0.05), rgba(var(--primary-rgb), 0.02));
+  border-bottom: 2px solid var(--border-color);
+  overflow-x: auto;
+  scroll-behavior: smooth;
+  margin: 0 -2rem;
+  padding-left: 2rem;
+  padding-right: 2rem;
+}
+
+.tabs-navigation::-webkit-scrollbar {
+  height: 4px;
+}
+
+.tabs-navigation::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.tabs-navigation::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 2px;
+}
+
+.tab-button {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.25rem;
+  border: none;
+  background: transparent;
+  color: var(--text-color-secondary);
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+.tab-button:hover {
+  background: rgba(var(--primary-rgb), 0.1);
+  color: var(--text-color);
+}
+
+.tab-button--active {
+  color: var(--primary-color);
+  background: rgba(var(--primary-rgb), 0.15);
+}
+
+.tab-button--active::after {
+  content: '';
+  position: absolute;
+  bottom: -1.5rem;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--primary-color);
+  border-radius: 2px 2px 0 0;
+}
+
+.tab-icon {
+  font-size: 1.2rem;
+  display: inline-flex;
+}
+
+.tab-label {
+  display: inline;
+}
+
+/* Tab Content */
+.tab-content {
+  animation: fadeIn 0.3s ease;
+  padding: 2rem;
+}
+
+/* Overview Tab Specific */
+.tab-overview {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+}
+
+.overview-stats-detail {
+  background: var(--bg-color-secondary);
+  border-radius: 12px;
+  padding: 2rem;
+}
+
+.overview-stats-detail h3 {
+  margin-bottom: 1.5rem;
+  color: var(--text-color);
+}
+
+.stats-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.5rem;
+}
+
+.stat-detail-card {
+  background: linear-gradient(135deg, rgba(var(--primary-rgb), 0.1), rgba(var(--primary-rgb), 0.05));
+  border-radius: 10px;
+  padding: 1.5rem;
+  text-align: center;
+  border: 1px solid rgba(var(--primary-rgb), 0.2);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.stat-detail-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+}
+
+.stat-detail-icon {
+  font-size: 2rem;
+  margin-bottom: 0.5rem;
+}
+
+.stat-detail-card h4 {
+  font-size: 0.9rem;
+  color: var(--text-color-secondary);
+  margin-bottom: 0.5rem;
+}
+
+.stat-number {
+  font-size: 1.8rem;
+  font-weight: bold;
+  color: var(--primary-color);
+  margin: 0;
+}
+
+.overview-players-summary {
+  background: var(--bg-color-secondary);
+  border-radius: 12px;
+  padding: 2rem;
+}
+
+.overview-players-summary h3 {
+  margin-bottom: 1rem;
+  color: var(--text-color);
+}
+
+.players-count {
+  font-size: 2rem;
+  font-weight: bold;
+  color: var(--primary-color);
+  margin: 0 0 1.5rem 0;
+}
+
+.top-performers {
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border-color);
+}
+
+.top-performers h4 {
+  margin-bottom: 1rem;
+  color: var(--text-color);
+  font-size: 0.95rem;
+}
+
+.top-performers-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.top-performer-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.75rem;
+  background: rgba(var(--primary-rgb), 0.05);
+  border-radius: 8px;
+  font-size: 0.9rem;
+}
+
+.performer-name {
+  font-weight: 500;
+  color: var(--text-color);
+}
+
+.performer-stats {
+  color: var(--text-color-secondary);
+  font-size: 0.85rem;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Settings Section */
+.settings-section {
+  background: var(--bg-color-secondary);
+  border-radius: 12px;
+  padding: 2rem;
+  margin-bottom: 2rem;
+}
+
+.settings-section h3 {
+  margin-bottom: 1.5rem;
+  color: var(--text-color);
+}
+
+.settings-group {
+  margin-bottom: 2rem;
+}
+
+.settings-group label {
+  display: block;
+  margin-bottom: 1rem;
+  font-weight: 500;
+  color: var(--text-color);
+}
+
+.logo-upload-area {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* Mobile Responsive - Tabs */
+@media (max-width: 768px) {
+  .tab-overview {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .overview-stats-detail,
+  .overview-players-summary {
+    padding: 1.5rem;
+  }
+
+  .stats-detail-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+  }
+
+  .stat-detail-card {
+    padding: 1rem;
+  }
+
+  .stat-number {
+    font-size: 1.5rem;
+  }
+
+  .tabs-navigation {
+    padding: 1rem;
+    gap: 0.25rem;
+    margin: 0 -1rem;
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  .tab-button {
+    padding: 0.6rem 0.9rem;
+    font-size: 0.85rem;
+    gap: 0.3rem;
+  }
+
+  .tab-icon {
+    font-size: 1rem;
+  }
+
+  .tab-label {
+    display: none;
+  }
+
+  .tab-button--active .tab-label {
+    display: inline;
+  }
+
+  .tab-content {
+    padding: 1rem;
+  }
+
+  .settings-section {
+    padding: 1.5rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .tabs-navigation {
+    padding: 0.75rem 0.5rem;
+    gap: 0.2rem;
+  }
+
+  .tab-button {
+    padding: 0.5rem 0.6rem;
+    font-size: 0.75rem;
+  }
+
+  .tab-button--active::after {
+    bottom: -0.75rem;
+    height: 2px;
+  }
+
+  .tab-icon {
+    font-size: 0.9rem;
+  }
+
+  .tab-content {
+    padding: 0.75rem;
   }
 }
 </style>

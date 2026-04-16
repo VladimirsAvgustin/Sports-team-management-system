@@ -36,7 +36,7 @@ async function sendResetLink() {
   message.value = ''
 
   try {
-    const response = await axios.post('http://localhost:3000/api/auth/forgot-password', {
+    const response = await axios.post('/api/auth/forgot-password', {
       email: email.value
     })
     message.value = response.data.message || 'If the account exists, a reset link has been sent to email.'

@@ -1,9 +1,9 @@
-require('dotenv').config();
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '.env') });
 const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const sqlite3 = require('sqlite3').verbose();
-const path = require('path');
 const { Server } = require('socket.io');
 const http = require('http');
 const jwt = require('jsonwebtoken');
@@ -23,15 +23,19 @@ if (!fs.existsSync(uploadsDir)) {
 // Dynamic CORS origin configuration for development
 // Allows localhost, 127.0.0.1, and any local network IPs (192.168.x.x, etc)
 const corsOriginCheck = (origin, callback) => {
-  // Allow development origins
+  // Allow development origins (both HTTP and HTTPS)
   const allowedOrigins = [
     'http://localhost:5173',
     'http://localhost:5174',
+    'https://localhost:5173',
+    'https://localhost:5174',
     'http://127.0.0.1:5173',
-    'http://127.0.0.1:5174'
+    'http://127.0.0.1:5174',
+    'https://127.0.0.1:5173',
+    'https://127.0.0.1:5174'
   ];
   
-  // Allow any local network IPs (192.168.x.x, 10.x.x.x, 172.x.x.x)
+  // Allow any local network IPs (192.168.x.x, 10.x.x.x, 172.x.x.x) for both HTTP and HTTPS
   const isLocalNetworkIP = /^https?:\/\/(192\.168\.|10\.|172\.(1[6-9]|2[0-9]|3[01])|127\.)/;
   
   if (!origin || allowedOrigins.includes(origin) || isLocalNetworkIP.test(origin)) {
@@ -87,10 +91,16 @@ const db = new sqlite3.Database(dbPath, (err) => {
         email TEXT NOT NULL UNIQUE,
         password TEXT NOT NULL,
         role TEXT NOT NULL DEFAULT 'user',
+        avatar TEXT,
         team_id INTEGER,
         createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
         updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP
       )`);
+      db.run(`ALTER TABLE users ADD COLUMN avatar TEXT`, (avatarErr) => {
+        if (avatarErr && !avatarErr.message.includes('duplicate column name')) {
+          console.error('Error adding avatar column to users table:', avatarErr.message);
+        }
+      });
       db.run(`CREATE TABLE IF NOT EXISTS teams (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL,
@@ -168,6 +178,21 @@ const db = new sqlite3.Database(dbPath, (err) => {
         created_at INTEGER DEFAULT (strftime('%s', 'now')),
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
       )`);
+      db.run(`CREATE TABLE IF NOT EXISTS coach_join_requests (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        team_id INTEGER NOT NULL,
+        requester_user_id INTEGER NOT NULL,
+        status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'approved', 'rejected')),
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        reviewed_by INTEGER,
+        reviewed_at DATETIME,
+        FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE,
+        FOREIGN KEY (requester_user_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (reviewed_by) REFERENCES users(id) ON DELETE SET NULL
+      )`);
+      db.run('CREATE INDEX IF NOT EXISTS idx_coach_join_requests_team_status ON coach_join_requests(team_id, status)');
+      db.run('CREATE INDEX IF NOT EXISTS idx_coach_join_requests_requester_status ON coach_join_requests(requester_user_id, status)');
       console.log('All tables initialized');
     });
   }
@@ -188,12 +213,14 @@ app.use('/api/chat', chatRoutes);
 
 // Contact form - send email
 const nodemailer = require('nodemailer');
+const emailUser = process.env.EMAIL_USER || 'vladimiravgustin123@gmail.com';
+const emailPass = (process.env.EMAIL_PASS || '').replace(/\s+/g, '');
 
 const transporter = nodemailer.createTransport({
   service: 'gmail',
   auth: {
-    user: process.env.EMAIL_USER || 'vladimiravgustin123@gmail.com',
-    pass: process.env.EMAIL_PASS || ''
+    user: emailUser,
+    pass: emailPass
   }
 });
 
@@ -213,7 +240,7 @@ app.post('/api/contact', async (req, res) => {
   };
 
   const mailOptions = {
-    from: `"Sports Team Contact" <${process.env.EMAIL_USER || 'vladimiravgustin123@gmail.com'}>`,
+    from: `"Sports Team Contact" <${emailUser}>`,
     to: 'vladimiravgustin123@gmail.com',
     replyTo: email,
     subject: `${subjectLabels[subject] || subject} - from ${name}`,
