@@ -24,8 +24,11 @@
       
       <div class="form-group">
         <label for="TeamCode">{{ $t('team.teamCode') }} (optional):</label>
-        <input v-model="form.teamCode" type="text" id="teamCode"  />
-        </div>
+        <input v-model="form.teamCode" type="text" id="teamCode" :disabled="isCoachRole" />
+        <small v-if="isCoachRole" class="field-hint">
+          Coaches request team access after registration.
+        </small>
+      </div>
 
       
       <div class="form-group">
@@ -47,7 +50,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import axios from 'axios'
 import { useRouter } from 'vue-router'
 
@@ -65,13 +68,20 @@ const form = ref({
 
 const message = ref('')
 const success = ref(false)
+const isCoachRole = computed(() => String(form.value.role || '').toLowerCase() === 'coach')
+
+watch(isCoachRole, (nextValue) => {
+  if (nextValue) {
+    form.value.teamCode = ''
+  }
+})
 
 const registerUser = async () => {
   try {
-    const response = await axios.post('http://localhost:3000/api/auth/register', form.value)
+    const response = await axios.post('/api/auth/register', form.value)
     message.value = response.data.message
     success.value = true
-    form.value = { name: '', surname: '', email: '', password: '', role: '' }
+    form.value = { name: '', surname: '', email: '', password: '', role: '', teamCode: '' }
     setTimeout(() => {
       router.push('/') 
     }, 1000)
@@ -119,5 +129,12 @@ button {
 .error {
   color: red;
   margin-top: 1rem;
+}
+
+.field-hint {
+  display: block;
+  margin-top: 0.5rem;
+  color: #5f6c7b;
+  font-size: 0.9rem;
 }
 </style>

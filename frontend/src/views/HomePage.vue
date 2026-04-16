@@ -31,15 +31,12 @@
             </button>
             <div v-else class="action-buttons">
               <button class="btn btn-primary" @click="goToDashboard">
-                <span class="btn-icon">📊</span>
                 Dashboard
               </button>
               <button class="btn btn-secondary" @click="goToCreateTeam">
-                <span class="btn-icon">➕</span>
                 {{ $t('buttons.createTeam') }}
               </button>
               <button class="btn btn-outline" @click="goToSchedule">
-                <span class="btn-icon">📅</span>
                 {{ $t('buttons.schedule') }}
               </button>
             </div>
@@ -62,7 +59,6 @@
         <div class="features-grid">
           <!-- For logged out users -->
           <div class="feature-card" v-if="!isLoggedIn">
-            <div class="feature-icon">🔐</div>
             <h3>Secure Login</h3>
             <p>Access your team dashboard with secure authentication</p>
             <button class="btn btn-outline" @click="showLoginModal">Login Now</button>
@@ -70,7 +66,6 @@
 
           <!-- Schedule Card -->
           <div class="feature-card featured-card">
-            <div class="feature-icon">📅</div>
             <h3>Smart Scheduling</h3>
             <p v-if="!isLoggedIn">Organize practices, games, and team events with ease</p>
             <div v-else class="schedule-preview">
@@ -95,7 +90,6 @@
 
           <!-- Registration Card -->
           <div class="feature-card" v-if="!isLoggedIn">
-            <div class="feature-icon">👥</div>
             <h3>Team Registration</h3>
             <p>Register your team and start managing in minutes</p>
             <button class="btn btn-primary" @click="goToRegistration">Register Team</button>
@@ -103,21 +97,18 @@
 
           <!-- Additional features for logged in users -->
           <div class="feature-card" v-if="isLoggedIn">
-            <div class="feature-icon">🏀</div>
             <h3>Team Management</h3>
             <p>Manage players, positions, and team rosters</p>
             <button class="btn btn-outline" @click="goToTeamManagement">Manage Teams</button>
           </div>
 
           <div class="feature-card" v-if="isLoggedIn">
-            <div class="feature-icon">📊</div>
             <h3>Advanced Statistics</h3>
             <p>Track player performance and team progress</p>
             <button class="btn btn-outline" @click="goToStatistics">View Stats</button>
           </div>
 
           <div class="feature-card" v-if="isLoggedIn">
-            <div class="feature-icon">💬</div>
             <h3>Team Communication</h3>
             <p>Send announcements and messages to your team</p>
             <button class="btn btn-outline" @click="goToMessages">Open Messages</button>

@@ -1,41 +1,75 @@
 <template>
   <div class="contact-page">
-    <!-- Hero Section -->
-    <section class="contact-hero">
-      <div class="hero-content">
-        <h1>{{ $t('contact.title') }}</h1>
-        <p>{{ $t('contact.subtitle') }}</p>
-      </div>
-    </section>
+    <div class="contact-shell">
+      <section class="contact-hero">
+        <div class="hero-copy">
+          <p class="eyebrow">Contact and support</p>
+          <h1>{{ $t('contact.title') }}</h1>
+          <p class="hero-description">{{ $t('contact.subtitle') }}</p>
 
-    <div class="contact-body">
-      <!-- Contact Info Cards -->
-      <div class="info-cards">
-        <div class="info-card">
-          <h3>{{ $t('contact.email') }}</h3>
-          <p>{{ $t('contact.contactEmail') }}</p>
-          <a href="mailto:vladimiravgustin123@gmail.com" class="info-link">{{ $t('contact.sendEmail') }}</a>
+          <div class="hero-badges">
+            <span class="hero-badge">Support for coaches and players</span>
+            <span class="hero-badge">Fast answers for account and bug issues</span>
+          </div>
         </div>
-        <div class="info-card">
-          <h3>{{ $t('contact.location') }}</h3>
-          <p>{{ $t('contact.address') }}</p>
-        </div>
-      </div>
 
-      <!-- Contact Form + FAQ -->
-      <div class="contact-grid">
-        <!-- Form -->
-        <div class="form-section">
-          <h2>{{ $t('contact.sendMessage') }}</h2>
+        <div class="hero-side">
+          <div class="hero-card">
+            <span class="hero-card-label">{{ $t('contact.email') }}</span>
+            <strong>{{ $t('contact.contactEmail') }}</strong>
+            <a href="mailto:vladimiravgustin123@gmail.com" class="hero-card-link">
+              {{ $t('contact.sendEmail') }}
+            </a>
+          </div>
+          <div class="hero-card soft">
+            <span class="hero-card-label">{{ $t('contact.location') }}</span>
+            <strong>{{ $t('contact.address') }}</strong>
+            <p>Available for product questions, support and roadmap feedback.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="contact-highlights">
+        <article class="highlight-card">
+          <span class="highlight-label">Response focus</span>
+          <strong>Bug reports and access issues</strong>
+          <p>Use the form to send details that help us reproduce and fix issues quickly.</p>
+        </article>
+        <article class="highlight-card">
+          <span class="highlight-label">Product feedback</span>
+          <strong>Feature ideas are welcome</strong>
+          <p>Share missing workflows, painful steps or anything that would improve team management.</p>
+        </article>
+        <article class="highlight-card">
+          <span class="highlight-label">Best route</span>
+          <strong>Email for urgent support</strong>
+          <p>If something blocks your team today, direct email is the fastest path.</p>
+        </article>
+      </section>
+
+      <section class="contact-grid">
+        <article class="panel form-panel">
+          <div class="panel-head">
+            <div>
+              <p class="panel-kicker">{{ $t('contact.sendMessage') }}</p>
+              <h2>Send us a message</h2>
+            </div>
+            <span class="panel-chip">We read everything</span>
+          </div>
+
           <form @submit.prevent="submitForm" class="contact-form">
-            <div class="form-group">
-              <label for="name">{{ $t('contact.form.name') }}</label>
-              <input id="name" v-model="form.name" type="text" :placeholder="$t('contact.form.yourName')" required />
+            <div class="form-grid">
+              <div class="form-group">
+                <label for="name">{{ $t('contact.form.name') }}</label>
+                <input id="name" v-model="form.name" type="text" :placeholder="$t('contact.form.yourName')" required />
+              </div>
+
+              <div class="form-group">
+                <label for="email">{{ $t('contact.form.email') }}</label>
+                <input id="email" v-model="form.email" type="email" :placeholder="$t('contact.form.yourEmail')" required />
+              </div>
             </div>
-            <div class="form-group">
-              <label for="email">{{ $t('contact.form.email') }}</label>
-              <input id="email" v-model="form.email" type="email" :placeholder="$t('contact.form.yourEmail')" required />
-            </div>
+
             <div class="form-group">
               <label for="subject">{{ $t('contact.form.subject') }}</label>
               <select id="subject" v-model="form.subject" required>
@@ -47,40 +81,51 @@
                 <option value="other">{{ $t('contact.faq.other') }}</option>
               </select>
             </div>
+
             <div class="form-group">
               <label for="message">{{ $t('contact.form.message') }}</label>
-              <textarea id="message" v-model="form.message" rows="5" :placeholder="$t('contact.form.tellUs')" required></textarea>
+              <textarea id="message" v-model="form.message" rows="6" :placeholder="$t('contact.form.tellUs')" required></textarea>
             </div>
-            <button type="submit" class="submit-btn" :disabled="sending">
-              {{ sending ? $t('contact.form.sending') : $t('contact.form.sendMessage') }}
-            </button>
-            <p v-if="sent" class="success-msg">{{ $t('contact.messageSent') }}</p>
-            <p v-if="errorMsg" class="error-msg">{{ $t('contact.messageError') }}: {{ errorMsg }}</p>
-          </form>
-        </div>
 
-        <!-- FAQ -->
-        <div class="faq-section">
-          <h2>{{ $t('contact.faq.title') }}</h2>
+            <div class="form-footer">
+              <button type="submit" class="submit-btn" :disabled="sending">
+                {{ sending ? $t('contact.form.sending') : $t('contact.form.sendMessage') }}
+              </button>
+
+              <div class="form-feedback">
+                <p v-if="sent" class="success-msg">{{ $t('contact.messageSent') }}</p>
+                <p v-if="errorMsg" class="error-msg">{{ $t('contact.messageError') }}: {{ errorMsg }}</p>
+              </div>
+            </div>
+          </form>
+        </article>
+
+        <aside class="panel faq-panel">
+          <div class="panel-head">
+            <div>
+              <p class="panel-kicker">{{ $t('contact.faq.title') }}</p>
+              <h2>Common questions</h2>
+            </div>
+          </div>
+
           <div class="faq-list">
-            <div 
-              v-for="(item, i) in faqs" 
-              :key="i" 
+            <div
+              v-for="(item, i) in faqs"
+              :key="i"
               class="faq-item"
               :class="{ open: openFaq === i }"
-              @click="toggleFaq(i)"
             >
-              <div class="faq-question">
+              <button type="button" class="faq-question" @click="toggleFaq(i)">
                 <span>{{ item.q }}</span>
                 <span class="faq-toggle">{{ openFaq === i ? '−' : '+' }}</span>
-              </div>
-              <div class="faq-answer" v-show="openFaq === i">
+              </button>
+              <div v-show="openFaq === i" class="faq-answer">
                 {{ item.a }}
               </div>
             </div>
           </div>
-        </div>
-      </div>
+        </aside>
+      </section>
     </div>
   </div>
 </template>
@@ -108,7 +153,7 @@ const faqs = computed(() => [
   { q: t('contact.faq.qa3'), a: t('contact.faq.aa3') },
   { q: t('contact.faq.qa4'), a: t('contact.faq.aa4') },
   { q: t('contact.faq.qa5'), a: t('contact.faq.aa5') },
-  { q: t('contact.faq.qa6'), a: t('contact.faq.aa6') },
+  { q: t('contact.faq.qa6'), a: t('contact.faq.aa6') }
 ])
 
 const toggleFaq = (index) => {
@@ -118,6 +163,7 @@ const toggleFaq = (index) => {
 const submitForm = async () => {
   sending.value = true
   errorMsg.value = ''
+
   try {
     const res = await fetch('/api/contact', {
       method: 'POST',
@@ -129,17 +175,23 @@ const submitForm = async () => {
         message: form.value.message
       })
     })
+
     if (!res.ok) {
       const data = await res.json()
       throw new Error(data.error || 'Failed to send')
     }
+
     sent.value = true
     form.value = { name: '', email: '', subject: '', message: '' }
-    setTimeout(() => { sent.value = false }, 4000)
+    setTimeout(() => {
+      sent.value = false
+    }, 4000)
   } catch (err) {
     console.error('Error sending message:', err)
     errorMsg.value = err.message || 'Something went wrong. Please try again.'
-    setTimeout(() => { errorMsg.value = '' }, 5000)
+    setTimeout(() => {
+      errorMsg.value = ''
+    }, 5000)
   } finally {
     sending.value = false
   }
@@ -148,153 +200,224 @@ const submitForm = async () => {
 
 <style scoped>
 .contact-page {
-  min-height: 100vh;
+  --page-bg: var(--background-color);
+  --page-surface: var(--card-bg);
+  --page-border: var(--border-color);
+  --page-text: var(--text-color);
+  --page-muted: var(--text-secondary);
+  --page-accent: #0b72e7;
+  --page-accent-soft: rgba(11, 114, 231, 0.14);
+  min-height: calc(100vh - 40px);
+  background:
+    radial-gradient(circle at top left, rgba(11, 114, 231, 0.12), transparent 32%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.05), transparent 20%),
+    var(--page-bg);
+  color: var(--page-text);
 }
 
-/* Hero */
-.contact-hero {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  padding: 80px 20px 60px;
-  text-align: center;
-  position: relative;
-  overflow: hidden;
+.dark-mode .contact-page {
+  --page-accent: #6fb2ff;
+  --page-accent-soft: rgba(74, 144, 226, 0.22);
+  background:
+    radial-gradient(circle at top left, rgba(74, 144, 226, 0.22), transparent 34%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent 18%),
+    var(--page-bg);
 }
 
-.contact-hero::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.07'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
-}
-
-.hero-content {
-  position: relative;
-  z-index: 1;
-}
-
-.contact-hero h1 {
-  color: white;
-  font-size: 2.5rem;
-  font-weight: 800;
-  margin: 0 0 10px;
-}
-
-.contact-hero p {
-  color: rgba(255, 255, 255, 0.85);
-  font-size: 1.15rem;
-  margin: 0;
-}
-
-/* Body */
-.contact-body {
-  max-width: 1100px;
+.contact-shell {
+  max-width: 1240px;
   margin: 0 auto;
-  padding: 40px 20px 60px;
+  padding: 1.5rem;
 }
 
-/* Info Cards */
-.info-cards {
+.contact-hero,
+.highlight-card,
+.panel {
+  background: var(--page-surface);
+  border: 1px solid var(--page-border);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.08);
+}
+
+.contact-hero {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 20px;
-  margin-top: -40px;
-  position: relative;
-  z-index: 2;
-  margin-bottom: 50px;
+  grid-template-columns: 1.2fr 360px;
+  gap: 1rem;
+  padding: 1.6rem;
+  border-radius: 30px;
+  background: linear-gradient(135deg, var(--page-accent-soft), transparent 65%), var(--page-surface);
 }
 
-.info-card {
-  background: var(--card-bg, #fff);
-  border-radius: 16px;
-  padding: 30px 25px;
-  text-align: center;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-  transition: transform 0.2s, box-shadow 0.2s;
+.eyebrow,
+.panel-kicker,
+.highlight-label {
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.78rem;
+  color: var(--page-muted);
 }
 
-.info-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+.hero-copy h1 {
+  margin: 0.35rem 0 0.75rem;
+  font-size: clamp(2rem, 3vw, 3.2rem);
+  line-height: 1;
 }
 
-.info-icon {
-  font-size: 2.2rem;
-  margin-bottom: 12px;
+.hero-description {
+  max-width: 58ch;
+  margin: 0;
+  color: var(--page-muted);
 }
 
-.info-card h3 {
-  margin: 0 0 6px;
-  font-size: 1.1rem;
+.hero-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1.25rem;
+}
+
+.hero-badge,
+.panel-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.55rem 0.85rem;
+  border-radius: 999px;
+  background: var(--page-accent-soft);
+  color: var(--page-accent);
   font-weight: 700;
-  color: var(--text-color, #1a1a2e);
+  font-size: 0.84rem;
 }
 
-.info-card p {
-  margin: 0 0 12px;
-  color: var(--text-secondary, #666);
-  font-size: 0.95rem;
+.hero-side {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
 }
 
-.info-link {
-  color: #667eea;
-  font-weight: 600;
-  font-size: 0.9rem;
+.hero-card {
+  border: 1px solid var(--page-border);
+  border-radius: 22px;
+  padding: 1rem 1.1rem;
+  background: var(--page-surface);
+}
+
+.hero-card.soft {
+  background: linear-gradient(135deg, var(--page-accent-soft), transparent 70%), var(--page-surface);
+}
+
+.hero-card-label {
+  display: block;
+  color: var(--page-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.75rem;
+}
+
+.hero-card strong {
+  display: block;
+  margin: 0.35rem 0;
+  font-size: 1.05rem;
+}
+
+.hero-card p {
+  margin: 0;
+  color: var(--page-muted);
+}
+
+.hero-card-link {
+  display: inline-block;
+  margin-top: 0.25rem;
+  color: var(--page-accent);
   text-decoration: none;
-  cursor: pointer;
-  transition: color 0.2s;
+  font-weight: 700;
 }
 
-.info-link:hover {
-  color: #764ba2;
-}
-
-/* Grid */
+.contact-highlights,
 .contact-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 40px;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.contact-highlights {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.highlight-card {
+  border-radius: 22px;
+  padding: 1.15rem 1.2rem;
+}
+
+.highlight-card strong {
+  display: block;
+  margin: 0.35rem 0;
+}
+
+.highlight-card p {
+  margin: 0;
+  color: var(--page-muted);
+}
+
+.contact-grid {
+  grid-template-columns: 1.15fr 0.85fr;
   align-items: start;
 }
 
-/* Form */
-.form-section h2,
-.faq-section h2 {
-  font-size: 1.4rem;
-  font-weight: 700;
-  margin: 0 0 24px;
-  color: var(--text-color, #1a1a2e);
+.panel {
+  border-radius: 26px;
+  padding: 1.25rem;
+}
+
+.panel-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: start;
+  margin-bottom: 1rem;
+}
+
+.panel-head h2 {
+  margin: 0.25rem 0 0;
+  font-size: 1.45rem;
 }
 
 .contact-form {
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 1rem;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
 }
 
 .form-group {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 0.45rem;
 }
 
 .form-group label {
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: var(--text-color, #555);
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--page-muted);
   text-transform: uppercase;
-  letter-spacing: 0.3px;
+  letter-spacing: 0.06em;
 }
 
 .form-group input,
 .form-group select,
 .form-group textarea {
-  padding: 12px 14px;
-  border: 1.5px solid var(--border-color, #ddd);
-  border-radius: 10px;
-  font-size: 0.95rem;
+  width: 100%;
+  padding: 0.95rem 1rem;
+  border: 1px solid var(--page-border);
+  border-radius: 16px;
+  background: var(--page-bg);
+  color: var(--page-text);
   font-family: inherit;
-  background: var(--card-bg, #fff);
-  color: var(--text-color, #333);
   transition: border-color 0.2s, box-shadow 0.2s;
 }
 
@@ -302,31 +425,37 @@ const submitForm = async () => {
 .form-group select:focus,
 .form-group textarea:focus {
   outline: none;
-  border-color: #667eea;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.15);
+  border-color: var(--page-accent);
+  box-shadow: 0 0 0 3px rgba(11, 114, 231, 0.12);
 }
 
 .form-group textarea {
+  min-height: 150px;
   resize: vertical;
-  min-height: 120px;
+}
+
+.form-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
 }
 
 .submit-btn {
-  padding: 14px 28px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
   border: none;
-  border-radius: 12px;
-  font-size: 1rem;
-  font-weight: 700;
+  border-radius: 16px;
+  padding: 0.95rem 1.4rem;
+  background: linear-gradient(135deg, #0b72e7, #0f4dbf);
+  color: white;
+  font-weight: 800;
   cursor: pointer;
-  transition: transform 0.2s, box-shadow 0.2s, opacity 0.2s;
-  align-self: flex-start;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s;
 }
 
 .submit-btn:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.35);
+  box-shadow: 0 12px 24px rgba(11, 114, 231, 0.28);
 }
 
 .submit-btn:disabled {
@@ -334,288 +463,133 @@ const submitForm = async () => {
   cursor: not-allowed;
 }
 
-.success-msg {
-  color: #4caf50;
-  font-weight: 600;
-  font-size: 0.95rem;
+.form-feedback {
+  flex: 1;
+  min-width: 240px;
+}
+
+.success-msg,
+.error-msg {
   margin: 0;
+  font-weight: 700;
+}
+
+.success-msg {
+  color: #198754;
 }
 
 .error-msg {
-  color: #f44336;
-  font-weight: 600;
-  font-size: 0.95rem;
-  margin: 0;
+  color: #d63a3a;
 }
 
-/* FAQ */
 .faq-list {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 0.75rem;
 }
 
 .faq-item {
-  background: var(--card-bg, #fff);
-  border: 1.5px solid var(--border-color, #e8e8e8);
-  border-radius: 12px;
+  border: 1px solid var(--page-border);
+  border-radius: 18px;
   overflow: hidden;
-  cursor: pointer;
-  transition: border-color 0.2s, box-shadow 0.2s;
-}
-
-.faq-item:hover {
-  border-color: #667eea;
+  background: rgba(255, 255, 255, 0.02);
 }
 
 .faq-item.open {
-  border-color: #667eea;
-  box-shadow: 0 2px 12px rgba(102, 126, 234, 0.1);
+  border-color: rgba(11, 114, 231, 0.35);
+  box-shadow: 0 10px 20px rgba(11, 114, 231, 0.08);
 }
 
 .faq-question {
+  width: 100%;
+  border: none;
+  background: transparent;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 16px 18px;
-  font-weight: 600;
-  color: var(--text-color, #333);
-  font-size: 0.95rem;
-  gap: 12px;
+  gap: 1rem;
+  padding: 1rem 1.1rem;
+  color: var(--page-text);
+  font-size: 0.96rem;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
 }
 
 .faq-toggle {
-  font-size: 1.3rem;
-  color: #667eea;
-  flex-shrink: 0;
-  width: 24px;
-  text-align: center;
-  font-weight: 300;
+  color: var(--page-accent);
+  font-size: 1.2rem;
+  line-height: 1;
 }
 
 .faq-answer {
-  padding: 0 18px 16px;
-  color: var(--text-secondary, #666);
-  font-size: 0.9rem;
+  padding: 0 1.1rem 1rem;
+  color: var(--page-muted);
   line-height: 1.6;
 }
 
-/* Dark mode */
-.dark-mode .info-card {
-  background: #1e1e1e;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+@media (max-width: 1080px) {
+  .contact-hero,
+  .contact-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .hero-side {
+    flex-direction: row;
+  }
+
+  .contact-highlights {
+    grid-template-columns: 1fr;
+  }
 }
 
-.dark-mode .info-card:hover {
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
-}
-
-.dark-mode .info-card h3 {
-  color: #f4f4f4;
-}
-
-.dark-mode .info-card p {
-  color: #aaa;
-}
-
-.dark-mode .form-group input,
-.dark-mode .form-group select,
-.dark-mode .form-group textarea {
-  background: #1e1e1e;
-  border-color: #444;
-  color: #f4f4f4;
-}
-
-.dark-mode .faq-item {
-  background: #1e1e1e;
-  border-color: #333;
-}
-
-.dark-mode .faq-item:hover,
-.dark-mode .faq-item.open {
-  border-color: #667eea;
-}
-
-.dark-mode .faq-question {
-  color: #f4f4f4;
-}
-
-.dark-mode .faq-answer {
-  color: #aaa;
-}
-
-.dark-mode .submit-btn:hover:not(:disabled) {
-  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.2);
-}
-
-/* Responsive */
 @media (max-width: 768px) {
-  .info-cards {
+  .contact-shell {
+    padding: 1rem;
+  }
+
+  .contact-hero,
+  .panel,
+  .highlight-card {
+    border-radius: 22px;
+  }
+
+  .hero-side {
+    flex-direction: column;
+  }
+
+  .form-grid {
     grid-template-columns: 1fr;
-    margin-top: -30px;
   }
 
-  .contact-grid {
-    grid-template-columns: 1fr;
-    gap: 30px;
-  }
-
-  .contact-hero {
-    padding: 50px 20px 40px;
-  }
-
-  .contact-hero h1 {
-    font-size: 1.8rem;
-  }
-
-  .contact-hero p {
-    font-size: 1rem;
-  }
-
-  .contact-body {
-    padding: 20px 15px 40px;
-  }
-
-  .info-cards {
-    margin-bottom: 30px;
-    gap: 15px;
-  }
-
-  .info-card {
-    padding: 20px 15px;
-  }
-
-  .contact-grid {
-    gap: 30px;
-  }
-
-  .form-section h2,
-  .faq-section h2 {
-    font-size: 1.2rem;
+  .form-footer {
+    align-items: stretch;
   }
 
   .submit-btn {
     width: 100%;
-    align-self: auto;
-  }
-
-  .faq-question {
-    padding: 14px 14px;
-    font-size: 0.9rem;
-  }
-
-  .faq-answer {
-    padding: 0 14px 12px;
-    font-size: 0.85rem;
   }
 }
 
 @media (max-width: 480px) {
-  .contact-hero h1 {
-    font-size: 1.4rem;
-    margin-bottom: 8px;
+  .contact-shell {
+    padding: 0.75rem;
   }
 
-  .contact-hero p {
-    font-size: 0.9rem;
+  .contact-hero,
+  .panel,
+  .highlight-card {
+    padding: 1rem;
   }
 
-  .contact-body {
-    padding: 15px 12px 30px;
+  .hero-copy h1 {
+    font-size: 1.85rem;
   }
 
-  .info-cards {
-    gap: 12px;
-    margin-bottom: 25px;
-  }
-
-  .info-card {
-    padding: 15px 12px;
-  }
-
-  .info-card h3 {
-    font-size: 1rem;
-  }
-
-  .info-card p {
-    font-size: 0.9rem;
-  }
-
-  .info-link {
-    font-size: 0.85rem;
-  }
-
-  .contact-grid {
-    gap: 20px;
-  }
-
-  .form-section h2,
-  .faq-section h2 {
-    font-size: 1.1rem;
-    margin-bottom: 16px;
-  }
-
-  .form-group label {
-    font-size: 0.75rem;
-  }
-
-  .form-group input,
-  .form-group select,
-  .form-group textarea {
-    padding: 10px 12px;
-    font-size: 16px;
-    min-height: 44px;
-  }
-
-  .form-group textarea {
-    min-height: 100px;
-  }
-
-  .submit-btn {
-    padding: 12px 20px;
-    font-size: 0.95rem;
-    width: 100%;
-  }
-
-  .success-msg,
-  .error-msg {
-    font-size: 0.9rem;
-  }
-
-  .faq-question {
-    padding: 12px 12px;
-    gap: 8px;
-    font-size: 0.85rem;
-  }
-
-  .faq-toggle {
-    font-size: 1.1rem;
-    width: 20px;
-  }
-
+  .faq-question,
   .faq-answer {
-    padding: 0 12px 12px;
-    font-size: 0.8rem;
-    line-height: 1.5;
-  }
-
-  .faq-item {
-    border-radius: 10px;
-  }
-}
-
-/* Landscape orientation */
-@media (max-height: 500px) {
-  .contact-hero {
-    padding: 30px 20px 20px;
-  }
-
-  .contact-hero h1 {
-    font-size: 1.4rem;
-  }
-
-  .contact-body {
-    padding: 15px 20px 30px;
+    padding-left: 0.95rem;
+    padding-right: 0.95rem;
   }
 }
 </style>

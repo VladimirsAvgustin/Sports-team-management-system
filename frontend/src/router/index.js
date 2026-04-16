@@ -6,7 +6,9 @@ import RegisterPage from "../views/RegisterPage.vue";
 import ServicesPage from "../views/ServicesPage.vue";
 import ProfilePage from '../views/ProfilePage.vue'
 import CreateTeam  from "../views/CreateTeam.vue";
-import TeamPage from "../views/TeamPage.vue";
+import TeamDashboard from "../views/TeamDashboard.vue";
+import TeamPlayers from "../views/TeamPlayers.vue";
+import TeamStatistics from "../views/TeamStatistics.vue";
 import TeamSchedule from "../views/TeamSchedule.vue";
 import AdminPage from "../views/AdminPage.vue";
 import ChatPage from "../views/ChatPage.vue";
@@ -24,14 +26,15 @@ const routes = [
   { path: "/services/:type", component: ServicesPage },
   { path: "/create-team", component: CreateTeam },
   { path: '/profile', component: ProfilePage },
-  { path: '/team/:id', name:'TeamPage', component: TeamPage },
+  { path: '/team/:id', name:'TeamPage', component: TeamDashboard },
+  { path: '/team/:id/overview', redirect: to => `/team/${to.params.id}` },
+  { path: '/team/:id/players', name: 'TeamPlayers', component: TeamPlayers, meta: { requiresAuth: true } },
+  { path: '/team/:id/statistics', name: 'TeamStatistics', component: TeamStatistics, meta: { requiresAuth: true } },
+  { path: '/team/:id/settings', redirect: to => `/team/${to.params.id}` },
   {path: '/team-schedule/:id', name: 'TeamSchedule', component: () => import('@/views/TeamSchedule.vue')},
   {path: '/teams/:teamId/schedule', component: TeamSchedule},
-  {path: '/team/:id', name: 'TeamPage', component: () => import('../views/TeamPage.vue'), meta: { requiresAuth: true }},
   {path: '/admin', component: AdminPage },
   {path: '/chat', component: ChatPage, meta: { requiresAuth: true }},
-    
-
 ];
 
 const router = createRouter({

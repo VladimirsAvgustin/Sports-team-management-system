@@ -5,7 +5,8 @@
     "register": "Registration",
     "login": "Login",
     "profile": "Profile",
-    "chat": "Chat"
+    "chat": "Chat",
+    "overview": "Overview"
   },
   "buttons": {
     "createTeam": "Create Team",
@@ -23,7 +24,9 @@
     "save": "Save",
     "edit": "Edit",
     "delete": "Delete",
-    "getStarted": "Get Started"
+    "getStarted": "Get Started",
+    "actions": "Actions",
+    "confirm": "Confirm"
   },
   "auth": {
     "email": "Email",
@@ -36,14 +39,6 @@
     "enterPassword": "Enter password",
     "forgotPassword": "Forgot password?",
     "backToHome": "Back to home"
-  },
-  "team": {
-    "teamName": "Team Name",
-    "teamCode": "Team Code",
-    "teamCodeAuto": "Team Code (auto-generated)",
-    "create": "Create a New Team",
-    "join": "Join Team",
-    "enterTeamCode": "Enter team code"
   },
   "password": {
     "forgot": "Forgot Password",
@@ -95,7 +90,6 @@
     "editEvent": "Edit Event",
     "upcomingEvents": "Upcoming Events",
     "upcomingEvent": "upcoming event",
-    "upcomingEvents": "upcoming events",
     "stats": "Stats",
     "newEvent": "New Event",
     "today": "Today",
@@ -329,6 +323,9 @@
     "assists": "Assists",
     "yellowCards": "Yellow Cards",
     "redCards": "Red Cards",
-    "tryAdjustingSearch": "Try adjusting your search query"
+    "tryAdjustingSearch": "Try adjusting your search query",
+    "teamSettings": "Team Settings",
+    "teamStats": "Team Statistics",
+    "playersInTeam": "Players in Team"
   }
 }

@@ -2,7 +2,12 @@
   <div class="modal" @click.self="closeModal">
     <div class="modal-content">
       <span class="close-btn" @click="closeModal">&times;</span>
-      <h2>{{ $t('team.join') }}</h2>
+      <h2>{{ isCoach ? 'Request coach access' : $t('team.join') }}</h2>
+      <p class="modal-copy">
+        {{ isCoach
+          ? 'Submitting the team code will send a request to the main coach for approval.'
+          : 'Enter the team code to join instantly as a player.' }}
+      </p>
       <form @submit.prevent="joinTeam">
         <label for="teamCode">{{ $t('team.teamCode') }}:</label>
         <input
@@ -29,6 +34,13 @@ import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
+
+defineProps({
+  isCoach: {
+    type: Boolean,
+    default: false
+  }
+})
 
 const emit = defineEmits(['close', 'join'])
 
@@ -68,6 +80,12 @@ function closeModal() {
   border-radius: 10px;
   width: 360px;
   position: relative;
+}
+
+.modal-copy {
+  margin: 0 0 14px;
+  color: #5f6c7b;
+  line-height: 1.5;
 }
 
 .close-btn {
