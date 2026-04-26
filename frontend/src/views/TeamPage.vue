@@ -3,10 +3,10 @@
     <!-- Hero Section with Team Info -->
     <div class="team-hero">
       <div class="hero-content">
-        <!-- Team Logo -->
+        <!-- Komandas logotips -->
         <div class="team-logo-section">
           <div class="team-logo" @click="isCoach && triggerLogoUpload()">
-            <img v-if="team.logo" :src="team.logo" alt="Team Logo" class="logo-image" />
+            <img v-if="team.logo" :src="team.logo" :alt="$t('teamPage.teamLogo')" class="logo-image" />
             <div v-else class="logo-placeholder">
               <span class="logo-initials">{{ getTeamInitials(team.name) }}</span>
             </div>
@@ -39,8 +39,8 @@
               <span class="meta-icon"></span>
               {{ sortedPlayers.length }} {{ $t('teamPage.players') }}
             </span>
-            <button @click="toggleChat" class="chat-toggle-btn" title="Team Chat">
-              💬 Chat
+            <button @click="toggleChat" class="chat-toggle-btn" :title="$t('teamPage.teamChat')">
+              💬 {{ $t('teamPage.chat') }}
               <span v-if="unreadCount > 0" class="unread-badge">{{ unreadCount }}</span>
             </button>
           </div>
@@ -96,7 +96,7 @@
       </button>
     </div>
 
-    <!-- Overview Tab -->
+    <!-- Pārskata cilne -->
     <div v-if="activeTab === 'overview'" class="tab-content tab-overview">
       <div class="overview-stats-detail">
         <h3>{{ $t('teamPage.teamStats') }}</h3>
@@ -127,7 +127,7 @@
         <h3>{{ $t('teamPage.playersInTeam') }}</h3>
         <p class="players-count">{{ sortedPlayers.length }} {{ $t('teamPage.players') }}</p>
         <div v-if="sortedPlayers.length > 0" class="top-performers">
-          <h4>Top Performers</h4>
+          <h4>{{ $t('teamPage.topPerformers') }}</h4>
           <div class="top-performers-list">
             <div v-for="player in sortedPlayers.slice(0, 5)" :key="player.id" class="top-performer-item">
               <span class="performer-name">{{ fullName(player) }}</span>
@@ -303,9 +303,9 @@
       <table>
         <thead>
           <tr>
-            <th>Player</th>
+            <th>{{ $t('teamPage.player') }}</th>
             <th v-for="stat in statFields" :key="stat.key">{{ stat.label }}</th>
-            <th v-if="isCoach">Actions</th>
+            <th v-if="isCoach">{{ $t('buttons.actions') }}</th>
           </tr>
         </thead>
         <tbody>
@@ -333,7 +333,7 @@
             </td>
             <td v-if="isCoach">
               <button @click="confirmRemovePlayer(player)" class="danger-btn">
-                <i class="fas fa-user-minus"></i> Remove
+                <i class="fas fa-user-minus"></i> {{ $t('teamPage.remove') }}
               </button>
             </td>
           </tr>
@@ -342,7 +342,7 @@
     </div>
     </div>
 
-    <!-- Statistics Tab (Coach Only) -->
+    <!-- Statistikas cilne treneriem -->
     <div v-if="activeTab === 'statistics' && isCoach" class="tab-content">
       <div v-if="sortedPlayers.length > 0" class="charts-section">
         <div class="chart-container">
@@ -359,7 +359,7 @@
       </div>
     </div>
 
-    <!-- Settings Tab (Coach Only) -->
+    <!-- Iestatījumu cilne treneriem -->
     <div v-if="activeTab === 'settings' && isCoach" class="tab-content">
       <div class="settings-section">
         <h3>{{ $t('teamPage.teamSettings') }}</h3>
@@ -367,7 +367,7 @@
           <label for="team-logo">{{ $t('teamPage.changeLogo') }}</label>
           <div class="logo-upload-area">
             <div class="team-logo" @click="triggerLogoUpload()" style="cursor: pointer; margin-bottom: 12px;">
-              <img v-if="team.logo" :src="team.logo" alt="Team Logo" class="logo-image" />
+              <img v-if="team.logo" :src="team.logo" :alt="$t('teamPage.teamLogo')" class="logo-image" />
               <div v-else class="logo-placeholder">
                 <span class="logo-initials">{{ getTeamInitials(team.name) }}</span>
               </div>
@@ -394,9 +394,8 @@
 
     <!-- Empty State -->
     <div v-if="!loading && sortedPlayers.length === 0 && activeTab === 'players'" class="empty-state">
-      <h3>{{ $t('teamPage.noPlayers') }}</h3>
-      <p v-if="searchQuery">{{ $t('teamPage.tryAdjustingSearch') }}</p>
-      <p v-else>{{ $t('teamPage.noPlayers') }}</p>
+      <h3>{{ playerEmptyStateTitle }}</h3>
+      <p>{{ playerEmptyStateDescription }}</p>
     </div>
 
     <!-- Loading Overlay -->
@@ -432,13 +431,13 @@ const teamId = route.params.id
 const activeTab = ref('overview')
 const availableTabs = computed(() => {
   const tabs = [
-    { id: 'overview', label: 'Overview', icon: '👁️' },
-    { id: 'players', label: 'Players', icon: '👥' },
+    { id: 'overview', label: t('teamPage.overview'), icon: '👁️' },
+    { id: 'players', label: t('teamPage.players'), icon: '👥' },
   ]
   if (isCoach.value) {
     tabs.push(
-      { id: 'statistics', label: 'Statistics', icon: '📊' },
-      { id: 'settings', label: 'Settings', icon: '⚙️' }
+      { id: 'statistics', label: t('teamPage.statistics'), icon: '📊' },
+      { id: 'settings', label: t('teamPage.settings'), icon: '⚙️' }
     )
   }
   return tabs
@@ -499,7 +498,7 @@ const fetchTeamData = async () => {
     await fetchTeamStats()
   } catch (err) {
     console.error('Error loading team:', err)
-    showToast('Failed to load team data', 'error')
+    showToast(t('teamPage.failedToLoadTeamData'), 'error')
   } finally {
     loading.value = false
   }
@@ -597,7 +596,7 @@ const fetchPlayers = async () => {
     if (isCoach.value) await nextTick(renderCharts)
   } catch (err) {
     console.error('Error loading players:', err)
-    showToast('Failed to load players', 'error')
+    showToast(t('teamPage.failedToLoadPlayers'), 'error')
   }
 }
 
@@ -615,7 +614,7 @@ const updatePlayerStats = async (player) => {
 }
 
 const confirmRemovePlayer = async (player) => {
-  if (confirm(`Are you sure you want to remove ${fullName(player)} from the team?`)) {
+  if (confirm(t('teamPage.removePlayerConfirmNamed', { name: fullName(player) }))) {
     await removePlayer(player.id)
   }
 }
@@ -624,11 +623,11 @@ const removePlayer = async (playerId) => {
   try {
     await axios.delete(`/api/auth/players/${playerId}/team`)
     players.value = players.value.filter(p => p.id !== playerId)
-    showToast(t('messages.playerRemoved'))
+    showToast(t('teamPage.playerRemoved'))
     if (isCoach.value) renderCharts()
   } catch (error) {
     console.error('Error removing player:', error)
-    showToast(t('messages.error'), 'error')
+    showToast(t('teamPage.errorRemovingPlayer'), 'error')
   }
 }
 
@@ -658,6 +657,18 @@ const filteredPlayers = computed(() => {
     p.email.toLowerCase().includes(query)
   )
 })
+
+const hasPlayerSearch = computed(() => searchQuery.value.trim().length > 0)
+const playerEmptyStateTitle = computed(() => (
+  hasPlayerSearch.value
+    ? t('teamPage.noPlayersMatchSearch', { query: searchQuery.value.trim() })
+    : t('teamPage.noPlayers')
+))
+const playerEmptyStateDescription = computed(() => (
+  hasPlayerSearch.value
+    ? t('teamPage.tryAnotherSearch')
+    : t('teamPage.rosterWillAppearSoon')
+))
 
 const sortedPlayers = computed(() => {
   return [...filteredPlayers.value].sort((a, b) => {
@@ -818,12 +829,12 @@ const onDrop = (event, targetIndex) => {
   arr.splice(targetIndex, 0, draggedItem)
   players.value = arr
   
-  showToast('Player order updated', 'success')
+  showToast(t('teamPage.playerOrderUpdated'), 'success')
   onDragEnd()
 }
 
 const exportStats = () => {
-  const headers = ['Player', 'Email', ...statFields.map(f => f.label)]
+  const headers = [t('teamPage.player'), t('teamPage.email'), ...statFields.map(f => f.label)]
   const rows = sortedPlayers.value.map(p => [
     p.username || fullName(p),
     p.email,
@@ -901,7 +912,7 @@ const renderCharts = () => {
               label: function(context) {
                 const total = context.dataset.data.reduce((a, b) => a + b, 0)
                 const percentage = Math.round((context.raw / total) * 100)
-                return `${context.label}: ${context.raw} goals (${percentage}%)`
+                return `${context.label}: ${context.raw} ${t('teamPage.goals').toLowerCase()} (${percentage}%)`
               }
             }
           }
@@ -941,7 +952,7 @@ const renderCharts = () => {
               label: function(context) {
                 const total = context.dataset.data.reduce((a, b) => a + b, 0)
                 const percentage = Math.round((context.raw / total) * 100)
-                return `${context.label}: ${context.raw} assists (${percentage}%)`
+                return `${context.label}: ${context.raw} ${t('teamPage.assists').toLowerCase()} (${percentage}%)`
               }
             }
           }
@@ -994,7 +1005,7 @@ watch(players, () => {
   margin-bottom: 2rem;
 }
 
-/* Team Logo */
+/* Komandas logotips */
 .team-logo-section {
   display: flex;
   flex-direction: column;
@@ -2032,7 +2043,7 @@ watch(players, () => {
   background: #d32f2f;
 }
 
-/* Statistics Section */
+/* Statistikas sadaļa */
 .stats-section {
   margin-top: 3rem;
   padding-top: 2rem;
@@ -2481,7 +2492,7 @@ watch(players, () => {
   padding: 2rem;
 }
 
-/* Overview Tab Specific */
+/* Pārskata cilnes iestatījumi */
 .tab-overview {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -2603,7 +2614,7 @@ watch(players, () => {
   }
 }
 
-/* Settings Section */
+/* Iestatījumu sadaļa */
 .settings-section {
   background: var(--bg-color-secondary);
   border-radius: 12px;

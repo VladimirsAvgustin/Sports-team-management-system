@@ -27,14 +27,14 @@ import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
 
-// объявляем, какие события эмитим наружу
+// Declare emitted events.
 const emit = defineEmits(['close','login'])
 
 const email = ref('')
 const password = ref('')
 const errorMessage = ref('')
 
-// просто эмитим наверх, App.vue поймает 'login' и запустит auth.login(...)
+// Emit upward; App.vue handles login.
 function submit() {
   if (!email.value || !password.value) {
     errorMessage.value = t('messages.fieldsRequired')
@@ -43,7 +43,7 @@ function submit() {
   emit('login', email.value, password.value)
 }
 
-// крестик и клик по оверлейю
+// Close button and overlay click.
 function closeModal() {
   emit('close')
 }

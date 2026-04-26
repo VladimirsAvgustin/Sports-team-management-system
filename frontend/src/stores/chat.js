@@ -16,6 +16,19 @@ const getApiBaseUrl = () => {
 }
 
 const API_BASE_URL = getApiBaseUrl()
+const ATTACHMENT_LABEL = 'Pielikums'
+
+const fileToDataUrl = (file) => new Promise((resolve, reject) => {
+  const reader = new FileReader()
+  reader.onload = () => resolve(reader.result)
+  reader.onerror = () => reject(reader.error || new Error('Neizdevās nolasīt failu'))
+  reader.readAsDataURL(file)
+})
+
+const getMessagePreview = (message) => {
+  if (message?.message) return message.message
+  return message?.attachment_name || message?.attachmentName || ATTACHMENT_LABEL
+}
 
 export const useChatStore = defineStore('chat', {
   state: () => ({
@@ -87,7 +100,7 @@ export const useChatStore = defineStore('chat', {
         // Update last message in rooms list
         const roomIndex = this.rooms.findIndex(r => r.id === message.roomId)
         if (roomIndex !== -1) {
-          this.rooms[roomIndex].last_message = message.message
+          this.rooms[roomIndex].last_message = getMessagePreview(message)
           this.rooms[roomIndex].last_message_time = message.createdAt
         }
       })
@@ -115,7 +128,7 @@ export const useChatStore = defineStore('chat', {
 
       this.socket.on('message_error', (error) => {
         console.error('Message error:', error)
-        alert('Failed to send message')
+        alert('Neizdevās nosūtīt ziņojumu')
       })
 
       // Direct Message event handlers
@@ -131,7 +144,7 @@ export const useChatStore = defineStore('chat', {
         // Update or add to conversations list
         const convIndex = this.dmConversations.findIndex(c => c.user_id === dmData.sender_id)
         if (convIndex !== -1) {
-          this.dmConversations[convIndex].last_message = dmData.message
+          this.dmConversations[convIndex].last_message = getMessagePreview(dmData)
           this.dmConversations[convIndex].last_message_time = dmData.created_at
           if (!this.currentDM || this.currentDM.userId !== dmData.sender_id) {
             this.dmConversations[convIndex].unread_count++
@@ -154,7 +167,7 @@ export const useChatStore = defineStore('chat', {
         // Update or add to conversations list for sender
         const convIndex = this.dmConversations.findIndex(c => c.user_id === dmData.receiver_id)
         if (convIndex !== -1) {
-          this.dmConversations[convIndex].last_message = dmData.message
+          this.dmConversations[convIndex].last_message = getMessagePreview(dmData)
           this.dmConversations[convIndex].last_message_time = dmData.created_at
         } else {
           // Refresh conversations if new conversation
@@ -165,7 +178,7 @@ export const useChatStore = defineStore('chat', {
 
       this.socket.on('dm_error', (error) => {
         console.error('DM error:', error)
-        alert('Failed to send direct message')
+        alert('Neizdevās nosūtīt tiešo ziņojumu')
       })
     },
 
@@ -196,7 +209,7 @@ export const useChatStore = defineStore('chat', {
         })
 
         if (!response.ok) {
-          throw new Error('Failed to fetch messages')
+          throw new Error('Neizdevās ielādēt ziņojumus')
         }
 
         const messages = await response.json()
@@ -205,7 +218,7 @@ export const useChatStore = defineStore('chat', {
         
         // If currentRoom is not found, create a temporary room object
         if (!this.currentRoom) {
-          this.currentRoom = { id: roomId, name: `Room ${roomId}` }
+          this.currentRoom = { id: roomId, name: `Istaba ${roomId}` }
         }
         
         console.log(`Joining room ${roomId}, loaded ${messages.length} messages`)
@@ -229,18 +242,46 @@ export const useChatStore = defineStore('chat', {
     },
 
     // Send a message
-    sendMessage(message) {
-      if (!this.socket || !this.currentRoom || !message.trim()) {
+    sendMessage(message, attachment = null) {
+      const text = typeof message === 'string' ? message.trim() : ''
+      if (!this.socket || !this.currentRoom || (!text && !attachment)) {
         return
       }
 
       this.socket.emit('send_message', {
         roomId: this.currentRoom.id,
-        message: message.trim()
+        message: text,
+        attachment
       })
 
       // Stop typing indicator
       this.stopTyping()
+    },
+
+    async uploadAttachment(file) {
+      if (!file) return null
+
+      const data = await fileToDataUrl(file)
+      const response = await fetch('/api/chat/upload', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${useAuthStore().token}`
+        },
+        body: JSON.stringify({
+          fileName: file.name,
+          mimeType: file.type,
+          data
+        })
+      })
+
+      const payload = await response.json().catch(() => ({}))
+
+      if (!response.ok) {
+        throw new Error(payload.error || 'Neizdevās augšupielādēt failu')
+      }
+
+      return payload
     },
 
     // Typing indicators
@@ -268,7 +309,7 @@ export const useChatStore = defineStore('chat', {
         })
 
         if (!response.ok) {
-          throw new Error('Failed to fetch rooms')
+          throw new Error('Neizdevās ielādēt čatus')
         }
 
         this.rooms = await response.json()
@@ -288,7 +329,7 @@ export const useChatStore = defineStore('chat', {
         })
 
         if (!response.ok) {
-          throw new Error('Failed to get team room')
+          throw new Error('Neizdevās atvērt komandas čatu')
         }
 
         const room = await response.json()
@@ -327,7 +368,7 @@ export const useChatStore = defineStore('chat', {
         })
 
         if (!response.ok) {
-          throw new Error('Failed to fetch team members')
+          throw new Error('Neizdevās ielādēt komandas dalībniekus')
         }
 
         this.allUsers = await response.json()
@@ -347,7 +388,7 @@ export const useChatStore = defineStore('chat', {
         })
 
         if (!response.ok) {
-          throw new Error('Failed to fetch DM conversations')
+          throw new Error('Neizdevās ielādēt tiešās sarunas')
         }
 
         this.dmConversations = await response.json()
@@ -367,7 +408,7 @@ export const useChatStore = defineStore('chat', {
         })
 
         if (!response.ok) {
-          throw new Error('Failed to fetch DM messages')
+          throw new Error('Neizdevās ielādēt tiešos ziņojumus')
         }
 
         this.dmMessages = await response.json()
@@ -383,15 +424,16 @@ export const useChatStore = defineStore('chat', {
     },
 
     // Send direct message
-    sendDM(receiverId, message) {
-      console.log('sendDM called:', { receiverId, message, socketConnected: !!this.socket, isConnected: this.isConnected })
+    sendDM(receiverId, message, attachment = null) {
+      const text = typeof message === 'string' ? message.trim() : ''
+      console.log('sendDM called:', { receiverId, message: text, hasAttachment: !!attachment, socketConnected: !!this.socket, isConnected: this.isConnected })
       
       if (!this.socket) {
         console.error('Socket not connected, cannot send DM')
         return
       }
       
-      if (!message.trim()) {
+      if (!text && !attachment) {
         console.error('Message is empty')
         return
       }
@@ -399,7 +441,8 @@ export const useChatStore = defineStore('chat', {
       console.log('Emitting send_dm event...')
       this.socket.emit('send_dm', {
         receiverId,
-        message: message.trim()
+        message: text,
+        attachment
       })
     },
 

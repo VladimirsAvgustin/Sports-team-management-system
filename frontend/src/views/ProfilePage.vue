@@ -1,12 +1,14 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
 import axios from 'axios'
-import { removeUserAvatar, uploadUserAvatar } from '@/services/teamApi'
+import { leaveCurrentTeam, removeUserAvatar, uploadUserAvatar } from '@/services/teamApi'
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const auth = useAuthStore()
+const router = useRouter()
 
 const loading = ref(true)
 const team = ref(null)
@@ -19,6 +21,94 @@ const avatarLoading = ref(false)
 const avatarMessage = ref('')
 const avatarError = ref('')
 const avatarInput = ref(null)
+const teamActionLoading = ref(false)
+const teamActionError = ref('')
+
+const profileCopy = computed(() => {
+  if (locale.value === 'en') {
+    return {
+      member: 'Member',
+      hidden: 'Hidden',
+      noTeamCode: 'No team code',
+      avatarAlt: 'Profile photo',
+      uploading: 'Uploading...',
+      changeAvatar: 'Change profile photo',
+      removeAvatar: 'Remove profile photo',
+      secureInfo: 'Secure information',
+      hiddenData: 'Hidden user data',
+      email: 'Email',
+      password: 'Password',
+      passwordHidden: 'Password cannot be viewed',
+      teamCode: 'Team code',
+      hide: 'Hide',
+      show: 'Show',
+      sending: 'Sending...',
+      changePassword: 'Change password',
+      teamMembership: 'Team membership',
+      leaveCurrentTeam: 'Leave current team',
+      leaving: 'Leaving...',
+      leaveTeam: 'Leave team',
+      resetEmailSent: 'Password reset email has been sent.',
+      resetEmailError: 'Failed to send password reset email.',
+      selectImage: 'Choose an image file.',
+      imageTooLarge: 'Image must be smaller than 2 MB.',
+      avatarUpdated: 'Profile photo updated successfully.',
+      avatarUpdateError: 'Failed to update profile photo.',
+      avatarRemoved: 'Profile photo removed successfully.',
+      avatarRemoveError: 'Failed to remove profile photo.',
+      mainCoachLeaveDescription: 'If another coach is on the team, ownership will be transferred automatically when you leave. If no other coach is available, the action will be blocked.',
+      coachLeaveDescription: 'When you leave the team, you will lose coach access to this team until you join again.',
+      playerLeaveDescription: 'When you leave the team, you will be removed from the roster and team chat until you join again.',
+      leaveMainCoachConfirm: 'Leave team "{team}"? If another coach is available, ownership will be transferred automatically.',
+      leaveMainCoachConfirmFallback: 'Leave this team? If another coach is available, ownership will be transferred automatically.',
+      leaveConfirm: 'Leave team "{team}"?',
+      leaveConfirmFallback: 'Leave this team?',
+      leaveSuccess: 'You left the team successfully.',
+      leaveError: 'Failed to leave the team.'
+    }
+  }
+
+  return {
+    member: 'Dalībnieks',
+    hidden: 'Paslēpts',
+    noTeamCode: 'Komandas koda nav',
+    avatarAlt: 'Profila attēls',
+    uploading: 'Augšupielādē...',
+    changeAvatar: 'Mainīt profila attēlu',
+    removeAvatar: 'Noņemt profila attēlu',
+    secureInfo: 'Droša informācija',
+    hiddenData: 'Slēptie lietotāja dati',
+    email: 'E-pasts',
+    password: 'Parole',
+    passwordHidden: 'Paroli nevar apskatīt',
+    teamCode: 'Komandas kods',
+    hide: 'Paslēpt',
+    show: 'Parādīt',
+    sending: 'Sūta...',
+    changePassword: 'Mainīt paroli',
+    teamMembership: 'Dalība komandā',
+    leaveCurrentTeam: 'Pamest pašreizējo komandu',
+    leaving: 'Iziet...',
+    leaveTeam: 'Pamest komandu',
+    resetEmailSent: 'Paroles atiestatīšanas e-pasts ir nosūtīts.',
+    resetEmailError: 'Neizdevās nosūtīt paroles atiestatīšanas e-pastu.',
+    selectImage: 'Izvēlieties attēla failu.',
+    imageTooLarge: 'Attēlam jābūt mazākam par 2 MB.',
+    avatarUpdated: 'Profila attēls veiksmīgi atjaunināts.',
+    avatarUpdateError: 'Neizdevās atjaunināt profila attēlu.',
+    avatarRemoved: 'Profila attēls veiksmīgi noņemts.',
+    avatarRemoveError: 'Neizdevās noņemt profila attēlu.',
+    mainCoachLeaveDescription: 'Ja komandā ir cits treneris, īpašumtiesības pēc iziešanas tiks nodotas automātiski. Ja cita trenera nav, darbība tiks bloķēta.',
+    coachLeaveDescription: 'Izejot no komandas, jūs zaudēsiet trenera piekļuvi šai komandai, līdz pievienosieties komandai vēlreiz.',
+    playerLeaveDescription: 'Izejot no komandas, jūs tiksiet noņemts no sastāva un komandas čata, līdz pievienosieties komandai vēlreiz.',
+    leaveMainCoachConfirm: 'Pamest komandu "{team}"? Ja ir pieejams cits treneris, īpašumtiesības tiks nodotas automātiski.',
+    leaveMainCoachConfirmFallback: 'Pamest šo komandu? Ja ir pieejams cits treneris, īpašumtiesības tiks nodotas automātiski.',
+    leaveConfirm: 'Pamest komandu "{team}"?',
+    leaveConfirmFallback: 'Pamest šo komandu?',
+    leaveSuccess: 'Jūs veiksmīgi pametāt komandu.',
+    leaveError: 'Neizdevās pamest komandu.'
+  }
+})
 
 const user = computed(() => auth.user)
 
@@ -41,9 +131,25 @@ const roleVariant = computed(() => {
   return user.value?.role === 'Coach' ? 'coach' : 'player'
 })
 
+const roleLabel = computed(() => {
+  const role = String(user.value?.role || '').toLowerCase()
+  if (role === 'coach') return t('profile.coach')
+  if (role === 'player') return t('profile.player')
+  if (role === 'admin') return t('admin.admin')
+  return profileCopy.value.member
+})
+
+const isCoach = computed(() => {
+  return typeof user.value?.role === 'string' && user.value.role.toLowerCase() === 'coach'
+})
+
+const isMainCoach = computed(() => {
+  return isCoach.value && Number(team.value?.coach_id) === Number(user.value?.id)
+})
+
 const maskedEmail = computed(() => {
   const email = user.value?.email
-  if (!email || !email.includes('@')) return 'Hidden'
+  if (!email || !email.includes('@')) return profileCopy.value.hidden
 
   if (showEmail.value) return email
 
@@ -54,7 +160,7 @@ const maskedEmail = computed(() => {
 
 const maskedTeamCode = computed(() => {
   const code = team.value?.team_code
-  if (!code) return 'No team code'
+  if (!code) return profileCopy.value.noTeamCode
 
   if (showTeamCode.value) return code
 
@@ -97,9 +203,9 @@ const sendPasswordReset = async () => {
       email: user.value?.email
     })
 
-    passwordMessage.value = response.data.message || 'Password reset link sent.'
+    passwordMessage.value = response.data.message || profileCopy.value.resetEmailSent
   } catch (error) {
-    passwordError.value = error.response?.data?.error || 'Failed to send reset email.'
+    passwordError.value = error.response?.data?.error || profileCopy.value.resetEmailError
   } finally {
     passwordLoading.value = false
   }
@@ -127,12 +233,12 @@ const handleAvatarUpload = async (event) => {
   avatarError.value = ''
 
   if (!file.type.startsWith('image/')) {
-    avatarError.value = 'Choose an image file.'
+    avatarError.value = profileCopy.value.selectImage
     return
   }
 
   if (file.size > 2 * 1024 * 1024) {
-    avatarError.value = 'Image must be smaller than 2 MB.'
+    avatarError.value = profileCopy.value.imageTooLarge
     return
   }
 
@@ -141,10 +247,10 @@ const handleAvatarUpload = async (event) => {
   try {
     const avatar = await uploadUserAvatar(file)
     syncUserAvatar(avatar)
-    avatarMessage.value = 'Avatar updated successfully.'
+    avatarMessage.value = profileCopy.value.avatarUpdated
   } catch (error) {
     console.error('Error uploading avatar:', error)
-    avatarError.value = error.response?.data?.error || 'Failed to update avatar.'
+    avatarError.value = error.response?.data?.error || profileCopy.value.avatarUpdateError
   } finally {
     avatarLoading.value = false
   }
@@ -158,10 +264,10 @@ const deleteAvatar = async () => {
   try {
     await removeUserAvatar()
     syncUserAvatar(null)
-    avatarMessage.value = 'Avatar removed successfully.'
+    avatarMessage.value = profileCopy.value.avatarRemoved
   } catch (error) {
     console.error('Error deleting avatar:', error)
-    avatarError.value = error.response?.data?.error || 'Failed to remove avatar.'
+    avatarError.value = error.response?.data?.error || profileCopy.value.avatarRemoveError
   } finally {
     avatarLoading.value = false
   }
@@ -169,6 +275,59 @@ const deleteAvatar = async () => {
 
 const handleLogout = () => {
   auth.logout()
+}
+
+const leaveTeamDescription = computed(() => {
+  if (!team.value?.id) return ''
+
+  if (isMainCoach.value) {
+    return profileCopy.value.mainCoachLeaveDescription
+  }
+
+  if (isCoach.value) {
+    return profileCopy.value.coachLeaveDescription
+  }
+
+  return profileCopy.value.playerLeaveDescription
+})
+
+const leaveTeamConfirmText = computed(() => {
+  const teamName = team.value?.name
+
+  if (isMainCoach.value) {
+    return teamName
+      ? profileCopy.value.leaveMainCoachConfirm.replace('{team}', teamName)
+      : profileCopy.value.leaveMainCoachConfirmFallback
+  }
+
+  return teamName ? profileCopy.value.leaveConfirm.replace('{team}', teamName) : profileCopy.value.leaveConfirmFallback
+})
+
+const handleLeaveTeam = async () => {
+  if (!team.value?.id || teamActionLoading.value) return
+
+  teamActionError.value = ''
+
+  if (!window.confirm(leaveTeamConfirmText.value)) {
+    return
+  }
+
+  teamActionLoading.value = true
+
+  try {
+    const result = await leaveCurrentTeam()
+    await auth.fetchUser()
+    team.value = null
+    showTeamCode.value = false
+
+    window.alert(result.message || profileCopy.value.leaveSuccess)
+    await router.push('/')
+  } catch (error) {
+    console.error('Error leaving team:', error)
+    teamActionError.value = error.response?.data?.error || profileCopy.value.leaveError
+  } finally {
+    teamActionLoading.value = false
+  }
 }
 
 onMounted(() => {
@@ -187,19 +346,19 @@ onMounted(() => {
       <section class="profile-hero">
         <div class="profile-identity">
           <div class="profile-avatar" :class="`profile-avatar--${roleVariant}`">
-            <img v-if="user?.avatar" :src="user.avatar" :alt="fullName || 'Profile avatar'" class="profile-avatar-image">
+            <img v-if="user?.avatar" :src="user.avatar" :alt="fullName || profileCopy.avatarAlt" class="profile-avatar-image">
             <template v-else>{{ initials }}</template>
           </div>
 
           <div class="profile-copy">
             <span class="profile-role" :class="`profile-role--${roleVariant}`">
-              {{ user?.role || 'Member' }}
+              {{ roleLabel }}
             </span>
             <h1>{{ fullName || t('profile.profile') }}</h1>
             <p>{{ team?.name || t('profile.noTeamYet') }}</p>
             <div class="profile-avatar-tools">
               <button type="button" class="profile-btn profile-btn--ghost" :disabled="avatarLoading" @click="triggerAvatarUpload">
-                {{ avatarLoading ? 'Uploading...' : 'Change avatar' }}
+                {{ avatarLoading ? profileCopy.uploading : profileCopy.changeAvatar }}
               </button>
               <button
                 v-if="user?.avatar"
@@ -208,7 +367,7 @@ onMounted(() => {
                 :disabled="avatarLoading"
                 @click="deleteAvatar"
               >
-                Remove avatar
+                {{ profileCopy.removeAvatar }}
               </button>
             </div>
             <input
@@ -235,26 +394,26 @@ onMounted(() => {
 
       <section class="profile-secure">
         <div class="profile-secure-head">
-          <p class="profile-kicker">Secure info</p>
-          <h2>Hidden user data</h2>
+          <p class="profile-kicker">{{ profileCopy.secureInfo }}</p>
+          <h2>{{ profileCopy.hiddenData }}</h2>
         </div>
 
         <div class="profile-secure-list">
           <article class="profile-secure-row">
             <div class="profile-row-copy">
-              <span class="profile-row-label">Email</span>
+              <span class="profile-row-label">{{ profileCopy.email }}</span>
               <strong>{{ maskedEmail }}</strong>
             </div>
             <button type="button" class="profile-btn profile-btn--ghost" @click="showEmail = !showEmail">
-              {{ showEmail ? 'Hide' : 'Show' }}
+              {{ showEmail ? profileCopy.hide : profileCopy.show }}
             </button>
           </article>
 
           <article class="profile-secure-row">
             <div class="profile-row-copy">
-              <span class="profile-row-label">Password</span>
+              <span class="profile-row-label">{{ profileCopy.password }}</span>
               <strong>********</strong>
-              <small>Password cannot be viewed</small>
+              <small>{{ profileCopy.passwordHidden }}</small>
             </div>
             <button
               type="button"
@@ -262,13 +421,13 @@ onMounted(() => {
               :disabled="passwordLoading || !user?.email"
               @click="sendPasswordReset"
             >
-              {{ passwordLoading ? 'Sending...' : 'Change password' }}
+              {{ passwordLoading ? profileCopy.sending : profileCopy.changePassword }}
             </button>
           </article>
 
           <article class="profile-secure-row">
             <div class="profile-row-copy">
-              <span class="profile-row-label">Team code</span>
+              <span class="profile-row-label">{{ profileCopy.teamCode }}</span>
               <strong>{{ maskedTeamCode }}</strong>
             </div>
             <button
@@ -277,7 +436,7 @@ onMounted(() => {
               :disabled="!team?.team_code"
               @click="showTeamCode = !showTeamCode"
             >
-              {{ showTeamCode ? 'Hide' : 'Show' }}
+              {{ showTeamCode ? profileCopy.hide : profileCopy.show }}
             </button>
           </article>
         </div>
@@ -287,6 +446,32 @@ onMounted(() => {
         </p>
         <p v-if="passwordError" class="profile-status profile-status--error">
           {{ passwordError }}
+        </p>
+      </section>
+
+      <section v-if="team?.id" class="profile-secure profile-danger-zone">
+        <div class="profile-secure-head">
+          <p class="profile-kicker">{{ profileCopy.teamMembership }}</p>
+          <h2>{{ profileCopy.leaveCurrentTeam }}</h2>
+        </div>
+
+        <p class="profile-danger-copy">
+          {{ leaveTeamDescription }}
+        </p>
+
+        <div class="profile-danger-actions">
+          <button
+            type="button"
+            class="profile-btn profile-btn--ghost danger"
+            :disabled="teamActionLoading"
+            @click="handleLeaveTeam"
+          >
+            {{ teamActionLoading ? profileCopy.leaving : profileCopy.leaveTeam }}
+          </button>
+        </div>
+
+        <p v-if="teamActionError" class="profile-status profile-status--error">
+          {{ teamActionError }}
         </p>
       </section>
     </div>
@@ -441,6 +626,25 @@ onMounted(() => {
 
 .profile-secure {
   padding: 24px;
+}
+
+.profile-danger-zone {
+  border-color: rgba(182, 52, 73, 0.18);
+  background:
+    linear-gradient(135deg, rgba(182, 52, 73, 0.08), transparent 68%),
+    var(--profile-surface);
+}
+
+.profile-danger-copy {
+  margin: 16px 0 0;
+  color: var(--profile-muted);
+  line-height: 1.55;
+}
+
+.profile-danger-actions {
+  display: flex;
+  justify-content: flex-start;
+  margin-top: 18px;
 }
 
 .profile-secure-head h2 {

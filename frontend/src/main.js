@@ -8,6 +8,60 @@ import i18n from './i18n'
 
 import '@/assets/styles/global.css'
 
+const LEGACY_CACHE_PREFIXES = ['sports-team']
+const RELOAD_FLAG = 'legacy-pwa-cleanup-reloaded'
+
+async function cleanupLegacyPwa() {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  let cleanedUp = false
+
+  if ('serviceWorker' in navigator) {
+    try {
+      const registrations = await navigator.serviceWorker.getRegistrations()
+      if (registrations.length > 0) {
+        cleanedUp = true
+        await Promise.all(registrations.map((registration) => registration.unregister()))
+      }
+    } catch (error) {
+      console.warn('[App] Failed to unregister legacy service workers:', error)
+    }
+  }
+
+  if ('caches' in window) {
+    try {
+      const cacheNames = await caches.keys()
+      const staleCacheNames = cacheNames.filter((cacheName) =>
+        LEGACY_CACHE_PREFIXES.some((prefix) => cacheName.startsWith(prefix))
+      )
+
+      if (staleCacheNames.length > 0) {
+        cleanedUp = true
+        await Promise.all(staleCacheNames.map((cacheName) => caches.delete(cacheName)))
+      }
+    } catch (error) {
+      console.warn('[App] Failed to clear legacy caches:', error)
+    }
+  }
+
+  if (!cleanedUp) {
+    sessionStorage.removeItem(RELOAD_FLAG)
+    return
+  }
+
+  if (!sessionStorage.getItem(RELOAD_FLAG)) {
+    sessionStorage.setItem(RELOAD_FLAG, 'true')
+    window.location.reload()
+    return
+  }
+
+  sessionStorage.removeItem(RELOAD_FLAG)
+}
+
+void cleanupLegacyPwa()
+
 const app = createApp(App)
 const pinia = createPinia()
 
@@ -26,36 +80,3 @@ if (token) {
 }
 
 app.mount('#app')
-
-// ============================================================
-// PWA - Запуск приложения как standalone
-// ============================================================
-
-// Проверяем что приложение запущено как PWA
-const isStandalone = window.navigator.standalone === true || 
-                     window.matchMedia('(display-mode: standalone)').matches ||
-                     window.matchMedia('(display-mode: fullscreen)').matches
-
-console.log('[PWA] Application mode:', {
-  standalone: window.navigator.standalone,
-  displayMode: window.matchMedia('(display-mode: standalone)').matches ? 'standalone' : 'browser',
-  isStandalone: isStandalone
-})
-
-// Обработчик смены режима отображения
-window.matchMedia('(display-mode: standalone)').addEventListener('change', (e) => {
-  console.log('[PWA] Display mode changed:', e.matches ? 'standalone' : 'browser')
-})
-
-// Убедимся что приложение останется fullscreen в PWA режиме
-if (isStandalone) {
-  document.documentElement.style.overflow = 'hidden'
-  document.body.style.overflow = 'hidden'
-}
-
-// Обработка событий из системы при запуске приложения
-document.addEventListener('visibilitychange', () => {
-  console.log('[PWA] Visibility changed:', document.hidden ? 'hidden' : 'visible')
-})
-
-// createApp(App).use(router).mount('#app')

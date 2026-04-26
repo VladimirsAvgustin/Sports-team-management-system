@@ -3,48 +3,24 @@
     <div class="contact-shell">
       <section class="contact-hero">
         <div class="hero-copy">
-          <p class="eyebrow">Contact and support</p>
+          <p class="eyebrow">{{ $t('contact.title') }}</p>
           <h1>{{ $t('contact.title') }}</h1>
           <p class="hero-description">{{ $t('contact.subtitle') }}</p>
-
-          <div class="hero-badges">
-            <span class="hero-badge">Support for coaches and players</span>
-            <span class="hero-badge">Fast answers for account and bug issues</span>
-          </div>
         </div>
 
         <div class="hero-side">
           <div class="hero-card">
             <span class="hero-card-label">{{ $t('contact.email') }}</span>
-            <strong>{{ $t('contact.contactEmail') }}</strong>
-            <a href="mailto:vladimiravgustin123@gmail.com" class="hero-card-link">
+            <strong>{{ supportEmail }}</strong>
+            <a :href="`mailto:${supportEmail}`" class="hero-card-link">
               {{ $t('contact.sendEmail') }}
             </a>
           </div>
           <div class="hero-card soft">
             <span class="hero-card-label">{{ $t('contact.location') }}</span>
             <strong>{{ $t('contact.address') }}</strong>
-            <p>Available for product questions, support and roadmap feedback.</p>
           </div>
         </div>
-      </section>
-
-      <section class="contact-highlights">
-        <article class="highlight-card">
-          <span class="highlight-label">Response focus</span>
-          <strong>Bug reports and access issues</strong>
-          <p>Use the form to send details that help us reproduce and fix issues quickly.</p>
-        </article>
-        <article class="highlight-card">
-          <span class="highlight-label">Product feedback</span>
-          <strong>Feature ideas are welcome</strong>
-          <p>Share missing workflows, painful steps or anything that would improve team management.</p>
-        </article>
-        <article class="highlight-card">
-          <span class="highlight-label">Best route</span>
-          <strong>Email for urgent support</strong>
-          <p>If something blocks your team today, direct email is the fastest path.</p>
-        </article>
       </section>
 
       <section class="contact-grid">
@@ -52,9 +28,9 @@
           <div class="panel-head">
             <div>
               <p class="panel-kicker">{{ $t('contact.sendMessage') }}</p>
-              <h2>Send us a message</h2>
+              <h2>{{ $t('contact.sendMessage') }}</h2>
             </div>
-            <span class="panel-chip">We read everything</span>
+            <span class="panel-chip">{{ locale.value === 'lv' ? 'Mēs izlasām visu' : 'We read every message' }}</span>
           </div>
 
           <form @submit.prevent="submitForm" class="contact-form">
@@ -66,7 +42,7 @@
 
               <div class="form-group">
                 <label for="email">{{ $t('contact.form.email') }}</label>
-                <input id="email" v-model="form.email" type="email" :placeholder="$t('contact.form.yourEmail')" required />
+                <input id="email" v-model="form.email" type="email" :placeholder="emailPlaceholder" required />
               </div>
             </div>
 
@@ -104,7 +80,7 @@
           <div class="panel-head">
             <div>
               <p class="panel-kicker">{{ $t('contact.faq.title') }}</p>
-              <h2>Common questions</h2>
+              <h2>{{ $t('contact.faq.title') }}</h2>
             </div>
           </div>
 
@@ -134,7 +110,9 @@
 import { ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
+const supportEmail = 'teamflow@gmail.com'
+const emailPlaceholder = computed(() => t('contact.form.yourEmail'))
 
 const form = ref({
   name: '',
@@ -147,14 +125,10 @@ const sent = ref(false)
 const errorMsg = ref('')
 const openFaq = ref(null)
 
-const faqs = computed(() => [
-  { q: t('contact.faq.qa1'), a: t('contact.faq.aa1') },
-  { q: t('contact.faq.qa2'), a: t('contact.faq.aa2') },
-  { q: t('contact.faq.qa3'), a: t('contact.faq.aa3') },
-  { q: t('contact.faq.qa4'), a: t('contact.faq.aa4') },
-  { q: t('contact.faq.qa5'), a: t('contact.faq.aa5') },
-  { q: t('contact.faq.qa6'), a: t('contact.faq.aa6') }
-])
+const faqs = computed(() => [1, 2, 3, 4, 5, 6].map((index) => ({
+  q: t(`contact.faq.qa${index}`),
+  a: t(`contact.faq.aa${index}`)
+})))
 
 const toggleFaq = (index) => {
   openFaq.value = openFaq.value === index ? null : index
@@ -178,7 +152,7 @@ const submitForm = async () => {
 
     if (!res.ok) {
       const data = await res.json()
-      throw new Error(data.error || 'Failed to send')
+      throw new Error(data.error || (locale.value === 'lv' ? 'Neizdevās nosūtīt' : 'Failed to send'))
     }
 
     sent.value = true
@@ -188,7 +162,9 @@ const submitForm = async () => {
     }, 4000)
   } catch (err) {
     console.error('Error sending message:', err)
-    errorMsg.value = err.message || 'Something went wrong. Please try again.'
+    errorMsg.value = err.message || (locale.value === 'lv'
+      ? 'Kaut kas nogāja greizi. Lūdzu, mēģiniet vēlreiz.'
+      : 'Something went wrong. Please try again.')
     setTimeout(() => {
       errorMsg.value = ''
     }, 5000)
@@ -231,7 +207,6 @@ const submitForm = async () => {
 }
 
 .contact-hero,
-.highlight-card,
 .panel {
   background: var(--page-surface);
   border: 1px solid var(--page-border);
@@ -248,8 +223,7 @@ const submitForm = async () => {
 }
 
 .eyebrow,
-.panel-kicker,
-.highlight-label {
+.panel-kicker {
   margin: 0;
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -269,14 +243,6 @@ const submitForm = async () => {
   color: var(--page-muted);
 }
 
-.hero-badges {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-  margin-top: 1.25rem;
-}
-
-.hero-badge,
 .panel-chip {
   display: inline-flex;
   align-items: center;
@@ -333,30 +299,10 @@ const submitForm = async () => {
   font-weight: 700;
 }
 
-.contact-highlights,
 .contact-grid {
   display: grid;
   gap: 1rem;
   margin-top: 1rem;
-}
-
-.contact-highlights {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
-.highlight-card {
-  border-radius: 22px;
-  padding: 1.15rem 1.2rem;
-}
-
-.highlight-card strong {
-  display: block;
-  margin: 0.35rem 0;
-}
-
-.highlight-card p {
-  margin: 0;
-  color: var(--page-muted);
 }
 
 .contact-grid {
@@ -537,10 +483,6 @@ const submitForm = async () => {
   .hero-side {
     flex-direction: row;
   }
-
-  .contact-highlights {
-    grid-template-columns: 1fr;
-  }
 }
 
 @media (max-width: 768px) {
@@ -549,8 +491,7 @@ const submitForm = async () => {
   }
 
   .contact-hero,
-  .panel,
-  .highlight-card {
+  .panel {
     border-radius: 22px;
   }
 
@@ -577,8 +518,7 @@ const submitForm = async () => {
   }
 
   .contact-hero,
-  .panel,
-  .highlight-card {
+  .panel {
     padding: 1rem;
   }
 

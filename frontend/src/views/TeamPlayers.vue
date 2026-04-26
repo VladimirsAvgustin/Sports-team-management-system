@@ -12,70 +12,70 @@
       <section class="players-hero">
         <div class="hero-main">
           <div class="hero-copy">
-            <p class="eyebrow">Roster management</p>
-            <h1>{{ team.name || 'Team roster' }}</h1>
+            <p class="eyebrow">Sastāva pārvaldība</p>
+            <h1>{{ team.name || 'Komandas sastāvs' }}</h1>
             <p class="hero-description">
-              Review the squad, track contribution levels and update player stats from one place.
+              Pārskatiet sastāvu, sekojiet spēlētāju ieguldījumam un atjauniniet statistiku vienuviet.
             </p>
 
             <div class="hero-pills">
-              <span class="hero-pill strong">{{ players.length }} players</span>
-              <span class="hero-pill">{{ totalGoals }} goals</span>
-              <span class="hero-pill">{{ totalAssists }} assists</span>
+              <span class="hero-pill strong">{{ players.length }} spēlētāji</span>
+              <span class="hero-pill">{{ totalGoals }} vārti</span>
+              <span class="hero-pill">{{ totalAssists }} piespēles</span>
               <span v-if="isCoach" class="hero-pill accent">
-                {{ isMainCoach ? 'Main coach edit mode' : 'Assistant coach edit mode' }}
+                {{ isMainCoach ? 'Galvenā trenera rediģēšanas režīms' : 'Trenera asistenta rediģēšanas režīms' }}
               </span>
             </div>
           </div>
 
           <div class="hero-nav">
             <router-link :to="`/team/${teamId}/players`" class="nav-chip" active-class="active">
-              Players
+              Spēlētāji
             </router-link>
             <router-link v-if="isCoach" :to="`/team/${teamId}/statistics`" class="nav-chip" active-class="active">
-              Statistics
+              Statistika
             </router-link>
             <router-link :to="`/team-schedule/${teamId}`" class="nav-chip">
-              Schedule
+              Grafiks
             </router-link>
           </div>
         </div>
 
         <div class="hero-side">
           <div class="summary-card">
-            <span class="summary-label">Top scorer</span>
-            <strong>{{ topScorer ? fullName(topScorer) : 'No data yet' }}</strong>
-            <p>{{ topScorer ? `${topScorer.stats.goals} goals scored` : 'First goal will unlock the leaderboard.' }}</p>
+            <span class="summary-label">Labākais vārtu guvējs</span>
+            <strong>{{ topScorer ? fullName(topScorer) : 'Datu vēl nav' }}</strong>
+            <p>{{ topScorer ? `${topScorer.stats.goals} gūti vārti` : 'Pirmie vārti atvērs līderu sarakstu.' }}</p>
           </div>
           <div class="summary-card soft">
-            <span class="summary-label">Top creator</span>
-            <strong>{{ topCreator ? fullName(topCreator) : 'No data yet' }}</strong>
-            <p>{{ topCreator ? `${topCreator.stats.assists} assists delivered` : 'Assists will show up here.' }}</p>
+            <span class="summary-label">Labākais piespēlētājs</span>
+            <strong>{{ topCreator ? fullName(topCreator) : 'Datu vēl nav' }}</strong>
+            <p>{{ topCreator ? `${topCreator.stats.assists} rezultatīvas piespēles` : 'Piespēles parādīsies šeit.' }}</p>
           </div>
         </div>
       </section>
 
       <section class="headline-grid">
         <article class="headline-card">
-          <span class="headline-label">Avg matches</span>
+          <span class="headline-label">Vid. spēles</span>
           <strong>{{ averageMatches }}</strong>
-          <small>Across the full squad</small>
+          <small>Visā sastāvā</small>
         </article>
         <article class="headline-card">
-          <span class="headline-label">Yellow cards</span>
+          <span class="headline-label">Dzeltenās kartītes</span>
           <strong>{{ totalYellowCards }}</strong>
-          <small>Discipline overview</small>
+          <small>Disciplīnas pārskats</small>
         </article>
         <article class="headline-card">
-          <span class="headline-label">Red cards</span>
+          <span class="headline-label">Sarkanās kartītes</span>
           <strong>{{ totalRedCards }}</strong>
-          <small>Needs close attention</small>
+          <small>Nepieciešama uzmanība</small>
         </article>
       </section>
 
       <section class="controls-panel">
         <div class="search-box">
-          <span class="search-icon">Search</span>
+          <span class="search-icon">Meklēt</span>
           <input
             v-model="searchQuery"
             :placeholder="$t('teamPage.searchPlayers')"
@@ -97,22 +97,22 @@
               :class="{ active: viewMode === 'cards' }"
               @click="viewMode = 'cards'"
             >
-              Cards
+              Kartītes
             </button>
             <button
               type="button"
               :class="{ active: viewMode === 'list' }"
               @click="viewMode = 'list'"
             >
-              Table
+              Tabula
             </button>
           </div>
         </div>
       </section>
 
       <div class="players-status">
-        <span>{{ filteredPlayers.length }} of {{ players.length }} players shown</span>
-        <span v-if="searchQuery">Filter: "{{ searchQuery }}"</span>
+        <span>Parādīti {{ filteredPlayers.length }} no {{ players.length }} spēlētājiem</span>
+        <span v-if="searchQuery">Filtrs: "{{ searchQuery }}"</span>
       </div>
 
       <section v-if="filteredPlayers.length" class="content-panel">
@@ -139,7 +139,7 @@
                       class="avatar-action-btn danger"
                       @click="deletePlayerAvatar(player)"
                     >
-                      Remove avatar
+                      Noņemt profila attēlu
                     </button>
                   </div>
                 </div>
@@ -152,15 +152,15 @@
 
             <div class="quick-stats">
               <div class="quick-stat">
-                <span>Goals</span>
+                <span>Vārti</span>
                 <strong>{{ player.stats.goals }}</strong>
               </div>
               <div class="quick-stat">
-                <span>Assists</span>
+                <span>Piespēles</span>
                 <strong>{{ player.stats.assists }}</strong>
               </div>
               <div class="quick-stat">
-                <span>Matches</span>
+                <span>Spēles</span>
                 <strong>{{ player.stats.matches }}</strong>
               </div>
             </div>
@@ -172,7 +172,7 @@
                 class="stat-editor"
               >
                 <span class="stat-label">{{ field.label }}</span>
-                <div class="stat-controls">
+                <div class="stat-controls" :class="{ readonly: !isCoach }">
                   <button
                     v-if="isCoach"
                     type="button"
@@ -204,7 +204,7 @@
 
             <div v-if="isMainCoach" class="card-footer">
               <button type="button" class="remove-btn" @click="confirmRemovePlayer(player)">
-                Remove player
+                Noņemt spēlētāju
               </button>
             </div>
           </article>
@@ -214,9 +214,9 @@
           <table class="players-table">
             <thead>
               <tr>
-                <th>Player</th>
+                <th>Spēlētājs</th>
                 <th v-for="field in statFields" :key="field.key">{{ field.label }}</th>
-                <th v-if="isMainCoach">Action</th>
+                <th v-if="isMainCoach">Darbība</th>
               </tr>
             </thead>
             <tbody>
@@ -242,7 +242,7 @@
                           class="avatar-action-btn danger"
                           @click="deletePlayerAvatar(player)"
                         >
-                          Remove
+                          Noņemt
                         </button>
                       </div>
                     </div>
@@ -260,7 +260,7 @@
                 </td>
                 <td v-if="isMainCoach">
                   <button type="button" class="table-remove" @click="confirmRemovePlayer(player)">
-                    Remove
+                    Noņemt
                   </button>
                 </td>
               </tr>
@@ -270,9 +270,8 @@
       </section>
 
       <section v-else-if="!loading" class="empty-panel">
-        <h2>{{ $t('teamPage.noPlayers') }}</h2>
-        <p v-if="searchQuery">{{ $t('teamPage.tryAdjustingSearch') }}</p>
-        <p v-else>The roster will appear here as soon as players join the team.</p>
+        <h2>{{ emptyStateTitle }}</h2>
+        <p>{{ emptyStateDescription }}</p>
       </section>
 
       <div v-if="loading" class="loading-panel">
@@ -324,11 +323,11 @@ const isMainCoach = isTeamOwner({
 })
 
 const statFields = [
-  { key: 'matches', label: 'Matches' },
-  { key: 'goals', label: 'Goals' },
-  { key: 'assists', label: 'Assists' },
-  { key: 'yellow_cards', label: 'Yellow' },
-  { key: 'red_cards', label: 'Red' }
+  { key: 'matches', label: 'Spēles' },
+  { key: 'goals', label: 'Vārti' },
+  { key: 'assists', label: 'Piespēles' },
+  { key: 'yellow_cards', label: 'Dzeltenās' },
+  { key: 'red_cards', label: 'Sarkanās' }
 ]
 
 const fullName = (player) => `${player.name || ''} ${player.surname || ''}`.trim()
@@ -359,6 +358,18 @@ const filteredPlayers = computed(() => {
   )
 })
 
+const hasPlayerSearch = computed(() => searchQuery.value.trim().length > 0)
+const emptyStateTitle = computed(() => (
+  hasPlayerSearch.value
+    ? t('teamPage.noPlayersMatchSearch', { query: searchQuery.value.trim() })
+    : t('teamPage.noPlayers')
+))
+const emptyStateDescription = computed(() => (
+  hasPlayerSearch.value
+    ? t('teamPage.tryAnotherSearch')
+    : t('teamPage.rosterWillAppearSoon')
+))
+
 const totalGoals = computed(() => players.value.reduce((sum, player) => sum + (player.stats?.goals || 0), 0))
 const totalAssists = computed(() => players.value.reduce((sum, player) => sum + (player.stats?.assists || 0), 0))
 const totalYellowCards = computed(() => players.value.reduce((sum, player) => sum + (player.stats?.yellow_cards || 0), 0))
@@ -380,10 +391,10 @@ const playerImpact = (player) => (
 
 const playerTierLabel = (player) => {
   const score = playerImpact(player)
-  if (score >= 25) return 'Core starter'
-  if (score >= 14) return 'Reliable'
-  if (score >= 6) return 'In rotation'
-  return 'Developing'
+  if (score >= 25) return 'Pamatsastāvs'
+  if (score >= 14) return 'Uzticams'
+  if (score >= 6) return 'Rotācijā'
+  return 'Attīstībā'
 }
 
 const playerTierClass = (player) => {
@@ -422,12 +433,12 @@ const handleAvatarUpload = async (event) => {
   if (!file || !playerId) return
 
   if (!file.type.startsWith('image/')) {
-    showToast('Choose an image file.', 'error')
+    showToast('Izvēlieties attēla failu.', 'error')
     return
   }
 
   if (file.size > 2 * 1024 * 1024) {
-    showToast('Image must be smaller than 2 MB.', 'error')
+    showToast('Attēlam jābūt mazākam par 2 MB.', 'error')
     return
   }
 
@@ -437,10 +448,10 @@ const handleAvatarUpload = async (event) => {
     if (player) {
       player.avatar = avatar
     }
-    showToast('Player avatar updated.', 'success')
+    showToast('Spēlētāja profila attēls atjaunināts.', 'success')
   } catch (error) {
     console.error('Error updating player avatar:', error)
-    showToast(error.response?.data?.error || 'Could not update the player avatar.', 'error')
+    showToast(error.response?.data?.error || 'Neizdevās atjaunināt spēlētāja profila attēlu.', 'error')
   } finally {
     activeAvatarPlayerId.value = null
   }
@@ -450,10 +461,10 @@ const deletePlayerAvatar = async (player) => {
   try {
     await removePlayerAvatar(player.id)
     player.avatar = null
-    showToast('Player avatar removed.', 'success')
+    showToast('Spēlētāja profila attēls noņemts.', 'success')
   } catch (error) {
     console.error('Error removing player avatar:', error)
-    showToast(error.response?.data?.error || 'Could not remove the player avatar.', 'error')
+    showToast(error.response?.data?.error || 'Neizdevās noņemt spēlētāja profila attēlu.', 'error')
   }
 }
 
@@ -923,6 +934,7 @@ html.dark-mode .tier-badge.rising {
 
 .quick-stat strong {
   font-size: 1.15rem;
+  font-variant-numeric: tabular-nums;
 }
 
 .stat-editor-grid {
@@ -942,20 +954,39 @@ html.dark-mode .tier-badge.rising {
 
 .stat-controls {
   display: grid;
-  grid-template-columns: auto 1fr auto;
-  gap: 0.45rem;
+  grid-template-columns: 34px minmax(64px, 1fr) 34px;
+  gap: 0.35rem;
   align-items: center;
+}
+
+.stat-controls.readonly {
+  grid-template-columns: minmax(72px, 1fr);
 }
 
 .stat-input,
 .table-input {
-  padding: 0.7rem 0.8rem;
+  min-width: 64px;
+  padding: 0.7rem 0.45rem;
   text-align: center;
   font-weight: 700;
+  font-size: 1rem;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.stat-input::-webkit-outer-spin-button,
+.stat-input::-webkit-inner-spin-button {
+  margin: 0;
+  -webkit-appearance: none;
+}
+
+.stat-input[type='number'] {
+  appearance: textfield;
+  -moz-appearance: textfield;
 }
 
 .stat-btn {
-  width: 36px;
+  width: 34px;
   height: 36px;
   border: none;
   border-radius: 12px;

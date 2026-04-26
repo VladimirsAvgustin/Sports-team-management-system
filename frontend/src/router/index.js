@@ -20,7 +20,7 @@ const routes = [
   { path: "/", component: HomePage },
   { path: "/about", component: AboutPage },
   { path: "/contact", component: ContactPage },
-  { path: "/register", component: RegisterPage },
+  { path: "/register", component: RegisterPage, meta: { guestOnly: true } },
   { path: "/forgot-password", component: ForgotPasswordPage },
   { path: "/reset-password", component: ResetPasswordPage },
   { path: "/services/:type", component: ServicesPage },
@@ -33,7 +33,7 @@ const routes = [
   { path: '/team/:id/settings', redirect: to => `/team/${to.params.id}` },
   {path: '/team-schedule/:id', name: 'TeamSchedule', component: () => import('@/views/TeamSchedule.vue')},
   {path: '/teams/:teamId/schedule', component: TeamSchedule},
-  {path: '/admin', component: AdminPage },
+  { path: '/admin', name: 'AdminPage', component: AdminPage, meta: { requiresAuth: true, requiresAdmin: true } },
   {path: '/chat', component: ChatPage, meta: { requiresAuth: true }},
 ];
 
@@ -43,12 +43,22 @@ const router = createRouter({
 });
 
 // Add navigation guard for authentication
-router.beforeEach((to, from, next) => {
+router.beforeEach(async (to, from, next) => {
   const authStore = useAuthStore()
   const requiresAuth = to.matched.some(record => record.meta.requiresAuth)
-  
-  if (requiresAuth && !authStore.isAuthenticated) {
+  const requiresAdmin = to.matched.some(record => record.meta.requiresAdmin)
+  const guestOnly = to.matched.some(record => record.meta.guestOnly)
+
+  if (authStore.token && !authStore.user) {
+    await authStore.fetchUser()
+  }
+
+  if (guestOnly && authStore.isAuthenticated) {
+    next('/')
+  } else if (requiresAuth && !authStore.isAuthenticated) {
     // Redirect to home if trying to access protected route without auth
+    next('/')
+  } else if (requiresAdmin && (authStore.user?.role || '').toLowerCase() !== 'admin') {
     next('/')
   } else {
     next()

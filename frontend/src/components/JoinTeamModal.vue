@@ -2,11 +2,11 @@
   <div class="modal" @click.self="closeModal">
     <div class="modal-content">
       <span class="close-btn" @click="closeModal">&times;</span>
-      <h2>{{ isCoach ? 'Request coach access' : $t('team.join') }}</h2>
+      <h2>{{ isCoach ? 'Pieprasīt trenera piekļuvi' : $t('team.join') }}</h2>
       <p class="modal-copy">
         {{ isCoach
-          ? 'Submitting the team code will send a request to the main coach for approval.'
-          : 'Enter the team code to join instantly as a player.' }}
+          ? 'Nosūtot komandas kodu, galvenais treneris saņems apstiprināšanas pieprasījumu.'
+          : 'Ievadiet komandas kodu, lai kā spēlētājs uzreiz pievienotos komandai.' }}
       </p>
       <form @submit.prevent="joinTeam">
         <label for="teamCode">{{ $t('team.teamCode') }}:</label>
@@ -19,7 +19,7 @@
         />
 
         <div class="actions">
-          <button type="submit" class="btn">{{ $t('buttons.join') || 'Join' }}</button>
+          <button type="submit" class="btn">{{ $t('buttons.join') }}</button>
           <button type="button" class="btn cancel" @click="closeModal">{{ $t('buttons.cancel') }}</button>
         </div>
 

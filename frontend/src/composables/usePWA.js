@@ -128,7 +128,7 @@ export function usePWA() {
         if (!hasDeferredPrompt.value) {
           log('⚠️ Showing FALLBACK install prompt (beforeinstallprompt never fired)')
           log('   This is normal on local networks (192.168.x.x)')
-          log('   User must manually: Browser Menu > Add to Home Screen')
+          log('Lietotājam jāinstalē manuāli: pārlūka izvēlne > Pievienot sākuma ekrānam')
           if (!isHttps && isLocalNetwork) {
             log('   💡 Make sure you\'re using HTTPS! Check PWA_HTTPS_SETUP.md')
           }
@@ -173,9 +173,9 @@ export function usePWA() {
       log('ℹ️ User needs to manually install via browser menu')
       
       if (isIOS.value) {
-        log('📱 iOS: Open Safari > Share button > Add to Home Screen')
+        log('📱 iOS: Safari > kopīgošanas poga > Pievienot sākuma ekrānam')
       } else if (isAndroid.value) {
-        log('📱 Android: Open browser menu (⋯) > Install app')
+        log('📱 Android: pārlūka izvēlne (⋯) > Instalēt lietotni')
       }
     }
   }
@@ -192,21 +192,21 @@ export function usePWA() {
     getInstallInstructions: () => {
       if (isIOS.value) {
         return {
-          title: 'Install App on iOS',
+          title: 'Instalēt lietotni iOS ierīcē',
           instructions: [
-            'Open Safari menu (share icon ⬆️)',
-            'Select "Add to Home Screen"',
-            'Enter app name',
-            'Tap "Add"'
+            'Atveriet Safari izvēlni (kopīgošanas ikona ⬆️)',
+            'Izvēlieties "Pievienot sākuma ekrānam"',
+            'Ievadiet lietotnes nosaukumu',
+            'Pieskarieties "Pievienot"'
           ]
         }
       }
       return {
-        title: 'Install App on Android',
+        title: 'Instalēt lietotni Android ierīcē',
         instructions: [
-          'Click the "📥 Install" button',
-          'App will be added to your home screen',
-          'Use it like any other app'
+          'Nospiediet pogu "📥 Instalēt"',
+          'Lietotne tiks pievienota sākuma ekrānam',
+          'Lietojiet to kā jebkuru citu lietotni'
         ]
       }
     },

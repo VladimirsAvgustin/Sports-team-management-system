@@ -30,6 +30,10 @@ db.serialize(() => {
       user_id INTEGER NOT NULL,
       username TEXT NOT NULL,
       message TEXT NOT NULL,
+      attachment_url TEXT,
+      attachment_name TEXT,
+      attachment_type TEXT,
+      attachment_size INTEGER,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (room_id) REFERENCES chat_rooms(id) ON DELETE CASCADE,
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
@@ -40,6 +44,14 @@ db.serialize(() => {
     } else {
       console.log('messages table created successfully');
     }
+  });
+
+  ['attachment_url TEXT', 'attachment_name TEXT', 'attachment_type TEXT', 'attachment_size INTEGER'].forEach((columnDefinition) => {
+    db.run(`ALTER TABLE messages ADD COLUMN ${columnDefinition}`, (err) => {
+      if (err && !err.message.includes('duplicate column name')) {
+        console.error(`Error adding ${columnDefinition} to messages table:`, err.message);
+      }
+    });
   });
 
   // Create index for faster queries
@@ -58,7 +70,7 @@ db.serialize(() => {
   seedTeams.forEach((teamId) => {
     db.run(
       `INSERT OR IGNORE INTO chat_rooms (team_id, name) VALUES (?, ?)`,
-      [teamId, `Team ${teamId} Chat`],
+      [teamId, `Komandas ${teamId} čats`],
       (err) => {
         if (err) {
           console.error(`Error seeding chat room for team ${teamId}:`, err.message)

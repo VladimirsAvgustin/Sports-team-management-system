@@ -4,7 +4,7 @@
       <!-- Logo / Title -->
       <div class="nav-brand">
         <router-link to="/" class="brand-link">
-          Sports Team
+          TeamFlow
         </router-link>
       </div>
 
@@ -13,8 +13,8 @@
         <button 
           @click="handleToggleDarkMode"
           class="util-btn"
-          :title="isDarkMode ? 'Light Mode' : 'Dark Mode'"
-          aria-label="Toggle theme"
+          :title="isDarkMode ? t('buttons.lightMode') : t('buttons.darkMode')"
+          :aria-label="t('buttons.toggleTheme')"
         >
           <svg v-if="isDarkMode" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="4"></circle>
@@ -34,45 +34,45 @@
         <button 
           @click="handleToggleLanguage"
           class="util-btn"
-          title="Change Language"
+          :title="t('buttons.changeLanguage')"
         >
           <span class="lang-badge">{{ localeProp === 'en' ? 'EN' : 'LV' }}</span>
         </button>
       </div>
 
-      <!-- Hamburger для мобильных -->
+      <!-- Mobile hamburger -->
       <button 
         @click="showMenu = !showMenu" 
         class="hamburger-toggle"
         :class="{ close: showMenu }"
-        aria-label="Toggle menu"
+        :aria-label="t('buttons.toggleMenu')"
       >
         {{ showMenu ? '✕' : '☰' }}
       </button>
 
-      <!-- Меню (скрывается на мобильных) -->
+      <!-- Menu -->
       <div class="nav-menu" :class="{ active: showMenu }">
-        <!-- Хэдер меню с кнопкой закрытия - только на мобильных -->
+        <!-- Mobile menu header with close button -->
         <div class="nav-menu-header-mobile">
           <button 
             @click="showMenu = false"
             class="close-menu-btn"
-            aria-label="Close menu"
+            :aria-label="t('buttons.closeMenu')"
           >
             ✕
           </button>
         </div>
 
-        <!-- Team Navigation (для страниц команды) -->
+        <!-- Team navigation for team pages -->
         <div v-if="isOnTeamPage" class="nav-section team-pages-nav">
-          <h4 class="section-title">Team Pages</h4>
+          <h4 class="section-title">{{ t('nav.teamPages') }}</h4>
           <router-link 
             :to="`/team/${currentTeamId}/players`" 
             class="nav-item team-nav-link"
             :class="{ active: isOnPage('players') }"
             @click="showMenu = false"
           >
-            Players
+            {{ t('teamPage.players') }}
           </router-link>
           <router-link 
             v-if="isCoach"
@@ -81,24 +81,16 @@
             :class="{ active: isOnPage('statistics') }"
             @click="showMenu = false"
           >
-            Statistics
-          </router-link>
-          <router-link 
-            :to="`/team-schedule/${currentTeamId}`" 
-            class="nav-item team-nav-link"
-            :class="{ active: isOnPage('schedule') }"
-            @click="showMenu = false"
-          >
-            Schedule
+            {{ t('teamPage.statistics') }}
           </router-link>
         </div>
 
-        <!-- Утилиты в меню -->
+        <!-- Menu utilities -->
         <div class="nav-section nav-utils-in-menu">
           <button 
             @click="() => { handleToggleDarkMode(); showMenu = false }"
             class="nav-btn small util-btn-menu"
-            :title="isDarkMode ? 'Light Mode' : 'Dark Mode'"
+            :title="isDarkMode ? t('buttons.lightMode') : t('buttons.darkMode')"
           >
             <svg v-if="isDarkMode" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <circle cx="12" cy="12" r="4"></circle>
@@ -114,35 +106,54 @@
             <svg v-else width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
             </svg>
-            {{ isDarkMode ? 'Light' : 'Dark' }}
+            {{ isDarkMode ? t('buttons.lightMode') : t('buttons.darkMode') }}
           </button>
           <button 
             @click="() => { handleToggleLanguage(); showMenu = false }"
             class="nav-btn small util-btn-menu"
-            title="Change Language"
+            :title="t('buttons.changeLanguage')"
           >
             <span class="lang-badge">{{ localeProp === 'en' ? 'EN' : 'LV' }}</span>
           </button>
         </div>
 
-        <!-- Главная навигация -->
+        <!-- Main navigation -->
         <div class="nav-section">
-          <router-link to="/" class="nav-item" @click="showMenu = false">
-            Home
+          <router-link
+            to="/"
+            class="nav-item"
+            :class="{ active: route.path === '/' }"
+            @click="showMenu = false"
+          >
+            {{ t('nav.home') }}
           </router-link>
-          <router-link to="/contact" class="nav-item" @click="showMenu = false">
-            Contact
+          <router-link
+            to="/contact"
+            class="nav-item"
+            :class="{ active: route.path === '/contact' }"
+            @click="showMenu = false"
+          >
+            {{ t('nav.contact') }}
+          </router-link>
+          <router-link
+            v-if="isAdmin"
+            to="/admin"
+            class="nav-item"
+            :class="{ active: route.path === '/admin' }"
+            @click="showMenu = false"
+          >
+            {{ t('admin.admin') }}
           </router-link>
         </div>
 
-        <!-- Команда кнопки -->
+        <!-- Team buttons -->
         <div v-if="hasTeam || showCreateTeam || showJoinTeam" class="nav-section team-section">
           <button 
             v-if="showCreateTeam" 
             @click="() => { goToCreateTeam(); showMenu = false }"
             class="nav-btn primary"
           >
-            Create Team
+            {{ t('buttons.createTeam') }}
           </button>
           <button 
             v-if="hasTeam" 
@@ -156,25 +167,25 @@
             @click="() => { goToSchedule(); showMenu = false }"
             class="nav-btn primary"
           >
-            Schedule
+            {{ t('buttons.schedule') }}
           </button>
           <button 
-            v-if="isLoggedIn"
+            v-if="hasTeam"
             @click="() => { goToChat(); showMenu = false }"
             class="nav-btn secondary"
           >
-            Chat
+            {{ t('nav.chat') }}
           </button>
           <button 
             v-if="showJoinTeam" 
             @click="() => { openJoinTeamModal(); showMenu = false }"
             class="nav-btn secondary"
           >
-            Join Team
+            {{ t('buttons.joinTeam') }}
           </button>
         </div>
 
-        <!-- Аутентификация -->
+        <!-- Authentication -->
         <div class="nav-section auth-section">
           <template v-if="!isLoggedIn">
             <router-link 
@@ -182,13 +193,13 @@
               class="nav-btn secondary full-width"
               @click="showMenu = false"
             >
-              Register
+              {{ t('nav.register') }}
             </router-link>
             <button 
               @click="() => { openLoginModal(); showMenu = false }"
               class="nav-btn primary full-width"
             >
-              Login
+              {{ t('buttons.login') }}
             </button>
           </template>
           <template v-else>
@@ -203,7 +214,7 @@
               @click="() => { handleLogout(); showMenu = false }"
               class="nav-btn logout full-width"
             >
-              Logout
+              {{ t('buttons.logout') }}
             </button>
           </template>
         </div>
@@ -215,8 +226,10 @@
 <script setup>
 import { ref, defineProps, defineEmits, onMounted, onUnmounted, watch, computed } from 'vue'
 import { useRoute } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 
 const route = useRoute()
+const { t } = useI18n()
 
 const props = defineProps({
   isLoggedIn: Boolean,
@@ -247,7 +260,7 @@ const emit = defineEmits([
 ])
 
 const showMenu = ref(false)
-const localeProp = ref(props.locale || 'en')
+const localeProp = ref(props.locale || 'lv')
 const teamRouteNames = new Set([
   'TeamPage',
   'TeamPlayers',
@@ -273,6 +286,7 @@ const isOnTeamPage = computed(() => {
 
 const currentTeamId = computed(() => props.currentTeamId || route.params?.id || route.params?.teamId || props.userTeam?.id || '')
 const isCoach = computed(() => props.showCoachTeamLinks)
+const isAdmin = computed(() => (props.auth?.user?.role || '').toLowerCase() === 'admin')
 
 // Helper to check which page we're on
 const isOnPage = (page) => {
@@ -284,7 +298,7 @@ const isOnPage = (page) => {
 
 // Watch for language changes
 watch(() => props.locale, (newLocale) => {
-  localeProp.value = newLocale || 'en'
+  localeProp.value = newLocale || 'lv'
 })
 
 // Close menu when resizing to desktop
@@ -398,7 +412,7 @@ html.dark-mode .navbar {
   background: rgba(255, 255, 255, 0.1);
 }
 
-/* Меню */
+/* Menu */
 .nav-menu {
   display: none;
   position: fixed;
@@ -434,7 +448,7 @@ html.dark-mode .nav-section {
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-/* Утилиты в меню */
+/* Menu utilities */
 .nav-utils-in-menu {
   display: flex !important;
   flex-direction: row !important;
@@ -471,7 +485,7 @@ html.dark-mode .util-btn-menu:hover {
   background: #555 !important;
 }
 
-/* Хэдер меню с кнопкой закрытия - только на мобильных */
+/* Mobile menu header with close button */
 .nav-menu-header-mobile {
   display: flex;
   align-items: center;
@@ -538,6 +552,11 @@ html.dark-mode .close-menu-btn:hover {
   background: rgba(0, 0, 0, 0.05);
 }
 
+.nav-item.active {
+  background: rgba(0, 0, 0, 0.08);
+  font-weight: 700;
+}
+
 html.dark-mode .nav-item {
   color: #f0f0f0;
 }
@@ -546,7 +565,11 @@ html.dark-mode .nav-item:hover {
   background: rgba(255, 255, 255, 0.1);
 }
 
-/* Кнопки */
+html.dark-mode .nav-item.active {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+/* Buttons */
 .nav-btn {
   display: flex;
   align-items: center;
@@ -662,7 +685,7 @@ html.dark-mode .nav-btn.logout:hover {
   font-size: 24px;
 }
 
-/* Desktop версия - показываем горизонтальное меню */
+/* Desktop version with horizontal menu */
 @media (min-width: 1024px) {
   .mobile-header {
     position: sticky;
@@ -742,6 +765,10 @@ html.dark-mode .nav-btn.logout:hover {
 
   .nav-item:hover {
     background: rgba(255, 255, 255, 0.15);
+  }
+
+  .nav-item.active {
+    background: rgba(255, 255, 255, 0.24);
   }
 
   .nav-btn {
@@ -840,7 +867,7 @@ html.dark-mode .nav-btn.logout:hover {
   }
 }
 
-/* Планшеты */
+/* Tablets */
 @media (768px <= width < 1024px) {
   .nav-menu {
     top: 40px;
@@ -851,7 +878,7 @@ html.dark-mode .nav-btn.logout:hover {
   }
 }
 
-/* Мобильные */
+/* Mobile */
 @media (max-width: 767px) {
   .navbar {
     padding: 6px 10px;

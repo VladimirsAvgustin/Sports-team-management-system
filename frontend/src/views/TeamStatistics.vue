@@ -4,41 +4,41 @@
       <section class="statistics-hero">
         <div class="hero-main">
           <div class="hero-copy">
-            <p class="eyebrow">Performance analytics</p>
-            <h1>{{ team.name || 'Team statistics' }}</h1>
+            <p class="eyebrow">Snieguma analītika</p>
+            <h1>{{ team.name || 'Komandas statistika' }}</h1>
            
 
             <div class="hero-pills">
-              <span class="hero-pill">{{ summary.totalGoals }} goals</span>
-              <span class="hero-pill">{{ summary.totalAssists }} assists</span>
-              <span class="hero-pill">{{ summary.totalMatches }} matches</span>
-              <span class="hero-pill accent">{{ summary.avgAttendance }}% attendance</span>
+              <span class="hero-pill">{{ summary.totalGoals }} vārti</span>
+              <span class="hero-pill">{{ summary.totalAssists }} piespēles</span>
+              <span class="hero-pill">{{ summary.totalMatches }} spēles</span>
+              <span class="hero-pill accent">{{ summary.avgAttendance }}% apmeklējums</span>
             </div>
           </div>
 
           <div class="hero-nav">
             <router-link :to="`/team/${teamId}/players`" class="nav-chip">
-              Players
+              Spēlētāji
             </router-link>
             <router-link :to="`/team/${teamId}/statistics`" class="nav-chip" active-class="active">
-              Statistics
+              Statistika
             </router-link>
             <router-link :to="`/team-schedule/${teamId}`" class="nav-chip">
-              Schedule
+              Grafiks
             </router-link>
           </div>
         </div>
 
         <div class="hero-side">
           <div class="summary-card">
-            <span class="summary-label">Top scorer</span>
-            <strong>{{ topScorer ? fullName(topScorer) : 'No data yet' }}</strong>
-            <p>{{ topScorer ? `${topScorer.goals ?? topScorer.stats?.goals ?? 0} goals this cycle` : 'Scoring data will appear here.' }}</p>
+            <span class="summary-label">Labākais vārtu guvējs</span>
+            <strong>{{ topScorer ? fullName(topScorer) : 'Datu vēl nav' }}</strong>
+            <p>{{ topScorer ? `${topScorer.goals ?? topScorer.stats?.goals ?? 0} vārti šajā ciklā` : 'Vārtu dati parādīsies šeit.' }}</p>
           </div>
           <div class="summary-card soft">
-            <span class="summary-label">Top creator</span>
-            <strong>{{ topCreator ? fullName(topCreator) : 'No data yet' }}</strong>
-            <p>{{ topCreator ? `${topCreator.assists ?? topCreator.stats?.assists ?? 0} assists created` : 'Assist trends will appear here.' }}</p>
+            <span class="summary-label">Labākais piespēlētājs</span>
+            <strong>{{ topCreator ? fullName(topCreator) : 'Datu vēl nav' }}</strong>
+            <p>{{ topCreator ? `${topCreator.assists ?? topCreator.stats?.assists ?? 0} rezultatīvas piespēles` : 'Piespēļu tendences parādīsies šeit.' }}</p>
           </div>
         </div>
       </section>
@@ -56,75 +56,117 @@
           <article class="chart-panel">
             <div class="panel-head">
               <div>
-                <p class="panel-kicker">Output split</p>
-                <h2>Goals and assists</h2>
+                <p class="panel-kicker">Ieguldījuma sadalījums</p>
+                <h2>Vārti un piespēles</h2>
               </div>
             </div>
-            <canvas ref="performanceChartRef"></canvas>
+
+            <div v-if="contributionBreakdown.length" class="chart-stack">
+              <div class="chart-summary-strip">
+                <div class="chart-summary-card">
+                  <span class="chart-summary-label">Lielākais ieguldījums</span>
+                  <strong>{{ contributionBreakdown[0].total }}</strong>
+                  <small>{{ fullName(contributionBreakdown[0].player) }}</small>
+                </div>
+                <div class="chart-summary-card">
+                  <span class="chart-summary-label">Uzskaitītās darbības</span>
+                  <strong>{{ totalDirectActions }}</strong>
+                  <small>Vārti un piespēles no līderu grupas</small>
+                </div>
+              </div>
+
+              <div class="chart-legend">
+                <span class="legend-chip goals">Vārti</span>
+                <span class="legend-chip assists">Piespēles</span>
+              </div>
+
+              <div class="split-list">
+                <article v-for="entry in contributionBreakdown" :key="entry.player.id" class="split-row">
+                  <div class="chart-player">
+                    <div class="chart-rank">#{{ entry.rank }}</div>
+                    <div class="chart-player-avatar">
+                      <img v-if="entry.player.avatar" :src="entry.player.avatar" :alt="fullName(entry.player)" class="chart-player-image">
+                      <template v-else>{{ getInitials(fullName(entry.player)) }}</template>
+                    </div>
+                    <div class="chart-player-copy">
+                      <strong>{{ fullName(entry.player) }}</strong>
+                      <small>{{ formatPercent(entry.teamShare) }} no tiešajām darbībām</small>
+                    </div>
+                  </div>
+
+                  <div class="split-visual">
+                    <div class="split-track">
+                      <span class="split-segment goals" :style="{ width: `${entry.goalShare}%` }"></span>
+                      <span class="split-segment assists" :style="{ width: `${entry.assistShare}%` }"></span>
+                    </div>
+                    <div class="split-meta">
+                      <span>{{ entry.goals }} vārti</span>
+                      <span>{{ entry.assists }} piespēles</span>
+                    </div>
+                  </div>
+
+                  <div class="split-total">
+                    <strong>{{ entry.total }}</strong>
+                    <small>kopā</small>
+                  </div>
+                </article>
+              </div>
+            </div>
+            <div v-else class="empty-card">
+              Pievienojiet spēlētāju statistiku, lai atvērtu ieguldījuma ieskatus.
+            </div>
           </article>
 
           <article class="chart-panel">
             <div class="panel-head">
               <div>
-                <p class="panel-kicker">Usage</p>
-                <h2>Matches played</h2>
+                <p class="panel-kicker">Slodze</p>
+                <h2>Aizvadītās spēles</h2>
               </div>
             </div>
-            <canvas ref="matchesChartRef"></canvas>
-          </article>
-        </section>
 
-        <section class="insights-grid">
-          <article class="panel">
-            <div class="panel-head">
-              <div>
-                <p class="panel-kicker">Leaderboard</p>
-                <h2>Top contributors</h2>
+            <div v-if="workloadBreakdown.length" class="chart-stack">
+              <div class="chart-summary-strip">
+                <div class="chart-summary-card">
+                  <span class="chart-summary-label">Lielākā slodze</span>
+                  <strong>{{ maxMatchesTracked }}</strong>
+                  <small>Lielākais spēļu skaits sastāvā</small>
+                </div>
+                <div class="chart-summary-card">
+                  <span class="chart-summary-label">Komandas vidējais</span>
+                  <strong>{{ averageMatches() }}</strong>
+                  <small>Spēles uz uzskaitīto spēlētāju</small>
+                </div>
               </div>
-              <span class="panel-chip">{{ rankedPlayers.length }} tracked players</span>
-            </div>
 
-            <div v-if="rankedPlayers.length" class="leaders-list">
-              <div v-for="(player, index) in rankedPlayers.slice(0, 5)" :key="player.id" class="leader-row">
-                <div class="leader-rank">#{{ index + 1 }}</div>
-                <div class="leader-copy">
-                  <strong>{{ fullName(player) }}</strong>
-                  <small>{{ contributionText(player) }}</small>
-                </div>
-                <div class="leader-values">
-                  <span>{{ player.stats.goals }} G</span>
-                  <span>{{ player.stats.assists }} A</span>
-                  <span>{{ player.stats.matches }} M</span>
-                </div>
+              <div class="usage-list">
+                <article v-for="entry in workloadBreakdown" :key="entry.player.id" class="usage-row">
+                  <div class="chart-player">
+                    <div class="chart-rank soft">#{{ entry.rank }}</div>
+                    <div class="chart-player-avatar usage">
+                      <img v-if="entry.player.avatar" :src="entry.player.avatar" :alt="fullName(entry.player)" class="chart-player-image">
+                      <template v-else>{{ getInitials(fullName(entry.player)) }}</template>
+                    </div>
+                    <div class="chart-player-copy">
+                      <strong>{{ fullName(entry.player) }}</strong>
+                    </div>
+                  </div>
+
+                  <div class="usage-visual">
+                    <div class="usage-track">
+                      <span class="usage-fill" :style="{ width: `${entry.usagePercent}%` }"></span>
+                    </div>
+                  </div>
+
+                  <div class="usage-total">
+                    <strong>{{ entry.matches }}</strong>
+                    <small>spēles</small>
+                  </div>
+                </article>
               </div>
             </div>
             <div v-else class="empty-card">
-              Add player stats to unlock contribution rankings.
-            </div>
-          </article>
-
-          <article class="panel">
-            <div class="panel-head">
-              <div>
-                <p class="panel-kicker">Discipline</p>
-                <h2>Card watch</h2>
-              </div>
-            </div>
-
-            <div v-if="disciplinePlayers.length" class="discipline-list">
-              <div v-for="player in disciplinePlayers" :key="player.id" class="discipline-row">
-                <div>
-                  <strong>{{ fullName(player) }}</strong>
-                  <small>{{ player.stats.matches }} matches tracked</small>
-                </div>
-                <div class="discipline-badges">
-                  <span class="badge yellow">{{ player.stats.yellow_cards }} Y</span>
-                  <span class="badge red">{{ player.stats.red_cards }} R</span>
-                </div>
-              </div>
-            </div>
-            <div v-else class="empty-card">
-              No discipline issues recorded for the squad.
+              Pievienojiet spēlētāju dalību spēlēs, lai atvērtu slodzes ieskatus.
             </div>
           </article>
         </section>
@@ -133,8 +175,8 @@
           <article class="panel">
             <div class="panel-head">
               <div>
-                <p class="panel-kicker">Detailed table</p>
-                <h2>Full player statistics</h2>
+                <p class="panel-kicker">Detalizēta tabula</p>
+                <h2>Pilna spēlētāju statistika</h2>
               </div>
               <div class="panel-actions">
                 <button
@@ -143,7 +185,7 @@
                   :disabled="!rankedPlayers.length"
                   @click="exportStatisticsCsv"
                 >
-                  Export CSV
+                  Eksportēt CSV
                 </button>
                 <button
                   type="button"
@@ -151,9 +193,9 @@
                   :disabled="!rankedPlayers.length"
                   @click="exportStatisticsExcel"
                 >
-                  Export Excel
+                  Eksportēt Excel
                 </button>
-                <span class="panel-chip">{{ rankedPlayers.length }} rows</span>
+                <span class="panel-chip">{{ rankedPlayers.length }} rindas</span>
               </div>
             </div>
 
@@ -162,12 +204,12 @@
                 <thead>
                   <tr>
                     <th>#</th>
-                    <th>Player</th>
-                    <th>Matches</th>
-                    <th>Goals</th>
-                    <th>Assists</th>
-                    <th>Yellow</th>
-                    <th>Red</th>
+                    <th>Spēlētājs</th>
+                    <th>Spēles</th>
+                    <th>Vārti</th>
+                    <th>Piespēles</th>
+                    <th>Dzeltenās</th>
+                    <th>Sarkanās</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -195,17 +237,17 @@
               </table>
             </div>
             <div v-else class="empty-card">
-              Add player stats to unlock the table view.
+              Pievienojiet spēlētāju statistiku, lai atvērtu tabulas skatu.
             </div>
           </article>
         </section>
       </div>
 
       <section v-else class="access-panel">
-        <h2>Coach access required</h2>
-        <p>Only coaches who belong to this team can open the analytics workspace.</p>
+        <h2>Nepieciešama trenera piekļuve</h2>
+        <p>Analītikas darba vidi var atvērt tikai šīs komandas treneri.</p>
         <router-link :to="`/team/${teamId}/players`" class="access-link">
-          Open players page
+          Atvērt spēlētāju lapu
         </router-link>
       </section>
 
@@ -218,10 +260,9 @@
 </template>
 
 <script setup>
-import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
-import Chart from 'chart.js/auto'
 import { useAuthStore } from '../stores/auth'
 import { canManageTeam } from '../utils/teamAccess'
 import { fetchTeamBundle, fetchTeamSummary } from '../services/teamApi'
@@ -245,11 +286,6 @@ const summary = ref({
   topAssists: []
 })
 const loading = ref(false)
-const performanceChartRef = ref(null)
-const matchesChartRef = ref(null)
-let performanceChart = null
-let matchesChart = null
-let themeObserver = null
 
 const currentUser = computed(() => authStore.user)
 const isCoach = canManageTeam({
@@ -271,39 +307,108 @@ const rankedPlayers = computed(() => [...players.value].sort((a, b) => {
   return fullName(a).localeCompare(fullName(b))
 }))
 
-const disciplinePlayers = computed(() => {
-  return players.value
-    .filter((player) => (player.stats?.yellow_cards || 0) > 0 || (player.stats?.red_cards || 0) > 0)
-    .sort((a, b) => {
-      const cardScoreA = (a.stats?.red_cards || 0) * 3 + (a.stats?.yellow_cards || 0)
-      const cardScoreB = (b.stats?.red_cards || 0) * 3 + (b.stats?.yellow_cards || 0)
-      return cardScoreB - cardScoreA
-    })
-})
-
 const topScorer = computed(() => summary.value.topScorers[0] || rankedPlayers.value[0] || null)
 const topCreator = computed(() => summary.value.topAssists[0] || null)
 
+const performanceLeaders = computed(() => {
+  return [...players.value]
+    .filter((player) => (player.stats?.goals || 0) > 0 || (player.stats?.assists || 0) > 0)
+    .sort((a, b) => {
+      const contributionDiff = ((b.stats?.goals || 0) + (b.stats?.assists || 0)) - ((a.stats?.goals || 0) + (a.stats?.assists || 0))
+      if (contributionDiff !== 0) return contributionDiff
+
+      const goalsDiff = (b.stats?.goals || 0) - (a.stats?.goals || 0)
+      if (goalsDiff !== 0) return goalsDiff
+
+      return fullName(a).localeCompare(fullName(b))
+    })
+    .slice(0, 5)
+})
+
+const matchesLeaders = computed(() => {
+  return [...players.value]
+    .filter((player) => (player.stats?.matches || 0) > 0)
+    .sort((a, b) => {
+      const matchesDiff = (b.stats?.matches || 0) - (a.stats?.matches || 0)
+      if (matchesDiff !== 0) return matchesDiff
+
+      const goalsDiff = (b.stats?.goals || 0) - (a.stats?.goals || 0)
+      if (goalsDiff !== 0) return goalsDiff
+
+      return fullName(a).localeCompare(fullName(b))
+    })
+    .slice(0, 5)
+})
+
+const totalDirectActions = computed(() => {
+  return contributionBreakdown.value.reduce((sum, entry) => sum + entry.total, 0)
+})
+
+const maxMatchesTracked = computed(() => {
+  return Math.max(1, ...matchesLeaders.value.map((player) => Number(player.stats?.matches) || 0), 0)
+})
+
+const contributionBreakdown = computed(() => {
+  const list = performanceLeaders.value.length ? performanceLeaders.value : [...rankedPlayers.value].slice(0, 5)
+  const total = list.reduce((sum, player) => sum + (player.stats?.goals || 0) + (player.stats?.assists || 0), 0)
+
+  return list.map((player, index) => {
+    const goals = Number(player.stats?.goals) || 0
+    const assists = Number(player.stats?.assists) || 0
+    const contributionTotal = goals + assists
+
+    return {
+      player,
+      rank: index + 1,
+      goals,
+      assists,
+      total: contributionTotal,
+      goalShare: contributionTotal ? (goals / contributionTotal) * 100 : 0,
+      assistShare: contributionTotal ? (assists / contributionTotal) * 100 : 0,
+      teamShare: total ? (contributionTotal / total) * 100 : 0
+    }
+  })
+})
+
+const workloadBreakdown = computed(() => {
+  const list = matchesLeaders.value.length ? matchesLeaders.value : [...rankedPlayers.value].slice(0, 5)
+  const peakMatches = maxMatchesTracked.value || 1
+
+  return list.map((player, index) => {
+    const matches = Number(player.stats?.matches) || 0
+    const usagePercent = peakMatches ? (matches / peakMatches) * 100 : 0
+
+    return {
+      player,
+      rank: index + 1,
+      matches,
+      usagePercent
+    }
+  })
+})
+
 const headlineMetrics = computed(() => [
   {
-    label: 'Goals',
+    label: 'Vārti',
     value: summary.value.totalGoals,
-    note: `${perPlayer(summary.value.totalGoals)} per player`
+    note: `${perPlayer(summary.value.totalGoals)} uz spēlētāju`
   },
   {
-    label: 'Assists',
+    label: 'Piespēles',
     value: summary.value.totalAssists,
-    note: `${perPlayer(summary.value.totalAssists)} per player`
+    note: `${perPlayer(summary.value.totalAssists)} uz spēlētāju`
   },
   {
-    label: 'Matches',
+    label: 'Spēles',
     value: summary.value.totalMatches,
-    note: `${averageMatches()} average workload`
+    note: summary.value.totalMatches
+      ? 'Pabeigtās spēles no grafika'
+      : 'Grafikā vēl nav aizvadītu spēļu'
   },
   {
-    label: 'Attendance',
+    label: 'Apmeklējums',
     value: `${summary.value.avgAttendance}%`,
-    note: 'Practice participation'
+    note: 'Treniņu apmeklējums'
   }
 ])
 
@@ -329,11 +434,6 @@ const fetchStatistics = async () => {
     team.value = bundle.team
     players.value = bundle.players
     summary.value = stats
-
-    await nextTick()
-    if (isCoach.value) {
-      renderCharts()
-    }
   } catch (error) {
     console.error('Error fetching team statistics:', error)
   } finally {
@@ -341,115 +441,18 @@ const fetchStatistics = async () => {
   }
 }
 
-const destroyCharts = () => {
-  if (performanceChart) {
-    performanceChart.destroy()
-    performanceChart = null
+const formatChartLabel = (player) => {
+  const full = fullName(player)
+  if (full.length <= 16) return full
+
+  const [firstName = '', ...rest] = full.split(' ')
+  const lastName = rest.join(' ')
+
+  if (firstName && lastName) {
+    return `${firstName[0]}. ${lastName}`
   }
 
-  if (matchesChart) {
-    matchesChart.destroy()
-    matchesChart = null
-  }
-}
-
-const chartTheme = () => {
-  const styles = getComputedStyle(document.documentElement)
-  const textColor = styles.getPropertyValue('--text-color').trim() || '#1f2937'
-  const borderColor = styles.getPropertyValue('--border-color').trim() || 'rgba(148, 163, 184, 0.3)'
-  const accent = '#0b72e7'
-  const accentSoft = '#6faeff'
-  const assist = '#2456d3'
-
-  return { textColor, borderColor, accent, accentSoft, assist }
-}
-
-const renderCharts = () => {
-  if (!performanceChartRef.value || !matchesChartRef.value || !players.value.length) return
-
-  destroyCharts()
-
-  const topPlayers = [...rankedPlayers.value].slice(0, 6)
-  const labels = topPlayers.map((player) => fullName(player))
-  const { textColor, borderColor, accent, accentSoft, assist } = chartTheme()
-
-  performanceChart = new Chart(performanceChartRef.value, {
-    type: 'bar',
-    data: {
-      labels,
-      datasets: [
-        {
-          label: 'Goals',
-          data: topPlayers.map((player) => player.stats.goals),
-          backgroundColor: accent
-        },
-        {
-          label: 'Assists',
-          data: topPlayers.map((player) => player.stats.assists),
-          backgroundColor: accentSoft
-        }
-      ]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: {
-          labels: {
-            color: textColor
-          }
-        }
-      },
-      scales: {
-        x: {
-          ticks: { color: textColor },
-          grid: { color: borderColor }
-        },
-        y: {
-          ticks: { color: textColor, precision: 0 },
-          grid: { color: borderColor }
-        }
-      }
-    }
-  })
-
-  matchesChart = new Chart(matchesChartRef.value, {
-    type: 'line',
-    data: {
-      labels,
-      datasets: [
-        {
-          label: 'Matches',
-          data: topPlayers.map((player) => player.stats.matches),
-          borderColor: assist,
-          backgroundColor: 'rgba(36, 86, 211, 0.16)',
-          fill: true,
-          tension: 0.35
-        }
-      ]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: {
-          labels: {
-            color: textColor
-          }
-        }
-      },
-      scales: {
-        x: {
-          ticks: { color: textColor },
-          grid: { color: borderColor }
-        },
-        y: {
-          ticks: { color: textColor, precision: 0 },
-          grid: { color: borderColor }
-        }
-      }
-    }
-  })
+  return `${full.slice(0, 15)}…`
 }
 
 const perPlayer = (value) => {
@@ -463,8 +466,13 @@ const averageMatches = () => {
   return (totalMatches / players.value.length).toFixed(1)
 }
 
+const formatPercent = (value) => {
+  if (!Number.isFinite(value) || value <= 0) return '0%'
+  return `${Math.max(1, Math.round(value))}%`
+}
+
 const contributionText = (player) => {
-  return `${player.stats.matches} matches, ${player.stats.goals} goals, ${player.stats.assists} assists`
+  return `${player.stats.matches} spēles, ${player.stats.goals} vārti, ${player.stats.assists} piespēles`
 }
 
 const escapeCsvValue = (value) => {
@@ -483,12 +491,12 @@ const escapeXmlValue = (value) => String(value ?? '')
   .replace(/'/g, '&apos;')
 
 const createFilename = (extension) => {
-  const safeTeamName = (team.value?.name || 'team')
+  const safeTeamName = (team.value?.name || 'komanda')
     .toLowerCase()
     .replace(/[^a-z0-9]+/gi, '-')
-    .replace(/^-+|-+$/g, '') || 'team'
+    .replace(/^-+|-+$/g, '') || 'komanda'
 
-  return `${safeTeamName}-statistics.${extension}`
+  return `${safeTeamName}-statistika.${extension}`
 }
 
 const downloadBlob = (content, mimeType, filename) => {
@@ -505,7 +513,7 @@ const downloadBlob = (content, mimeType, filename) => {
 
 const exportStatisticsCsv = () => {
   const delimiter = ';'
-  const headers = ['Rank', 'Player', 'Email', 'Matches', 'Goals', 'Assists', 'Yellow Cards', 'Red Cards']
+  const headers = ['Vieta', 'Spēlētājs', 'E-pasts', 'Spēles', 'Vārti', 'Piespēles', 'Dzeltenās kartītes', 'Sarkanās kartītes']
   const lines = [
     `sep=${delimiter}`,
     headers.join(delimiter),
@@ -544,17 +552,17 @@ const exportStatisticsExcel = () => {
       xmlns:x="urn:schemas-microsoft-com:office:excel"
       xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"
       xmlns:html="http://www.w3.org/TR/REC-html40">
-      <Worksheet ss:Name="Statistics">
+      <Worksheet ss:Name="Statistika">
         <Table>
           <Row>
-            <Cell><Data ss:Type="String">Rank</Data></Cell>
-            <Cell><Data ss:Type="String">Player</Data></Cell>
-            <Cell><Data ss:Type="String">Email</Data></Cell>
-            <Cell><Data ss:Type="String">Matches</Data></Cell>
-            <Cell><Data ss:Type="String">Goals</Data></Cell>
-            <Cell><Data ss:Type="String">Assists</Data></Cell>
-            <Cell><Data ss:Type="String">Yellow Cards</Data></Cell>
-            <Cell><Data ss:Type="String">Red Cards</Data></Cell>
+            <Cell><Data ss:Type="String">Vieta</Data></Cell>
+            <Cell><Data ss:Type="String">Spēlētājs</Data></Cell>
+            <Cell><Data ss:Type="String">E-pasts</Data></Cell>
+            <Cell><Data ss:Type="String">Spēles</Data></Cell>
+            <Cell><Data ss:Type="String">Vārti</Data></Cell>
+            <Cell><Data ss:Type="String">Piespēles</Data></Cell>
+            <Cell><Data ss:Type="String">Dzeltenās kartītes</Data></Cell>
+            <Cell><Data ss:Type="String">Sarkanās kartītes</Data></Cell>
           </Row>
           ${rowsXml}
         </Table>
@@ -566,22 +574,6 @@ const exportStatisticsExcel = () => {
 
 onMounted(async () => {
   await fetchStatistics()
-
-  themeObserver = new MutationObserver(async () => {
-    if (!isCoach.value) return
-    await nextTick()
-    renderCharts()
-  })
-
-  themeObserver.observe(document.documentElement, {
-    attributes: true,
-    attributeFilter: ['class']
-  })
-})
-
-onBeforeUnmount(() => {
-  destroyCharts()
-  themeObserver?.disconnect()
 })
 </script>
 
@@ -661,7 +653,6 @@ html.dark-mode .statistics-page {
 .hero-description,
 .summary-card p,
 .headline-card small,
-.leader-copy small,
 .access-panel p,
 .empty-card {
   color: var(--page-muted);
@@ -677,8 +668,6 @@ html.dark-mode .statistics-page {
 .hero-pill,
 .nav-chip,
 .panel-chip,
-.leader-values span,
-.badge,
 .access-link {
   display: inline-flex;
   align-items: center;
@@ -699,7 +688,6 @@ html.dark-mode .statistics-page {
 .hero-pill.accent,
 .nav-chip.active,
 .panel-chip,
-.leader-values span,
 .access-link {
   background: var(--page-accent-soft);
   color: var(--page-accent);
@@ -730,7 +718,6 @@ html.dark-mode .statistics-page {
 
 .headline-grid,
 .chart-grid,
-.insights-grid,
 .table-section {
   display: grid;
   gap: 1rem;
@@ -741,8 +728,7 @@ html.dark-mode .statistics-page {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
-.chart-grid,
-.insights-grid {
+.chart-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
@@ -754,11 +740,95 @@ html.dark-mode .statistics-page {
   padding: 1.2rem;
 }
 
+.chart-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
 .headline-card strong {
   display: block;
   font-size: 2rem;
   line-height: 1;
   margin: 0.3rem 0;
+}
+
+.chart-stack {
+  display: grid;
+  gap: 1rem;
+}
+
+.chart-summary-strip {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.85rem;
+}
+
+.chart-summary-card,
+.split-row,
+.usage-row {
+  border: 1px solid var(--page-border);
+  border-radius: 18px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent), var(--page-surface);
+}
+
+.chart-summary-card {
+  padding: 0.95rem 1rem;
+}
+
+.chart-summary-label {
+  display: block;
+  margin-bottom: 0.4rem;
+  color: var(--page-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.72rem;
+}
+
+.chart-summary-card strong {
+  display: block;
+  font-size: 1.65rem;
+  line-height: 1;
+}
+
+.chart-summary-card small {
+  display: block;
+  margin-top: 0.35rem;
+  color: var(--page-muted);
+}
+
+.chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+}
+
+.legend-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.5rem 0.8rem;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 0.82rem;
+}
+
+.legend-chip::before {
+  content: '';
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+.legend-chip.goals {
+  background: rgba(11, 114, 231, 0.12);
+  color: #0b72e7;
+}
+
+.legend-chip.assists {
+  background: rgba(130, 183, 255, 0.18);
+  color: #5f94de;
 }
 
 .panel-head {
@@ -811,16 +881,161 @@ html.dark-mode .statistics-page {
   box-shadow: none;
 }
 
-.chart-panel canvas {
-  width: 100% !important;
-  height: 320px !important;
-}
-
-.leaders-list,
-.discipline-list {
+.split-list,
+.usage-list {
   display: flex;
   flex-direction: column;
   gap: 0.85rem;
+}
+
+.split-row,
+.usage-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) auto;
+  gap: 1rem;
+  align-items: center;
+  padding: 0.95rem 1rem;
+}
+
+.split-row:first-child,
+.usage-row:first-child {
+  background: linear-gradient(135deg, var(--page-accent-soft), transparent 90%), var(--page-surface);
+}
+
+.chart-player {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.chart-rank {
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  background: var(--page-accent-soft);
+  color: var(--page-accent);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+
+.chart-rank.soft {
+  background: rgba(23, 182, 200, 0.14);
+  color: #17b6c8;
+}
+
+.chart-player-avatar {
+  width: 46px;
+  height: 46px;
+  border-radius: 14px;
+  background: var(--page-accent-soft);
+  color: var(--page-accent);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.chart-player-avatar.usage {
+  background: rgba(23, 182, 200, 0.14);
+  color: #17b6c8;
+}
+
+.chart-player-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.chart-player-copy {
+  min-width: 0;
+  display: grid;
+  gap: 0.2rem;
+}
+
+.chart-player-copy strong {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chart-player-copy small {
+  color: var(--page-muted);
+}
+
+.split-visual,
+.usage-visual {
+  min-width: 0;
+}
+
+.split-track,
+.usage-track {
+  width: 100%;
+  height: 16px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgba(148, 163, 184, 0.14);
+}
+
+.split-track {
+  display: flex;
+}
+
+.split-segment {
+  height: 100%;
+  display: block;
+}
+
+.split-segment.goals {
+  background: linear-gradient(90deg, #0b72e7, #2f8cff);
+}
+
+.split-segment.assists {
+  background: linear-gradient(90deg, #7fb5ff, #bdd8ff);
+}
+
+.usage-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #17b6c8, #64d2df);
+}
+
+.split-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 0.45rem;
+  font-size: 0.82rem;
+  color: var(--page-muted);
+}
+
+.split-total,
+.usage-total {
+  min-width: 64px;
+  display: grid;
+  justify-items: end;
+  gap: 0.15rem;
+}
+
+.split-total strong,
+.usage-total strong {
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+.split-total small,
+.usage-total small {
+  color: var(--page-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 0.72rem;
 }
 
 .stats-table-wrap {
@@ -889,69 +1104,10 @@ html.dark-mode .statistics-page {
 }
 
 
-.leader-row,
-.discipline-row,
 .empty-card {
   border: 1px solid var(--page-border);
   border-radius: 18px;
   padding: 0.95rem 1rem;
-}
-
-.leader-row {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  gap: 1rem;
-  align-items: center;
-}
-
-.leader-rank {
-  width: 48px;
-  height: 48px;
-  border-radius: 16px;
-  background: var(--page-accent-soft);
-  color: var(--page-accent);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 800;
-}
-
-.leader-copy strong,
-.discipline-row strong {
-  display: block;
-}
-
-.leader-values,
-.discipline-badges {
-  display: flex;
-  gap: 0.55rem;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-}
-
-.discipline-row {
-  display: flex;
-  justify-content: space-between;
-  gap: 1rem;
-  align-items: center;
-}
-
-.badge.yellow {
-  background: rgba(234, 179, 8, 0.16);
-  color: #a16207;
-}
-
-.badge.red {
-  background: rgba(220, 38, 38, 0.14);
-  color: #b91c1c;
-}
-
-html.dark-mode .badge.yellow {
-  color: #fde68a;
-}
-
-html.dark-mode .badge.red {
-  color: #fca5a5;
 }
 
 .access-panel {
@@ -994,8 +1150,7 @@ html.dark-mode .badge.red {
 
 @media (max-width: 1080px) {
   .statistics-hero,
-  .chart-grid,
-  .insights-grid {
+  .chart-grid {
     grid-template-columns: 1fr;
   }
 
@@ -1029,19 +1184,16 @@ html.dark-mode .badge.red {
     grid-template-columns: 1fr;
   }
 
-  .leader-row,
-  .discipline-row {
+  .chart-summary-strip,
+  .split-row,
+  .usage-row {
     grid-template-columns: 1fr;
-    align-items: flex-start;
   }
 
-  .leader-values,
-  .discipline-badges {
+  .split-total,
+  .usage-total {
     justify-content: flex-start;
-  }
-
-  .chart-panel canvas {
-    height: 260px !important;
+    justify-items: flex-start;
   }
 }
 

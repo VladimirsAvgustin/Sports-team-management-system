@@ -248,11 +248,11 @@ export default {
     }
 
     const convFullName = (conv) => {
-      return ((conv.name || '') + ' ' + (conv.surname || '')).trim() || conv.username || 'Unknown'
+      return ((conv.name || '') + ' ' + (conv.surname || '')).trim() || conv.username || 'Nezināms lietotājs'
     }
 
     const userFullName = (user) => {
-      return ((user.name || '') + ' ' + (user.surname || '')).trim() || user.username || 'Unknown'
+      return ((user.name || '') + ' ' + (user.surname || '')).trim() || user.username || 'Nezināms lietotājs'
     }
 
     const getInitials = (name) => {
@@ -278,14 +278,14 @@ export default {
       if (diffInHours < 1) {
         return t('chatPage.justNow')
       } else if (diffInHours < 24) {
-        return date.toLocaleTimeString('en-US', {
+        return date.toLocaleTimeString('lv-LV', {
           hour: '2-digit',
           minute: '2-digit'
         })
       } else if (diffInHours < 168) { // 7 days
-        return date.toLocaleDateString('en-US', { weekday: 'short' })
+        return date.toLocaleDateString('lv-LV', { weekday: 'short' })
       } else {
-        return date.toLocaleDateString('en-US', {
+        return date.toLocaleDateString('lv-LV', {
           month: 'short',
           day: 'numeric'
         })
@@ -471,12 +471,20 @@ export default {
 .room-info {
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  text-align: left;
 }
 
-.room-info h4 {
+.room-info h4,
+.user-info h4 {
   margin: 0 0 0.25rem 0;
   font-size: 1rem;
   color: var(--text-color);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .last-message {
@@ -752,15 +760,22 @@ export default {
   flex-shrink: 0;
 }
 
-.user-info h4 {
-  margin: 0 0 0.25rem 0;
-  color: var(--text-color);
+.user-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  text-align: left;
 }
 
 .user-info p {
   margin: 0;
   color: var(--text-secondary, #64748b);
   font-size: 0.875rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* Scrollbar styling */

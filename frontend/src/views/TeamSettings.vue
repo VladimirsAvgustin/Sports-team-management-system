@@ -14,7 +14,7 @@
     <!-- Team Navigation -->
     <div class="team-nav">
       <router-link :to="`/team/${teamId}/overview`" class="nav-link" active-class="active">
-        {{ $t('nav.overview') || 'Overview' }}
+        {{ $t('nav.overview') }}
       </router-link>
       <router-link :to="`/team/${teamId}/players`" class="nav-link" active-class="active">
         {{ $t('teamPage.players') }}
@@ -27,7 +27,7 @@
       </router-link>
     </div>
 
-    <!-- Settings Content -->
+    <!-- Iestatījumu saturs -->
     <div v-if="isCoach" class="settings-content">
       <div class="settings-section">
         <h2>{{ $t('teamPage.teamSettings') }}</h2>
@@ -86,12 +86,12 @@
 
         <!-- Coach Tools -->
         <div class="settings-group danger-zone">
-          <h3>Coach tools</h3>
+          <h3>Trenera rīki</h3>
           <p class="description">
-            Logo updates are available here. Team deletion or transfer actions are not exposed on this page yet.
+            Šeit var atjaunināt logotipu. Komandas dzēšana vai nodošana šajā lapā vēl nav pieejama.
           </p>
           <router-link :to="`/team/${teamId}/overview`" class="btn btn-secondary">
-            Return to overview
+            Atgriezties pārskatā
           </router-link>
         </div>
       </div>
@@ -99,12 +99,12 @@
 
     <div v-else class="settings-content">
       <div class="settings-section access-card">
-        <h2>Coach access required</h2>
+        <h2>Nepieciešama trenera piekļuve</h2>
         <p class="description">
-          Team settings are available only for the active coach of this team.
+          Komandas iestatījumi ir pieejami tikai šīs komandas aktīvajam trenerim.
         </p>
         <router-link :to="`/team/${teamId}/overview`" class="btn btn-secondary">
-          Return to overview
+          Atgriezties pārskatā
         </router-link>
       </div>
     </div>

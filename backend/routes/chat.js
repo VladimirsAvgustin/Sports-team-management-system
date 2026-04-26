@@ -1,8 +1,88 @@
 const express = require('express');
+const crypto = require('crypto');
+const fs = require('fs');
+const path = require('path');
 const router = express.Router();
 const { authenticateToken } = require('../middleware/auth');
 
+const MAX_CHAT_UPLOAD_BYTES = 6 * 1024 * 1024;
+const CHAT_UPLOAD_DIR = path.join(__dirname, '..', 'uploads', 'chat');
+const MIME_EXTENSIONS = {
+  'image/jpeg': '.jpg',
+  'image/png': '.png',
+  'image/gif': '.gif',
+  'image/webp': '.webp',
+  'application/pdf': '.pdf',
+  'text/plain': '.txt',
+  'text/csv': '.csv',
+  'application/msword': '.doc',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': '.docx',
+  'application/vnd.ms-excel': '.xls',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': '.xlsx',
+  'application/vnd.ms-powerpoint': '.ppt',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation': '.pptx',
+  'application/zip': '.zip'
+};
+
+const sanitizeFileName = (fileName) => {
+  const baseName = path.basename(String(fileName || 'attachment'));
+  const cleaned = baseName.replace(/[^\w.\- ]+/g, '').replace(/\s+/g, '_').slice(0, 80);
+  return cleaned || 'attachment';
+};
+
+const parseDataUrl = (dataUrl) => {
+  const match = String(dataUrl || '').match(/^data:([^;,]+);base64,(.+)$/s);
+  if (!match) return null;
+  return {
+    mimeType: match[1].toLowerCase(),
+    base64: match[2]
+  };
+};
+
 module.exports = (db) => {
+  // Upload a chat attachment first, then send its returned metadata via socket.
+  router.post('/upload', authenticateToken, (req, res) => {
+    const parsedData = parseDataUrl(req.body?.data);
+    const requestedMimeType = String(req.body?.mimeType || '').toLowerCase();
+    const mimeType = parsedData?.mimeType || requestedMimeType;
+
+    if (!parsedData || !MIME_EXTENSIONS[mimeType]) {
+    return res.status(400).json({ error: 'Neatbalstīts faila tips' });
+    }
+
+    let fileBuffer;
+    try {
+      fileBuffer = Buffer.from(parsedData.base64, 'base64');
+    } catch {
+    return res.status(400).json({ error: 'Nederīgi faila dati' });
+    }
+
+    if (!fileBuffer.length || fileBuffer.length > MAX_CHAT_UPLOAD_BYTES) {
+    return res.status(400).json({ error: 'Failam jābūt mazākam par 6 MB' });
+    }
+
+    fs.mkdirSync(CHAT_UPLOAD_DIR, { recursive: true });
+
+    const originalName = sanitizeFileName(req.body?.fileName);
+    const extension = MIME_EXTENSIONS[mimeType];
+    const storedName = `${Date.now()}-${crypto.randomBytes(8).toString('hex')}${extension}`;
+    const storedPath = path.join(CHAT_UPLOAD_DIR, storedName);
+
+    fs.writeFile(storedPath, fileBuffer, (err) => {
+      if (err) {
+        console.error('Chat upload write error:', err.message);
+        return res.status(500).json({ error: 'Neizdevās augšupielādēt failu' });
+      }
+
+      return res.status(201).json({
+        attachmentUrl: `/uploads/chat/${storedName}`,
+        attachmentName: originalName,
+        attachmentType: mimeType,
+        attachmentSize: fileBuffer.length
+      });
+    });
+  });
+
   // Get or create chat room for a team
   router.get('/team/:teamId/room', authenticateToken, (req, res) => {
     const { teamId } = req.params;
@@ -14,11 +94,11 @@ module.exports = (db) => {
       [userId, teamId],
       (err, userTeam) => {
         if (err) {
-          return res.status(500).json({ error: 'Database error' });
+      return res.status(500).json({ error: 'Datubāzes kļūda' });
         }
 
         if (!userTeam) {
-          return res.status(403).json({ error: 'Not a member of this team' });
+      return res.status(403).json({ error: 'Jūs neesat šīs komandas dalībnieks' });
         }
 
         // Get or create chat room for the team
@@ -27,7 +107,7 @@ module.exports = (db) => {
           [teamId],
           (err, room) => {
             if (err) {
-              return res.status(500).json({ error: 'Database error' });
+      return res.status(500).json({ error: 'Datubāzes kļūda' });
             }
 
             if (room) {
@@ -40,17 +120,17 @@ module.exports = (db) => {
               [teamId],
               (err, team) => {
                 if (err) {
-                  return res.status(500).json({ error: 'Database error' });
+    return res.status(500).json({ error: 'Datubāzes kļūda' });
                 }
 
-                const roomName = team ? `${team.name} Chat` : `Team ${teamId} Chat`;
+                const roomName = team ? `${team.name} čats` : `Komandas ${teamId} čats`;
 
                 db.run(
                   `INSERT INTO chat_rooms (team_id, name) VALUES (?, ?)`,
                   [teamId, roomName],
                   function(err) {
                     if (err) {
-                      return res.status(500).json({ error: 'Failed to create chat room' });
+            return res.status(500).json({ error: 'Neizdevās izveidot čata istabu' });
                     }
 
                     res.json({
@@ -84,11 +164,11 @@ module.exports = (db) => {
       [roomId, userId],
       (err, room) => {
         if (err) {
-          return res.status(500).json({ error: 'Database error' });
+      return res.status(500).json({ error: 'Datubāzes kļūda' });
         }
 
         if (!room) {
-          return res.status(403).json({ error: 'Access denied' });
+      return res.status(403).json({ error: 'Piekļuve liegta' });
         }
 
         let query = `SELECT * FROM messages WHERE room_id = ?`;
@@ -104,7 +184,7 @@ module.exports = (db) => {
 
         db.all(query, params, (err, messages) => {
           if (err) {
-            return res.status(500).json({ error: 'Database error' });
+      return res.status(500).json({ error: 'Datubāzes kļūda' });
           }
 
           res.json(messages.reverse());
@@ -120,7 +200,7 @@ module.exports = (db) => {
     db.all(
       `SELECT cr.*, t.name as team_name, 
        (SELECT COUNT(*) FROM messages WHERE room_id = cr.id) as message_count,
-       (SELECT message FROM messages WHERE room_id = cr.id ORDER BY created_at DESC LIMIT 1) as last_message,
+       (SELECT COALESCE(NULLIF(message, ''), attachment_name, 'Pielikums') FROM messages WHERE room_id = cr.id ORDER BY created_at DESC LIMIT 1) as last_message,
        (SELECT created_at FROM messages WHERE room_id = cr.id ORDER BY created_at DESC LIMIT 1) as last_message_time
        FROM chat_rooms cr
        INNER JOIN teams t ON cr.team_id = t.id
@@ -130,7 +210,7 @@ module.exports = (db) => {
       [userId],
       (err, rooms) => {
         if (err) {
-          return res.status(500).json({ error: 'Database error' });
+      return res.status(500).json({ error: 'Datubāzes kļūda' });
         }
 
         res.json(rooms);
@@ -148,11 +228,11 @@ module.exports = (db) => {
       [messageId, userId],
       (err, message) => {
         if (err) {
-          return res.status(500).json({ error: 'Database error' });
+      return res.status(500).json({ error: 'Datubāzes kļūda' });
         }
 
         if (!message) {
-          return res.status(403).json({ error: 'Cannot delete this message' });
+      return res.status(403).json({ error: 'Šo ziņojumu nevar dzēst' });
         }
 
         db.run(
@@ -160,10 +240,10 @@ module.exports = (db) => {
           [messageId],
           (err) => {
             if (err) {
-              return res.status(500).json({ error: 'Failed to delete message' });
+          return res.status(500).json({ error: 'Neizdevās dzēst ziņojumu' });
             }
 
-            res.json({ message: 'Message deleted successfully' });
+        res.json({ message: 'Ziņojums veiksmīgi dzēsts' });
           }
         );
       }
@@ -181,7 +261,7 @@ module.exports = (db) => {
       [userId],
       (err, users) => {
         if (err) {
-          return res.status(500).json({ error: 'Database error' });
+      return res.status(500).json({ error: 'Datubāzes kļūda' });
         }
 
         res.json(users);
@@ -203,7 +283,7 @@ module.exports = (db) => {
       [userId, userId],
       (err, members) => {
         if (err) {
-          return res.status(500).json({ error: 'Database error' });
+      return res.status(500).json({ error: 'Datubāzes kļūda' });
         }
 
         res.json(members);
@@ -231,7 +311,7 @@ module.exports = (db) => {
       [currentUserId, otherUserId, otherUserId, currentUserId, parseInt(limit)],
       (err, messages) => {
         if (err) {
-          return res.status(500).json({ error: 'Database error' });
+      return res.status(500).json({ error: 'Datubāzes kļūda' });
         }
 
         res.json(messages);
@@ -256,7 +336,7 @@ module.exports = (db) => {
       (err, userIds) => {
         if (err) {
           console.error('Error fetching DM user IDs:', err);
-          return res.status(500).json({ error: 'Database error' });
+      return res.status(500).json({ error: 'Datubāzes kļūda' });
         }
 
         if (userIds.length === 0) {
@@ -274,7 +354,7 @@ module.exports = (db) => {
              u.name, u.surname,
              (u.name || ' ' || u.surname) as username,
              u.email,
-             (SELECT message FROM direct_messages 
+             (SELECT COALESCE(NULLIF(message, ''), attachment_name, 'Pielikums') FROM direct_messages 
               WHERE (sender_id = ? AND receiver_id = ?) 
               OR (sender_id = ? AND receiver_id = ?)
               ORDER BY created_at DESC LIMIT 1) as last_message,
@@ -322,10 +402,10 @@ module.exports = (db) => {
       [otherUserId, currentUserId],
       (err) => {
         if (err) {
-          return res.status(500).json({ error: 'Database error' });
+      return res.status(500).json({ error: 'Datubāzes kļūda' });
         }
 
-        res.json({ message: 'Messages marked as read' });
+    res.json({ message: 'Ziņojumi atzīmēti kā izlasīti' });
       }
     );
   });

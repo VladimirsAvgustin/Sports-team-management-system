@@ -32,7 +32,7 @@ export const useAuthStore = defineStore('auth', {
         const data = await res.json();
 
         if (!res.ok) {
-          throw new Error(data.error || 'Login error');
+          throw new Error(data.error || 'Pieslēgšanās kļūda');
         }
 
         this.token = data.token;
@@ -70,7 +70,7 @@ export const useAuthStore = defineStore('auth', {
             this.logout();
             return;
           }
-          throw new Error('Error fetching user');
+          throw new Error('Neizdevās ielādēt lietotāju');
         }
 
         const data = await res.json();
