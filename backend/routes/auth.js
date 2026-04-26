@@ -19,12 +19,35 @@ const mailTransporter = nodemailer.createTransport({
 const normalizeImageData = (value) => (typeof value === 'string' ? value.trim() : '');
 const isSupportedImageDataUrl = (value) => /^data:image\/(png|jpe?g|webp|gif);base64,/i.test(value);
 const isValidImagePayload = (value) => Boolean(value) && isSupportedImageDataUrl(value) && value.length <= MAX_IMAGE_DATA_LENGTH;
+const normalizeBaseUrl = (value) => (typeof value === 'string' ? value.trim().replace(/\/+$/, '') : '');
+const getOriginFromHeader = (value) => {
+  try {
+    const parsedUrl = new URL(value);
+    return ['http:', 'https:'].includes(parsedUrl.protocol) ? parsedUrl.origin : '';
+  } catch {
+    return '';
+  }
+};
+const getFrontendBaseUrl = (req) => {
+  const configuredUrl = normalizeBaseUrl(process.env.FRONTEND_URL);
+  if (configuredUrl) {
+    return configuredUrl;
+  }
+
+  const requestOrigin = getOriginFromHeader(req.get('origin'));
+  if (requestOrigin) {
+    return requestOrigin;
+  }
+
+  const refererOrigin = getOriginFromHeader(req.get('referer'));
+  return refererOrigin || 'http://localhost:5173';
+};
 
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers.authorization;
   
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ error: 'Token not provided' });
+    return res.status(401).json({ error: 'Autorizācijas marķieris nav norādīts' });
   }
 
   const token = authHeader.split(' ')[1];
@@ -36,11 +59,11 @@ const authenticateToken = (req, res, next) => {
     next();
   } catch (err) {
     console.error('JWT verification failed:', err.message);
-    return res.status(403).json({ error: 'Invalid token' });
+    return res.status(403).json({ error: 'Nederīgs autorizācijas marķieris' });
   }
 };
 
-// В auth.js или store:
+// Shared helper for auth/store usage.
 async function getMyTeam(token) {
   const res = await fetch('/my-team', {
     headers: { Authorization: `Bearer ${token}` }
@@ -52,6 +75,11 @@ async function getMyTeam(token) {
 module.exports = (db) => {
     const router = express.Router();
     const normalizeRole = (role) => (typeof role === 'string' ? role.trim().toLowerCase() : '');
+    const createHttpError = (status, message) => {
+      const error = new Error(message);
+      error.status = status;
+      return error;
+    };
     const dbGet = (sql, params = []) => new Promise((resolve, reject) => {
       db.get(sql, params, (err, row) => {
         if (err) reject(err);
@@ -70,6 +98,14 @@ module.exports = (db) => {
         else resolve(this);
       });
     });
+    const formatDisplayName = (name, surname, fallback = 'Treneris') => {
+      const fullName = [name, surname]
+        .map((value) => (typeof value === 'string' ? value.trim() : ''))
+        .filter(Boolean)
+        .join(' ');
+
+      return fullName || fallback;
+    };
     const getUserProfile = (userId) => dbGet(
       'SELECT id, name, surname, email, role, team_id, avatar FROM users WHERE id = ?',
       [userId]
@@ -94,15 +130,95 @@ module.exports = (db) => {
       if (!existingRoom) {
         await dbRun(
           'INSERT INTO chat_rooms (team_id, name) VALUES (?, ?)',
-          [teamId, `${teamName} Chat`]
+          [teamId, `${teamName} čats`]
         );
       }
+    };
+    const leaveCurrentTeam = async (userId) => {
+      const user = await getUserProfile(userId);
+
+      if (!user) {
+        throw createHttpError(404, 'Lietotājs nav atrasts');
+      }
+
+      const teamId = Number(user.team_id) || null;
+
+      if (!teamId) {
+        throw createHttpError(400, 'You are not part of a team');
+      }
+
+      const team = await getTeamById(teamId);
+
+      // Recover gracefully if the membership points to a missing team row.
+      if (!team) {
+        await dbRun('UPDATE users SET team_id = NULL, updatedAt = CURRENT_TIMESTAMP WHERE id = ?', [userId]);
+        return {
+          user: await getUserProfile(userId),
+          team: null,
+          ownershipTransferred: false,
+          successor: null
+        };
+      }
+
+      const isCoach = normalizeRole(user.role) === 'coach';
+      const isTeamOwner = isCoach && Number(team.coach_id) === Number(userId);
+      let successor = null;
+
+      if (isTeamOwner) {
+        successor = await dbGet(
+          `SELECT id, name, surname
+           FROM users
+           WHERE team_id = ? AND id != ? AND LOWER(role) = 'coach'
+           ORDER BY datetime(createdAt) ASC, id ASC
+           LIMIT 1`,
+          [teamId, userId]
+        );
+
+        if (!successor) {
+          throw createHttpError(
+            409,
+            'The main coach cannot leave the team until another coach joins to take over.'
+          );
+        }
+      }
+
+      await dbRun('BEGIN TRANSACTION');
+
+      try {
+        if (successor) {
+          await dbRun(
+            'UPDATE teams SET coach_id = ?, updatedAt = CURRENT_TIMESTAMP WHERE id = ?',
+            [successor.id, teamId]
+          );
+        }
+
+        await dbRun(
+          'UPDATE users SET team_id = NULL, updatedAt = CURRENT_TIMESTAMP WHERE id = ?',
+          [userId]
+        );
+
+        await dbRun('COMMIT');
+      } catch (error) {
+        try {
+          await dbRun('ROLLBACK');
+        } catch (rollbackError) {
+          console.error('Rollback error while leaving team:', rollbackError);
+        }
+        throw error;
+      }
+
+      return {
+        user: await getUserProfile(userId),
+        team,
+        ownershipTransferred: Boolean(successor),
+        successor
+      };
     };
     router.post('/register', async (req, res) => {
         const { name, surname, email, password, role, teamCode, createTeam, teamName } = req.body;
       
         if (!name || !surname || !email || !password) {
-          return res.status(400).json({ error: 'Please fill in all fields.' });
+          return res.status(400).json({ error: 'Lūdzu, aizpildiet visus laukus.' });
         }
       
         const userRole = role || 'user';
@@ -110,11 +226,11 @@ module.exports = (db) => {
         db.get('SELECT * FROM users WHERE email = ?', [email], async (err, row) => {
           if (err) {
             console.error(err.message);
-            return res.status(500).json({ error: 'Server error' });
+            return res.status(500).json({ error: 'Servera kļūda' });
           }
       
           if (row) {
-            return res.status(400).json({ error: 'User with this email already exists' });
+            return res.status(400).json({ error: 'Lietotājs ar šo e-pastu jau pastāv' });
           }
       
           try {
@@ -127,7 +243,7 @@ module.exports = (db) => {
                 function (insertErr) {
                   if (insertErr) {
                     console.error(insertErr.message);
-                    return res.status(500).json({ error: 'Registration error' });
+                    return res.status(500).json({ error: 'Reģistrācijas kļūda' });
                   }
       
                   const userId = this.lastID;
@@ -140,11 +256,11 @@ module.exports = (db) => {
                         if (statsErr) {
                           console.error('Error adding player stats:', statsErr.message);
                         }
-                        res.status(201).json({ message: 'User successfully registered', userId });
+                        res.status(201).json({ message: 'Lietotājs veiksmīgi reģistrēts', userId });
                       }
                     );
                   } else {
-                    res.status(201).json({ message: 'User successfully registered', userId });
+                    res.status(201).json({ message: 'Lietotājs veiksmīgi reģistrēts', userId });
                   }
                 }
               );
@@ -152,17 +268,17 @@ module.exports = (db) => {
       
             if (createTeam && userRole.toLowerCase() === 'coach') {
               if (!teamName || !teamCode) {
-                return res.status(400).json({ error: 'Team name and code are required to create a team.' });
+                return res.status(400).json({ error: 'Lai izveidotu komandu, jānorāda komandas nosaukums un kods.' });
               }
       
-              // Временная вставка юзера без team_id
+                // Temporarily insert the user without team_id.
               db.run(
                 'INSERT INTO users (name, surname, role, email, password) VALUES (?, ?, ?, ?, ?)',
                 [name, surname, userRole, email, hashedPassword],
                 function (userInsertErr) {
                   if (userInsertErr) {
                     console.error(userInsertErr.message);
-                    return res.status(500).json({ error: 'Error registering coach' });
+                    return res.status(500).json({ error: 'Kļūda, reģistrējot treneri' });
                   }
       
                   const coachId = this.lastID;
@@ -173,7 +289,7 @@ module.exports = (db) => {
                     function (teamInsertErr) {
                       if (teamInsertErr) {
                         console.error(teamInsertErr.message);
-                        return res.status(500).json({ error: 'Error creating team' });
+                        return res.status(500).json({ error: 'Kļūda, izveidojot komandu' });
                       }
       
                       const teamId = this.lastID;
@@ -181,28 +297,28 @@ module.exports = (db) => {
                       // Create team chat room automatically
                       db.run(
                         'INSERT INTO chat_rooms (team_id, name) VALUES (?, ?)',
-                        [teamId, `${teamName} Chat`],
+                        [teamId, `${teamName} čats`],
                         (chatErr) => {
                           if (chatErr) {
                             console.error('Error creating team chat room:', chatErr.message);
                           } else {
-                            console.log(`Team chat room created for team: ${teamName}`);
+                            console.log(`Komandas čata istaba izveidota komandai: ${teamName}`);
                           }
                         }
                       );
 
-                      // Обновим user.team_id
+                        // Update user.team_id.
                       db.run(
                         'UPDATE users SET team_id = ? WHERE id = ?',
                         [teamId, coachId],
                         (updateErr) => {
                           if (updateErr) {
                             console.error(updateErr.message);
-                            return res.status(500).json({ error: 'Error updating user with team ID' });
+                          return res.status(500).json({ error: 'Kļūda, piesaistot lietotāju komandai' });
                           }
       
                           res.status(201).json({
-                            message: 'Coach and team successfully registered',
+                        message: 'Treneris un komanda veiksmīgi reģistrēti',
                             coachId,
                             team_id: teamId
                           });
@@ -215,14 +331,14 @@ module.exports = (db) => {
             } else if (teamCode) {
               if (userRole.toLowerCase() === 'coach') {
                 return res.status(400).json({
-                  error: 'Coaches must register first and then send a join request from the app.'
+                  error: 'Treneriem vispirms jāreģistrējas un pēc tam lietotnē jānosūta pievienošanās pieprasījums.'
                 });
               }
 
               db.get('SELECT id FROM teams WHERE team_code = ?', [teamCode], (teamErr, teamRow) => {
                 if (teamErr) {
                   console.error(teamErr.message);
-                  return res.status(500).json({ error: 'Error searching for team' });
+                return res.status(500).json({ error: 'Kļūda, meklējot komandu' });
                 }
       
                 const team_id = teamRow ? teamRow.id : null;
@@ -234,7 +350,7 @@ module.exports = (db) => {
       
           } catch (hashError) {
             console.error(hashError.message);
-            res.status(500).json({ error: 'Password hashing error' });
+            res.status(500).json({ error: 'Paroles apstrādes kļūda' });
           }
         });
       });
@@ -246,23 +362,23 @@ module.exports = (db) => {
     console.log('Login request:', email);
     
     if (!email || !password) {
-      return res.status(400).json({ error: 'Enter email and password' });
+      return res.status(400).json({ error: 'Ievadiet e-pastu un paroli' });
     }
   
     db.get('SELECT * FROM users WHERE email = ?', [email], async (err, user) => {
       if (err) {
         console.error(err.message);
-        return res.status(500).json({ error: 'Server error' });
+        return res.status(500).json({ error: 'Servera kļūda' });
       }
   
       if (!user) {
-        return res.status(400).json({ error: 'User not found' });
+        return res.status(400).json({ error: 'Lietotājs nav atrasts' });
       }
   
       try {
         const isPasswordValid = await bcrypt.compare(password, user.password);
         if (!isPasswordValid) {
-          return res.status(400).json({ error: 'Incorrect password' });
+          return res.status(400).json({ error: 'Nepareiza parole' });
         }
   
         // === GENERATE TOKEN ===
@@ -273,14 +389,14 @@ module.exports = (db) => {
         );
   
         res.status(200).json({ 
-          message: 'Login successful', 
+          message: 'Pieslēgšanās veiksmīga', 
           user: { id: user.id, name: user.name, surname: user.surname, role: user.role },
           token
         });
   
       } catch (compareError) {
         console.error(compareError.message);
-        res.status(500).json({ error: 'Password verification error' });
+        res.status(500).json({ error: 'Paroles pārbaudes kļūda' });
       }
     });
   });
@@ -289,24 +405,23 @@ module.exports = (db) => {
     const { email } = req.body;
 
     if (!email) {
-      return res.status(400).json({ error: 'Email is required' });
+      return res.status(400).json({ error: 'E-pasts ir obligāts' });
     }
 
     db.get('SELECT id, email FROM users WHERE email = ?', [email], (err, user) => {
       if (err) {
         console.error('Forgot password lookup error:', err.message);
-        return res.status(500).json({ error: 'Server error' });
+        return res.status(500).json({ error: 'Servera kļūda' });
       }
 
-      // Return the same message even when user does not exist to avoid email enumeration.
       if (!user) {
-        return res.status(200).json({ message: 'If the account exists, a reset link has been sent to email.' });
+        return res.status(404).json({ error: 'Konts ar šo e-pastu nav atrasts.' });
       }
 
       const rawToken = crypto.randomBytes(32).toString('hex');
       const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
       const expiresAt = Math.floor(Date.now() / 1000) + (60 * 60); // 1 hour
-      const frontendBaseUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+      const frontendBaseUrl = getFrontendBaseUrl(req);
       const resetLink = `${frontendBaseUrl}/reset-password?token=${rawToken}`;
 
       db.serialize(() => {
@@ -317,36 +432,34 @@ module.exports = (db) => {
           async (insertErr) => {
             if (insertErr) {
               console.error('Forgot password token insert error:', insertErr.message);
-              return res.status(500).json({ error: 'Server error' });
+              return res.status(500).json({ error: 'Servera kļūda' });
             }
 
-            try {
-              await mailTransporter.sendMail({
-                from: `"Sports Team Management" <${emailUser}>`,
+            const mailOptions = {
+                from: `"TeamFlow" <${emailUser}>`,
                 to: user.email,
-                subject: 'Password reset request',
+                subject: 'Paroles atiestatīšanas pieprasījums',
                 html: `
-                  <p>You requested a password reset.</p>
-                  <p>Click the link below to set a new password:</p>
+                  <p>Jūs pieprasījāt paroles atiestatīšanu.</p>
+                  <p>Noklikšķiniet uz saites zemāk, lai iestatītu jaunu paroli:</p>
                   <p><a href="${resetLink}">${resetLink}</a></p>
-                  <p>This link is valid for 1 hour.</p>
-                  <p>If you did not request this, ignore this email.</p>
+                  <p>Šī saite ir derīga 1 stundu.</p>
+                  <p>Ja jūs to nepieprasījāt, ignorējiet šo e-pastu.</p>
                 `
+              };
+
+            res.status(200).json({
+              message: 'Paroles atiestatīšanas e-pasts ir nosūtīts. Tas var pienākt līdz 5 minūšu laikā.'
+            });
+
+            setImmediate(() => {
+              mailTransporter.sendMail(mailOptions).catch((mailErr) => {
+                console.error('Forgot password mail error:', mailErr.message);
+                if (process.env.NODE_ENV !== 'production') {
+                  console.log('Paroles atiestatīšanas saite lokālai testēšanai:', resetLink);
+                }
               });
-
-              return res.status(200).json({ message: 'If the account exists, a reset link has been sent to email.' });
-            } catch (mailErr) {
-              console.error('Forgot password mail error:', mailErr.message);
-
-              if (process.env.NODE_ENV !== 'production') {
-                return res.status(200).json({
-                  message: 'Password reset request was created, but email delivery is unavailable on this server right now.',
-                  resetLink
-                });
-              }
-
-              return res.status(500).json({ error: 'Failed to send reset email' });
-            }
+            });
           }
         );
       });
@@ -357,11 +470,11 @@ module.exports = (db) => {
     const { token, password } = req.body;
 
     if (!token || !password) {
-      return res.status(400).json({ error: 'Token and new password are required' });
+      return res.status(400).json({ error: 'Nepieciešams atiestatīšanas marķieris un jaunā parole' });
     }
 
     if (String(password).length < 6) {
-      return res.status(400).json({ error: 'Password must be at least 6 characters long' });
+      return res.status(400).json({ error: 'Parolei jābūt vismaz 6 rakstzīmes garai' });
     }
 
     const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
@@ -376,11 +489,11 @@ module.exports = (db) => {
       async (findErr, resetRow) => {
         if (findErr) {
           console.error('Reset password lookup error:', findErr.message);
-          return res.status(500).json({ error: 'Server error' });
+          return res.status(500).json({ error: 'Servera kļūda' });
         }
 
         if (!resetRow) {
-          return res.status(400).json({ error: 'Reset token is invalid or expired' });
+          return res.status(400).json({ error: 'Atiestatīšanas marķieris nav derīgs vai ir beidzies' });
         }
 
         try {
@@ -390,7 +503,7 @@ module.exports = (db) => {
             db.run('UPDATE users SET password = ? WHERE id = ?', [hashedPassword, resetRow.user_id], (updateErr) => {
               if (updateErr) {
                 console.error('Reset password update user error:', updateErr.message);
-                return res.status(500).json({ error: 'Server error' });
+                return res.status(500).json({ error: 'Servera kļūda' });
               }
 
               db.run(
@@ -399,18 +512,18 @@ module.exports = (db) => {
                 (markErr) => {
                   if (markErr) {
                     console.error('Reset password mark token error:', markErr.message);
-                    return res.status(500).json({ error: 'Server error' });
+                    return res.status(500).json({ error: 'Servera kļūda' });
                   }
 
                   db.run('DELETE FROM password_resets WHERE user_id = ? AND id != ?', [resetRow.user_id, resetRow.id]);
-                  return res.status(200).json({ message: 'Password reset successfully' });
+                  return res.status(200).json({ message: 'Parole veiksmīgi atiestatīta' });
                 }
               );
             });
           });
         } catch (hashErr) {
           console.error('Reset password hash error:', hashErr.message);
-          return res.status(500).json({ error: 'Server error' });
+          return res.status(500).json({ error: 'Servera kļūda' });
         }
       }
     );
@@ -421,7 +534,7 @@ module.exports = (db) => {
         const authHeader = req.headers.authorization;
 
         if (!authHeader || !authHeader.startsWith('Bearer ')) {
-            return res.status(401).json({ error: 'Token not provided' });
+            return res.status(401).json({ error: 'Autorizācijas marķieris nav norādīts' });
         }
 
         const token = authHeader.split(' ')[1];
@@ -434,7 +547,7 @@ module.exports = (db) => {
             db.get('SELECT name, surname, email, avatar, team_id, createdAt AS created_at FROM users WHERE id = ?', [decoded.id], (err, row) => {
               if (err) {
                 console.error(err.message);
-                return res.status(500).json({ error: 'Error fetching user data' });
+                return res.status(500).json({ error: 'Kļūda, ielādējot lietotāja datus' });
               }
               res.status(200).json({ 
                 user: { 
@@ -451,7 +564,7 @@ module.exports = (db) => {
             });
         } catch (error) {
             console.error(error.message);
-            res.status(401).json({ error: 'Invalid token' });
+            res.status(401).json({ error: 'Nederīgs autorizācijas marķieris' });
         }
     });
 
@@ -461,16 +574,16 @@ module.exports = (db) => {
       const avatar = normalizeImageData(req.body?.avatar);
 
       if (!isValidImagePayload(avatar)) {
-        return res.status(400).json({ error: 'Invalid avatar image' });
+        return res.status(400).json({ error: 'Nederīgs profila attēls' });
       }
 
       db.run('UPDATE users SET avatar = ? WHERE id = ?', [avatar, userId], function (err) {
         if (err) {
           console.error('Error saving user avatar:', err.message);
-          return res.status(500).json({ error: 'Failed to save avatar' });
+          return res.status(500).json({ error: 'Neizdevās saglabāt profila attēlu' });
         }
 
-        return res.status(200).json({ message: 'Avatar uploaded successfully', avatar });
+        return res.status(200).json({ message: 'Profila attēls veiksmīgi augšupielādēts', avatar });
       });
     });
 
@@ -480,10 +593,10 @@ module.exports = (db) => {
       db.run('UPDATE users SET avatar = NULL WHERE id = ?', [userId], function (err) {
         if (err) {
           console.error('Error deleting user avatar:', err.message);
-          return res.status(500).json({ error: 'Failed to delete avatar' });
+          return res.status(500).json({ error: 'Neizdevās dzēst profila attēlu' });
         }
 
-        return res.status(200).json({ message: 'Avatar deleted successfully' });
+        return res.status(200).json({ message: 'Profila attēls veiksmīgi dzēsts' });
       });
     });
 
@@ -493,36 +606,36 @@ module.exports = (db) => {
       const avatar = normalizeImageData(req.body?.avatar);
 
       if (!isValidImagePayload(avatar)) {
-        return res.status(400).json({ error: 'Invalid avatar image' });
+        return res.status(400).json({ error: 'Nederīgs profila attēls' });
       }
 
       db.get('SELECT team_id, role FROM users WHERE id = ?', [coachId], (coachErr, coach) => {
         if (coachErr) {
           console.error('Error fetching coach for avatar upload:', coachErr.message);
-          return res.status(500).json({ error: 'Database error' });
+          return res.status(500).json({ error: 'Datubāzes kļūda' });
         }
 
         if (!coach || String(coach.role || '').toLowerCase() !== 'coach' || !coach.team_id) {
-          return res.status(403).json({ error: 'Only a coach from this team can update player avatars' });
+          return res.status(403).json({ error: 'Spēlētāju profila attēlus var atjaunināt tikai šīs komandas treneris' });
         }
 
         db.get('SELECT id, team_id, role FROM users WHERE id = ?', [playerId], (playerErr, player) => {
           if (playerErr) {
             console.error('Error fetching player for avatar upload:', playerErr.message);
-            return res.status(500).json({ error: 'Database error' });
+            return res.status(500).json({ error: 'Datubāzes kļūda' });
           }
 
           if (!player || player.team_id !== coach.team_id || String(player.role || '').toLowerCase() !== 'player') {
-            return res.status(404).json({ error: 'Player not found in your team' });
+            return res.status(404).json({ error: 'Spēlētājs jūsu komandā nav atrasts' });
           }
 
           db.run('UPDATE users SET avatar = ? WHERE id = ?', [avatar, playerId], function (updateErr) {
             if (updateErr) {
               console.error('Error saving player avatar:', updateErr.message);
-              return res.status(500).json({ error: 'Failed to save avatar' });
+              return res.status(500).json({ error: 'Neizdevās saglabāt profila attēlu' });
             }
 
-            return res.status(200).json({ message: 'Player avatar uploaded successfully', avatar });
+            return res.status(200).json({ message: 'Spēlētāja profila attēls veiksmīgi augšupielādēts', avatar });
           });
         });
       });
@@ -535,30 +648,30 @@ module.exports = (db) => {
       db.get('SELECT team_id, role FROM users WHERE id = ?', [coachId], (coachErr, coach) => {
         if (coachErr) {
           console.error('Error fetching coach for avatar delete:', coachErr.message);
-          return res.status(500).json({ error: 'Database error' });
+          return res.status(500).json({ error: 'Datubāzes kļūda' });
         }
 
         if (!coach || String(coach.role || '').toLowerCase() !== 'coach' || !coach.team_id) {
-          return res.status(403).json({ error: 'Only a coach from this team can update player avatars' });
+          return res.status(403).json({ error: 'Spēlētāju profila attēlus var atjaunināt tikai šīs komandas treneris' });
         }
 
         db.get('SELECT id, team_id, role FROM users WHERE id = ?', [playerId], (playerErr, player) => {
           if (playerErr) {
             console.error('Error fetching player for avatar delete:', playerErr.message);
-            return res.status(500).json({ error: 'Database error' });
+            return res.status(500).json({ error: 'Datubāzes kļūda' });
           }
 
           if (!player || player.team_id !== coach.team_id || String(player.role || '').toLowerCase() !== 'player') {
-            return res.status(404).json({ error: 'Player not found in your team' });
+            return res.status(404).json({ error: 'Spēlētājs jūsu komandā nav atrasts' });
           }
 
           db.run('UPDATE users SET avatar = NULL WHERE id = ?', [playerId], function (updateErr) {
             if (updateErr) {
               console.error('Error deleting player avatar:', updateErr.message);
-              return res.status(500).json({ error: 'Failed to delete avatar' });
+              return res.status(500).json({ error: 'Neizdevās dzēst profila attēlu' });
             }
 
-            return res.status(200).json({ message: 'Player avatar deleted successfully' });
+            return res.status(200).json({ message: 'Spēlētāja profila attēls veiksmīgi dzēsts' });
           });
         });
       });
@@ -567,18 +680,18 @@ module.exports = (db) => {
 
     router.post(
       '/teams',
-      authenticateToken,            // <-- проверяем токен
+      authenticateToken,            // Verify token.
       (req, res) => {
-        const coachId = req.user.id;    // берём из токена
+        const coachId = req.user.id;    // Read from token.
         const { name, teamCode } = req.body;
   
         if (!name || !teamCode) {
           return res
             .status(400)
-            .json({ error: 'Please fill in all fields for the team' });
+                .json({ error: 'Lūdzu, aizpildiet visus komandas laukus' });
         }
   
-        // 1) Вставляем новую команду
+        // 1) Insert the new team.
         db.run(
           `INSERT INTO teams (name, team_code, coach_id) VALUES (?, ?, ?)`,
           [name, teamCode, coachId],
@@ -587,7 +700,7 @@ module.exports = (db) => {
               console.error('Error creating team:', err.message);
               return res
                 .status(500)
-                .json({ error: 'Error creating team' });
+                .json({ error: 'Kļūda, izveidojot komandu' });
             }
   
             const newTeamId = this.lastID;
@@ -595,17 +708,17 @@ module.exports = (db) => {
             // Create team chat room automatically
             db.run(
               'INSERT INTO chat_rooms (team_id, name) VALUES (?, ?)',
-              [newTeamId, `${name} Chat`],
+              [newTeamId, `${name} čats`],
               (chatErr) => {
                 if (chatErr) {
                   console.error('Error creating team chat room:', chatErr.message);
                 } else {
-                  console.log(`Team chat room created for team: ${name}`);
+                  console.log(`Komandas čata istaba izveidota komandai: ${name}`);
                 }
               }
             );
 
-            // 2) Обновляем пользователя — ставим ему team_id
+            // 2) Update the user by assigning team_id.
             db.run(
               `UPDATE users SET team_id = ? WHERE id = ?`,
               [newTeamId, coachId],
@@ -615,18 +728,18 @@ module.exports = (db) => {
                     'Error updating user with team ID:',
                     updErr.message
                   );
-                  // команда уже создана, но привязка упала
+                  // The team was created, but linking it to the coach failed.
                   return res
                     .status(500)
                     .json({
                       error:
-                        'Team created, but failed to assign to coach',
+                        'Komanda izveidota, bet neizdevās to piesaistīt trenerim',
                     });
                 }
   
-                // Всё ок, возвращаем новый team и обновлённого пользователя
+                // Return the new team and updated user.
                 return res.status(201).json({
-                  message: 'Team successfully created',
+                  message: 'Komanda veiksmīgi izveidota',
                   team: {
                     id: newTeamId,
                     name,
@@ -648,7 +761,7 @@ router.get('/teams/:id/players', (req, res) => {
     db.all('SELECT id, name, surname, (name || \' \' || surname) as username, email, role, avatar FROM users WHERE team_id = ?', [team_id], (err, rows) => {
         if (err) {
             console.error(err.message);
-            return res.status(500).json({ error: 'Error fetching players' });
+            return res.status(500).json({ error: 'Kļūda, ielādējot spēlētājus' });
         }
 
         res.status(200).json({ players: rows });
@@ -662,11 +775,11 @@ router.get('/teams/byCoach/:coachId', (req, res) => {
   db.get('SELECT * FROM teams WHERE coach_id = ?', [coachId], (err, team) => {
       if (err) {
           console.error(err.message);
-          return res.status(500).json({ error: 'Error searching for team' });
+          return res.status(500).json({ error: 'Kļūda, meklējot komandu' });
       }
 
       if (!team) {
-          return res.status(404).json({ message: 'Team not found' });
+          return res.status(404).json({ message: 'Komanda nav atrasta' });
       }
 
       res.status(200).json({ team });
@@ -677,21 +790,21 @@ router.get('/teams/byCoach/:coachId', (req, res) => {
 router.get('/teams/:teamId', async (req, res) => {
     const teamId = req.params.teamId;
   
-    // Пример для SQLite без ORM:
+    // SQLite example without ORM.
     db.get('SELECT * FROM teams WHERE id = ?', [teamId], (err, team) => {
       if (err) {
         console.error(err.message);
-        return res.status(500).json({ error: 'Error fetching team' });
+        return res.status(500).json({ error: 'Kļūda, ielādējot komandu' });
       }
   
       if (!team) {
-        return res.status(404).json({ error: 'Team not found' });
+        return res.status(404).json({ error: 'Komanda nav atrasta' });
       }
   
       db.all('SELECT id, name, surname, email, role, team_id, avatar FROM users WHERE team_id = ?', [teamId], (err2, players) => {
         if (err2) {
           console.error(err2.message);
-          return res.status(500).json({ error: 'Error fetching players' });
+          return res.status(500).json({ error: 'Kļūda, ielādējot spēlētājus' });
         }
   
         res.status(200).json({ team, players });
@@ -703,17 +816,17 @@ router.get('/teams/:teamId', async (req, res) => {
     const userId = req.user.id;
   
     if (!userId) {
-      return res.status(400).json({ error: 'User ID missing' });
+      return res.status(400).json({ error: 'Lietotāja ID nav norādīts' });
     }
   
     db.get('SELECT team_id FROM users WHERE id = ?', [userId], (err, row) => {
       if (err) {
-        console.error('Database error when fetching user:', err.message);
-        return res.status(500).json({ error: 'Database error' });
+        console.error('Datubāzes kļūda, ielādējot lietotāju:', err.message);
+        return res.status(500).json({ error: 'Datubāzes kļūda' });
       }
   
       if (!row || !row.team_id) {
-        return res.status(404).json({ message: 'User has no team' });
+        return res.status(404).json({ message: 'Lietotājam nav komandas' });
       }
   
       const teamId = row.team_id;
@@ -721,11 +834,11 @@ router.get('/teams/:teamId', async (req, res) => {
       db.get('SELECT * FROM teams WHERE id = ?', [teamId], (teamErr, team) => {
         if (teamErr) {
           console.error('Error fetching team:', teamErr.message);
-          return res.status(500).json({ error: 'Error fetching team' });
+          return res.status(500).json({ error: 'Kļūda, ielādējot komandu' });
         }
   
         if (!team) {
-          return res.status(404).json({ message: 'Team not found' });
+          return res.status(404).json({ message: 'Komanda nav atrasta' });
         }
   
         res.status(200).json({ team });
@@ -742,7 +855,7 @@ router.get('/teams/:teamId', async (req, res) => {
     (err, stats) => {
       if (err) {
         console.error(err.message);
-        return res.status(500).json({ error: 'Error fetching player stats' });
+        return res.status(500).json({ error: 'Kļūda, ielādējot spēlētāja statistiku' });
       }
 
       res.status(200).json({ 
@@ -758,7 +871,7 @@ router.get('/teams/:teamId', async (req, res) => {
   );
 });
 
-// Обновление статистики игрока
+// Update player statistics.
 router.put('/players/:id/stats', authenticateToken, (req, res) => {
   const playerId = req.params.id;
   const { matches, goals, assists, yellow_cards, red_cards } = req.body;
@@ -768,13 +881,13 @@ router.put('/players/:id/stats', authenticateToken, (req, res) => {
       const coach = await getUserProfile(req.user.id);
 
       if (!coach || normalizeRole(coach.role) !== 'coach' || !coach.team_id) {
-        return res.status(403).json({ error: 'Only team coaches can update player statistics' });
+        return res.status(403).json({ error: 'Spēlētāju statistiku var atjaunināt tikai komandas treneri' });
       }
 
       const player = await dbGet('SELECT team_id, role FROM users WHERE id = ?', [playerId]);
 
       if (!player || Number(player.team_id) !== Number(coach.team_id) || normalizeRole(player.role) !== 'player') {
-        return res.status(403).json({ error: 'Not authorized to update this player' });
+        return res.status(403).json({ error: 'Nav atļauts atjaunināt šo spēlētāju' });
       }
 
       await dbRun(
@@ -790,22 +903,22 @@ router.put('/players/:id/stats', authenticateToken, (req, res) => {
         [playerId, matches, goals, assists, yellow_cards, red_cards]
       );
 
-      return res.status(200).json({ message: 'Stats updated successfully' });
+      return res.status(200).json({ message: 'Statistika veiksmīgi atjaunināta' });
     } catch (err) {
       console.error('Error updating player stats:', err.message);
-      return res.status(500).json({ error: 'Error updating stats' });
+      return res.status(500).json({ error: 'Kļūda, atjauninot statistiku' });
     }
   })();
   return;
 
-  // Проверяем, что пользователь - тренер команды
+  // Verify that the user is the team coach.
   db.get(
     'SELECT team_id FROM users WHERE id = ?',
     [req.user.id],
     (err, coach) => {
       if (err) {
         console.error(err.message);
-        return res.status(500).json({ error: 'Error verifying coach' });
+        return res.status(500).json({ error: 'Kļūda, pārbaudot treneri' });
       }
 
       db.get(
@@ -814,15 +927,15 @@ router.put('/players/:id/stats', authenticateToken, (req, res) => {
         (err, player) => {
           if (err) {
             console.error(err.message);
-            return res.status(500).json({ error: 'Error verifying player' });
+            return res.status(500).json({ error: 'Kļūda, pārbaudot spēlētāju' });
           }
 
-          // Проверяем, что тренер и игрок из одной команды
+          // Verify that the coach and player belong to the same team.
           if (coach.team_id !== player.team_id) {
-            return res.status(403).json({ error: 'Not authorized to update this player' });
+            return res.status(403).json({ error: 'Nav atļauts atjaunināt šo spēlētāju' });
           }
 
-          // Обновляем или создаем статистику
+          // Update or create statistics.
           db.run(
             `INSERT INTO player_stats 
              (user_id, matches, goals, assists, yellow_cards, red_cards) 
@@ -837,10 +950,10 @@ router.put('/players/:id/stats', authenticateToken, (req, res) => {
             function (err) {
               if (err) {
                 console.error(err.message);
-                return res.status(500).json({ error: 'Error updating stats' });
+                return res.status(500).json({ error: 'Kļūda, atjauninot statistiku' });
               }
 
-              res.status(200).json({ message: 'Stats updated successfully' });
+              res.status(200).json({ message: 'Statistika veiksmīgi atjaunināta' });
             }
           );
         }
@@ -858,30 +971,30 @@ router.post('/join-team', authenticateToken, async (req, res) => {
       const normalizedTeamCode = typeof teamCode === 'string' ? teamCode.trim().toUpperCase() : '';
 
       if (!normalizedTeamCode) {
-        return res.status(400).json({ message: 'Team code is required' });
+        return res.status(400).json({ message: 'Komandas kods ir obligāts' });
       }
 
       const user = await getUserProfile(userId);
 
       if (!user) {
-        return res.status(404).json({ message: 'User not found' });
+        return res.status(404).json({ message: 'Lietotājs nav atrasts' });
       }
 
       if (user.team_id) {
-        return res.status(400).json({ message: 'User already belongs to a team' });
+        return res.status(400).json({ message: 'Lietotājs jau ir komandā' });
       }
 
       const team = await dbGet('SELECT id, name, coach_id FROM teams WHERE team_code = ?', [normalizedTeamCode]);
 
       if (!team) {
-        return res.status(404).json({ message: 'Team not found with this code' });
+        return res.status(404).json({ message: 'Komanda ar šo kodu nav atrasta' });
       }
 
       if (normalizeRole(user.role) === 'coach') {
         const ownedTeam = await dbGet('SELECT id FROM teams WHERE coach_id = ?', [userId]);
 
         if (ownedTeam) {
-          return res.status(409).json({ message: 'Main coaches cannot join another team as assistant coaches.' });
+        return res.status(409).json({ message: 'Galvenie treneri nevar pievienoties citai komandai kā trenera asistenti.' });
         }
 
         const pendingRequest = await dbGet(
@@ -896,11 +1009,11 @@ router.post('/join-team', authenticateToken, async (req, res) => {
 
         if (pendingRequest) {
           if (Number(pendingRequest.team_id) === Number(team.id)) {
-            return res.status(409).json({ message: 'Your assistant coach request for this team is already pending.' });
+        return res.status(409).json({ message: 'Jūsu trenera asistenta pieprasījums šai komandai jau gaida apstiprinājumu.' });
           }
 
           return res.status(409).json({
-            message: `You already have a pending assistant coach request for ${pendingRequest.team_name}.`
+          message: `Jums jau ir trenera asistenta pieprasījums komandai ${pendingRequest.team_name}.`
           });
         }
 
@@ -911,7 +1024,7 @@ router.post('/join-team', authenticateToken, async (req, res) => {
         );
 
         return res.status(202).json({
-          message: 'Assistant coach request sent to the main coach.',
+        message: 'Trenera asistenta pieprasījums nosūtīts galvenajam trenerim.',
           requestCreated: true
         });
       }
@@ -937,7 +1050,7 @@ router.post('/join-team', authenticateToken, async (req, res) => {
       const updatedUser = await getUserProfile(userId);
 
       return res.status(200).json({
-        message: 'Successfully joined the team',
+        message: 'Jūs veiksmīgi pievienojāties komandai',
         user: updatedUser,
         team: {
           id: team.id,
@@ -947,12 +1060,12 @@ router.post('/join-team', authenticateToken, async (req, res) => {
       });
     } catch (err) {
       console.error('Error joining team:', err);
-      return res.status(500).json({ message: 'Internal server error', error: err.message });
+      return res.status(500).json({ message: 'Iekšēja servera kļūda', error: err.message });
     }
   })();
   return;
 
-  // Проверяем, что пользователь еще не состоит в команде
+  // Verify that the user is not already on a team.
   try {
     const user = await new Promise((resolve, reject) => {
       db.get('SELECT team_id FROM users WHERE id = ?', [userId], (err, row) => {
@@ -962,10 +1075,10 @@ router.post('/join-team', authenticateToken, async (req, res) => {
     });
 
     if (user && user.team_id) {
-      return res.status(400).json({ message: 'User already belongs to a team' });
+      return res.status(400).json({ message: 'Lietotājs jau ir komandā' });
     }
 
-    // Ищем команду по коду
+    // Find the team by code.
     const team = await new Promise((resolve, reject) => {
       db.get('SELECT id, name, coach_id FROM teams WHERE team_code = ?', [teamCode], (err, row) => {
         if (err) reject(err);
@@ -974,10 +1087,10 @@ router.post('/join-team', authenticateToken, async (req, res) => {
     });
 
     if (!team) {
-      return res.status(404).json({ message: 'Team not found with this code' });
+      return res.status(404).json({ message: 'Komanda ar šo kodu nav atrasta' });
     }
 
-    // Обновляем пользователя, добавляя team_id
+    // Update the user by adding team_id.
     await new Promise((resolve, reject) => {
       db.run(
         'UPDATE users SET team_id = ? WHERE id = ?',
@@ -989,7 +1102,7 @@ router.post('/join-team', authenticateToken, async (req, res) => {
       );
     });
 
-    // Создаем чат-комнату для команды, если ее еще нет
+    // Create a team chat room if it does not exist yet.
     const existingRoom = await new Promise((resolve, reject) => {
       db.get('SELECT id FROM chat_rooms WHERE team_id = ?', [team.id], (err, row) => {
         if (err) reject(err);
@@ -1001,7 +1114,7 @@ router.post('/join-team', authenticateToken, async (req, res) => {
       await new Promise((resolve, reject) => {
         db.run(
           'INSERT INTO chat_rooms (team_id, name) VALUES (?, ?)',
-          [team.id, `${team.name} Chat`],
+          [team.id, `${team.name} čats`],
           function(err) {
             if (err) reject(err);
             else resolve();
@@ -1010,7 +1123,7 @@ router.post('/join-team', authenticateToken, async (req, res) => {
       });
     }
 
-    // Если пользователь - игрок, создаем для него статистику
+    // Create statistics for player accounts.
     const userRole = await new Promise((resolve, reject) => {
       db.get('SELECT role FROM users WHERE id = ?', [userId], (err, row) => {
         if (err) reject(err);
@@ -1034,7 +1147,7 @@ router.post('/join-team', authenticateToken, async (req, res) => {
       });
     }
 
-    // Возвращаем обновленные данные пользователя и команды
+    // Return updated user and team data.
     const updatedUser = await new Promise((resolve, reject) => {
       db.get(
         'SELECT id, name, surname, email, avatar, role, team_id FROM users WHERE id = ?',
@@ -1047,7 +1160,7 @@ router.post('/join-team', authenticateToken, async (req, res) => {
     });
 
     res.status(200).json({
-      message: 'Successfully joined the team',
+      message: 'Jūs veiksmīgi pievienojāties komandai',
       user: updatedUser,
       team: {
         id: team.id,
@@ -1058,7 +1171,7 @@ router.post('/join-team', authenticateToken, async (req, res) => {
 
   } catch (err) {
     console.error('Error joining team:', err);
-    res.status(500).json({ message: 'Internal server error', error: err.message });
+    res.status(500).json({ message: 'Iekšēja servera kļūda', error: err.message });
   }
 });
 
@@ -1069,7 +1182,7 @@ router.get('/teams/:teamId/coach-requests', authenticateToken, async (req, res) 
     const ownedTeam = await getOwnedTeam(req.user.id, teamId);
 
     if (!ownedTeam) {
-      return res.status(403).json({ error: 'Only the main coach can review assistant coach requests' });
+      return res.status(403).json({ error: 'Trenera asistentu pieprasījumus var pārskatīt tikai galvenais treneris' });
     }
 
     const requests = await dbAll(
@@ -1093,7 +1206,7 @@ router.get('/teams/:teamId/coach-requests', authenticateToken, async (req, res) 
     res.status(200).json({ requests });
   } catch (error) {
     console.error('Error loading coach join requests:', error);
-    res.status(500).json({ error: 'Failed to load coach join requests' });
+    res.status(500).json({ error: 'Neizdevās ielādēt treneru pievienošanās pieprasījumus' });
   }
 });
 
@@ -1104,7 +1217,7 @@ router.post('/teams/:teamId/coach-requests/:requestId/approve', authenticateToke
     const ownedTeam = await getOwnedTeam(req.user.id, teamId);
 
     if (!ownedTeam) {
-      return res.status(403).json({ error: 'Only the main coach can approve assistant coach requests' });
+      return res.status(403).json({ error: 'Trenera asistentu pieprasījumus var apstiprināt tikai galvenais treneris' });
     }
 
     const request = await dbGet(
@@ -1115,23 +1228,23 @@ router.post('/teams/:teamId/coach-requests/:requestId/approve', authenticateToke
     );
 
     if (!request || request.status !== 'pending') {
-      return res.status(404).json({ error: 'Pending coach request not found' });
+      return res.status(404).json({ error: 'Gaidošs trenera pieprasījums nav atrasts' });
     }
 
     const requester = await getUserProfile(request.requester_user_id);
 
     if (!requester || normalizeRole(requester.role) !== 'coach') {
-      return res.status(400).json({ error: 'Only coach accounts can be approved as assistants' });
+      return res.status(400).json({ error: 'Kā asistenti var tikt apstiprināti tikai treneru konti' });
     }
 
     if (requester.team_id) {
-      return res.status(409).json({ error: 'This coach already belongs to a team' });
+      return res.status(409).json({ error: 'Šis treneris jau ir komandā' });
     }
 
     const requesterOwnedTeam = await dbGet('SELECT id FROM teams WHERE coach_id = ?', [request.requester_user_id]);
 
     if (requesterOwnedTeam) {
-      return res.status(409).json({ error: 'A main coach cannot also join another team as assistant' });
+      return res.status(409).json({ error: 'Galvenais treneris nevar vienlaikus pievienoties citai komandai kā asistents' });
     }
 
     await dbRun('UPDATE users SET team_id = ? WHERE id = ?', [teamId, request.requester_user_id]);
@@ -1155,10 +1268,10 @@ router.post('/teams/:teamId/coach-requests/:requestId/approve', authenticateToke
       [req.user.id, request.requester_user_id, requestId]
     );
 
-    res.status(200).json({ message: 'Assistant coach approved successfully' });
+    res.status(200).json({ message: 'Trenera asistents veiksmīgi apstiprināts' });
   } catch (error) {
     console.error('Error approving coach request:', error);
-    res.status(500).json({ error: 'Failed to approve coach request' });
+    res.status(500).json({ error: 'Neizdevās apstiprināt trenera pieprasījumu' });
   }
 });
 
@@ -1169,7 +1282,7 @@ router.post('/teams/:teamId/coach-requests/:requestId/reject', authenticateToken
     const ownedTeam = await getOwnedTeam(req.user.id, teamId);
 
     if (!ownedTeam) {
-      return res.status(403).json({ error: 'Only the main coach can reject assistant coach requests' });
+      return res.status(403).json({ error: 'Trenera asistentu pieprasījumus var noraidīt tikai galvenais treneris' });
     }
 
     const request = await dbGet(
@@ -1180,7 +1293,7 @@ router.post('/teams/:teamId/coach-requests/:requestId/reject', authenticateToken
     );
 
     if (!request || request.status !== 'pending') {
-      return res.status(404).json({ error: 'Pending coach request not found' });
+      return res.status(404).json({ error: 'Gaidošs trenera pieprasījums nav atrasts' });
     }
 
     await dbRun(
@@ -1193,10 +1306,36 @@ router.post('/teams/:teamId/coach-requests/:requestId/reject', authenticateToken
       [req.user.id, requestId]
     );
 
-    res.status(200).json({ message: 'Assistant coach request rejected' });
+    res.status(200).json({ message: 'Trenera asistenta pieprasījums noraidīts' });
   } catch (error) {
     console.error('Error rejecting coach request:', error);
-    res.status(500).json({ error: 'Failed to reject coach request' });
+    res.status(500).json({ error: 'Neizdevās noraidīt trenera pieprasījumu' });
+  }
+});
+
+router.post('/leave-team', authenticateToken, async (req, res) => {
+  try {
+    const result = await leaveCurrentTeam(req.user.id);
+    const successorName = result.successor
+      ? `${result.successor.name || ''} ${result.successor.surname || ''}`.trim()
+      : '';
+
+    const message = result.ownershipTransferred
+      ? `Jūs pametāt komandu ${result.team?.name || ''}. Komandas īpašumtiesības nodotas lietotājam ${successorName}.`
+      : `Jūs veiksmīgi pametāt komandu ${result.team?.name || ''}.`;
+
+    return res.status(200).json({
+      message,
+      user: result.user,
+      successor: result.successor
+    });
+  } catch (error) {
+    if (error?.status) {
+      return res.status(error.status).json({ error: error.message });
+    }
+
+    console.error('Error leaving team:', error);
+    return res.status(500).json({ error: 'Neizdevās pamest komandu' });
   }
 });
 
@@ -1209,26 +1348,26 @@ router.delete('/players/:id/team', authenticateToken, async (req, res) => {
       const ownerTeam = await dbGet('SELECT id, name FROM teams WHERE coach_id = ?', [coachId]);
 
       if (!ownerTeam) {
-        return res.status(403).json({ error: 'Only the main coach can remove players' });
+        return res.status(403).json({ error: 'Spēlētājus var noņemt tikai galvenais treneris' });
       }
 
       const player = await dbGet('SELECT id, role FROM users WHERE id = ? AND team_id = ?', [playerId, ownerTeam.id]);
 
       if (!player || normalizeRole(player.role) !== 'player') {
-        return res.status(404).json({ error: 'Player not found in your team' });
+        return res.status(404).json({ error: 'Spēlētājs jūsu komandā nav atrasts' });
       }
 
       await dbRun('UPDATE users SET team_id = NULL WHERE id = ?', [playerId]);
-      return res.status(200).json({ message: 'Player removed from team' });
+      return res.status(200).json({ message: 'Spēlētājs noņemts no komandas' });
     } catch (err) {
       console.error('Error removing player from team:', err);
-      return res.status(500).json({ error: 'Server error' });
+      return res.status(500).json({ error: 'Servera kļūda' });
     }
   })();
   return;
 
   try {
-    // Проверяем, что запрос от тренера команды
+    // Verify that the request comes from the team coach.
     const team = await new Promise((resolve, reject) => {
       db.get('SELECT id FROM teams WHERE coach_id = ?', [coachId], (err, row) => {
         if (err) reject(err);
@@ -1237,10 +1376,10 @@ router.delete('/players/:id/team', authenticateToken, async (req, res) => {
     });
 
     if (!team) {
-      return res.status(403).json({ error: 'Only team coach can remove players' });
+      return res.status(403).json({ error: 'Spēlētājus var noņemt tikai komandas treneris' });
     }
 
-    // Проверяем, что игрок в команде тренера
+    // Verify that the player belongs to the coach's team.
     const player = await new Promise((resolve, reject) => {
       db.get('SELECT id FROM users WHERE id = ? AND team_id = ?', [playerId, team.id], (err, row) => {
         if (err) reject(err);
@@ -1249,10 +1388,10 @@ router.delete('/players/:id/team', authenticateToken, async (req, res) => {
     });
 
     if (!player) {
-      return res.status(404).json({ error: 'Player not found in your team' });
+      return res.status(404).json({ error: 'Spēlētājs jūsu komandā nav atrasts' });
     }
 
-    // Удаляем игрока из команды
+    // Remove the player from the team.
     await new Promise((resolve, reject) => {
       db.run('UPDATE users SET team_id = NULL WHERE id = ?', [playerId], (err) => {
         if (err) reject(err);
@@ -1260,10 +1399,10 @@ router.delete('/players/:id/team', authenticateToken, async (req, res) => {
       });
     });
 
-    res.status(200).json({ message: 'Player removed from team' });
+    res.status(200).json({ message: 'Spēlētājs noņemts no komandas' });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Server error' });
+    res.status(500).json({ error: 'Servera kļūda' });
   }
 });
 
@@ -1314,7 +1453,7 @@ router.get('/user/stats', authenticateToken, async (req, res) => {
         (err, result) => {
           if (err) {
             console.error('Error fetching team count:', err);
-            return res.status(500).json({ error: 'Error fetching statistics' });
+            return res.status(500).json({ error: 'Kļūda, ielādējot statistiku' });
           }
           
           teamCount = result ? result.count : 0;
@@ -1328,7 +1467,7 @@ router.get('/user/stats', authenticateToken, async (req, res) => {
             (err, eventResult) => {
               if (err) {
                 console.error('Error fetching events count:', err);
-                return res.status(500).json({ error: 'Error fetching statistics' });
+                return res.status(500).json({ error: 'Kļūda, ielādējot statistiku' });
               }
               
               upcomingEvents = eventResult ? eventResult.count : 0;
@@ -1342,7 +1481,7 @@ router.get('/user/stats', authenticateToken, async (req, res) => {
                 (err, playerResult) => {
                   if (err) {
                     console.error('Error fetching player count:', err);
-                    return res.status(500).json({ error: 'Error fetching statistics' });
+                    return res.status(500).json({ error: 'Kļūda, ielādējot statistiku' });
                   }
                   
                   playerCount = playerResult ? playerResult.count : 0;
@@ -1366,7 +1505,7 @@ router.get('/user/stats', authenticateToken, async (req, res) => {
         (err, userResult) => {
           if (err) {
             console.error('Error fetching user team:', err);
-            return res.status(500).json({ error: 'Error fetching statistics' });
+            return res.status(500).json({ error: 'Kļūda, ielādējot statistiku' });
           }
           
           const userTeamId = userResult ? userResult.team_id : null;
@@ -1380,7 +1519,7 @@ router.get('/user/stats', authenticateToken, async (req, res) => {
               (err, eventResult) => {
                 if (err) {
                   console.error('Error fetching events:', err);
-                  return res.status(500).json({ error: 'Error fetching statistics' });
+                  return res.status(500).json({ error: 'Kļūda, ielādējot statistiku' });
                 }
                 
                 upcomingEvents = eventResult ? eventResult.count : 0;
@@ -1392,7 +1531,7 @@ router.get('/user/stats', authenticateToken, async (req, res) => {
                   (err, teamResult) => {
                     if (err) {
                       console.error('Error fetching team size:', err);
-                      return res.status(500).json({ error: 'Error fetching statistics' });
+                      return res.status(500).json({ error: 'Kļūda, ielādējot statistiku' });
                     }
                     
                     playerCount = teamResult ? teamResult.count : 0;
@@ -1419,7 +1558,7 @@ router.get('/user/stats', authenticateToken, async (req, res) => {
     }
   } catch (error) {
     console.error('Error in user stats endpoint:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: 'Iekšēja servera kļūda' });
   }
 });
 
@@ -1488,7 +1627,7 @@ router.get('/user/upcoming-events', authenticateToken, async (req, res) => {
     db.all(query, params, (err, events) => {
       if (err) {
         console.error('Error fetching upcoming events:', err);
-        return res.status(500).json({ error: 'Error fetching events' });
+        return res.status(500).json({ error: 'Kļūda, ielādējot notikumus' });
       }
       
       const formattedEvents = events.map(event => ({
@@ -1505,7 +1644,7 @@ router.get('/user/upcoming-events', authenticateToken, async (req, res) => {
     });
   } catch (error) {
     console.error('Error in upcoming events endpoint:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: 'Iekšēja servera kļūda' });
   }
 });
 
@@ -1520,6 +1659,7 @@ router.get('/user/recent-activity', authenticateToken, async (req, res) => {
     if (normalizeRole(userRole) === 'coach') {
       const user = await getUserProfile(userId);
       const teamId = Number(user?.team_id) || null;
+      const coachDisplayName = formatDisplayName(user?.name, user?.surname);
 
       if (!teamId) {
         return res.json([]);
@@ -1531,12 +1671,15 @@ router.get('/user/recent-activity', authenticateToken, async (req, res) => {
              'event' as type,
              'created event' as action,
              event_name as description,
-             event_date as timestamp,
+             event_date,
+             event_time,
+             COALESCE(createdAt, event_date) as timestamp,
              'System' as user_name
-           FROM schedules
-           WHERE team_id = ?
-           ORDER BY id DESC
-           LIMIT 5`,
+            FROM schedules
+            WHERE team_id = ?
+            AND date(event_date) >= date('now')
+            ORDER BY event_date ASC, time(COALESCE(NULLIF(event_time, ''), '23:59:59')) ASC
+            LIMIT 5`,
           [teamId]
         ),
         dbAll(
@@ -1555,8 +1698,14 @@ router.get('/user/recent-activity', authenticateToken, async (req, res) => {
         )
       ]);
 
-      activities = [...eventActivities, ...teamActivities]
-        .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+      activities = [
+        ...eventActivities.map((activity) => ({
+          ...activity,
+          user_name: coachDisplayName
+        })),
+        ...teamActivities
+      ]
+        .sort(compareRecentActivityItems)
         .slice(0, 5)
         .map((activity, index) => ({
           id: index + 1,
@@ -1576,17 +1725,21 @@ router.get('/user/recent-activity', authenticateToken, async (req, res) => {
           'event' as type,
           'created event' as action,
           event_name as description,
-          event_date as timestamp,
-          'System' as user_name
+          s.event_date,
+          s.event_time,
+          COALESCE(s.createdAt, s.event_date) as timestamp,
+          COALESCE(NULLIF(TRIM(COALESCE(coach.name, '') || ' ' || COALESCE(coach.surname, '')), ''), 'Treneris') as user_name
         FROM schedules s
         JOIN teams t ON s.team_id = t.id
+        LEFT JOIN users coach ON coach.id = t.coach_id
         WHERE t.coach_id = ?
-        ORDER BY s.id DESC
+        AND date(s.event_date) >= date('now')
+        ORDER BY s.event_date ASC, time(COALESCE(NULLIF(s.event_time, ''), '23:59:59')) ASC
         LIMIT 5
       `, [userId], (err, eventActivities) => {
         if (err) {
           console.error('Error fetching activities:', err);
-          return res.status(500).json({ error: 'Error fetching activities' });
+          return res.status(500).json({ error: 'Kļūda, ielādējot aktivitātes' });
         }
         
         // Get new team members
@@ -1605,11 +1758,11 @@ router.get('/user/recent-activity', authenticateToken, async (req, res) => {
         `, [userId], (err, teamActivities) => {
           if (err) {
             console.error('Error fetching team activities:', err);
-            return res.status(500).json({ error: 'Error fetching activities' });
+            return res.status(500).json({ error: 'Kļūda, ielādējot aktivitātes' });
           }
           
           activities = [...eventActivities, ...teamActivities]
-            .sort((a, b) => b.timestamp - a.timestamp)
+            .sort(compareRecentActivityItems)
             .slice(0, 5)
             .map((activity, index) => ({
               id: index + 1,
@@ -1629,18 +1782,22 @@ router.get('/user/recent-activity', authenticateToken, async (req, res) => {
           'event' as type,
           'upcoming event' as action,
           s.event_name as description,
-          s.event_date as timestamp,
-          'Team' as user_name
+          s.event_date,
+          s.event_time,
+          COALESCE(s.createdAt, s.event_date) as timestamp,
+          COALESCE(NULLIF(TRIM(COALESCE(coach.name, '') || ' ' || COALESCE(coach.surname, '')), ''), 'Treneris') as user_name
         FROM schedules s
+        JOIN teams t ON t.id = s.team_id
         JOIN users u ON u.team_id = s.team_id
+        LEFT JOIN users coach ON coach.id = t.coach_id
         WHERE u.id = ?
         AND date(s.event_date) >= date('now')
-        ORDER BY s.event_date ASC
+        ORDER BY s.event_date ASC, time(COALESCE(NULLIF(s.event_time, ''), '23:59:59')) ASC
         LIMIT 5
       `, [userId], (err, playerActivities) => {
         if (err) {
           console.error('Error fetching player activities:', err);
-          return res.status(500).json({ error: 'Error fetching activities' });
+          return res.status(500).json({ error: 'Kļūda, ielādējot aktivitātes' });
         }
         
         activities = playerActivities.map((activity, index) => ({
@@ -1656,19 +1813,114 @@ router.get('/user/recent-activity', authenticateToken, async (req, res) => {
     }
   } catch (error) {
     console.error('Error in recent activity endpoint:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: 'Iekšēja servera kļūda' });
   }
 });
+
+function parseActivityTimestamp(timestamp) {
+  const rawTimestamp = typeof timestamp === 'string' ? timestamp.trim() : timestamp;
+
+  if (typeof rawTimestamp === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(rawTimestamp)) {
+    return new Date(`${rawTimestamp}T00:00:00.000Z`);
+  }
+
+  if (
+    typeof rawTimestamp === 'string' &&
+    /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(\.\d+)?$/.test(rawTimestamp)
+  ) {
+    return new Date(rawTimestamp.replace(' ', 'T') + 'Z');
+  }
+
+  return new Date(rawTimestamp);
+}
+
+function getScheduleSortValue(activity) {
+  if (!activity || activity.type !== 'event') {
+    return Number.POSITIVE_INFINITY;
+  }
+
+  const datePart = typeof activity.event_date === 'string' ? activity.event_date.trim() : '';
+  const timePart = typeof activity.event_time === 'string' ? activity.event_time.trim() : '';
+
+  if (!datePart) {
+    return Number.POSITIVE_INFINITY;
+  }
+
+  const normalizedTime = timePart
+    ? (timePart.length === 5 ? `${timePart}:00` : timePart)
+    : '23:59:59';
+  const scheduleDate = new Date(`${datePart}T${normalizedTime}`);
+
+  return Number.isNaN(scheduleDate.getTime()) ? Number.POSITIVE_INFINITY : scheduleDate.getTime();
+}
+
+function getActivityTimestampValue(activity) {
+  const parsedTimestamp = parseActivityTimestamp(activity?.timestamp);
+  return Number.isNaN(parsedTimestamp.getTime()) ? 0 : parsedTimestamp.getTime();
+}
+
+function compareRecentActivityItems(a, b) {
+  const aIsEvent = a?.type === 'event';
+  const bIsEvent = b?.type === 'event';
+
+  if (aIsEvent && bIsEvent) {
+    return getScheduleSortValue(a) - getScheduleSortValue(b);
+  }
+
+  if (aIsEvent !== bIsEvent) {
+    return aIsEvent ? -1 : 1;
+  }
+
+  return getActivityTimestampValue(b) - getActivityTimestampValue(a);
+}
 
 // Helper function to format time ago
 function formatTimeAgo(timestamp) {
   const now = new Date();
-  const time = new Date(timestamp);
+  const time = parseActivityTimestamp(timestamp);
+
+  if (Number.isNaN(time.getTime())) {
+    return 'Just now';
+  }
+
   const diffInHours = (now - time) / (1000 * 60 * 60);
   
   if (diffInHours < 1) return 'Just now';
   if (diffInHours < 24) return `${Math.floor(diffInHours)} hours ago`;
   return `${Math.floor(diffInHours / 24)} days ago`;
+}
+
+function parseScheduleDateTime(eventDate, eventTime, fallbackTime = '23:59:59') {
+  const datePart = typeof eventDate === 'string' ? eventDate.trim() : '';
+  const rawTimePart = typeof eventTime === 'string' ? eventTime.trim() : '';
+
+  if (!datePart) {
+    return null;
+  }
+
+  let normalizedTime = fallbackTime;
+
+  if (rawTimePart) {
+    if (rawTimePart.length === 5) {
+      normalizedTime = `${rawTimePart}:00`;
+    } else {
+      normalizedTime = rawTimePart;
+    }
+  }
+
+  const parsedDate = new Date(`${datePart}T${normalizedTime}`);
+  return Number.isNaN(parsedDate.getTime()) ? null : parsedDate;
+}
+
+function isScheduleEventCompleted(eventDate, eventTime, bufferHours = 2) {
+  const scheduledAt = parseScheduleDateTime(eventDate, eventTime);
+
+  if (!scheduledAt) {
+    return false;
+  }
+
+  const completedAt = new Date(scheduledAt.getTime() + (bufferHours * 60 * 60 * 1000));
+  return completedAt.getTime() <= Date.now();
 }
 
 // Upload team logo (Coach only)
@@ -1682,14 +1934,14 @@ router.post('/teams/:teamId/logo', authenticateToken, (req, res) => {
       const coach = await getManagedTeamMembership(userId, teamId);
 
       if (!coach) {
-        return res.status(403).json({ error: 'Only coaches from this team can upload a logo' });
+        return res.status(403).json({ error: 'Logotipu var augšupielādēt tikai šīs komandas treneri' });
       }
 
       await dbRun('UPDATE teams SET logo = ? WHERE id = ?', [logo, teamId]);
-      return res.json({ message: 'Logo uploaded successfully', logo });
+      return res.json({ message: 'Logotips veiksmīgi augšupielādēts', logo });
     } catch (error) {
       console.error('Error uploading team logo:', error);
-      return res.status(500).json({ error: 'Failed to save logo' });
+      return res.status(500).json({ error: 'Neizdevās saglabāt logotipu' });
     }
   })();
   return;
@@ -1697,20 +1949,20 @@ router.post('/teams/:teamId/logo', authenticateToken, (req, res) => {
   // Check if user is coach of this team
   db.get('SELECT * FROM teams WHERE id = ? AND coach_id = ?', [teamId, userId], (err, team) => {
     if (err) {
-      return res.status(500).json({ error: 'Database error' });
+      return res.status(500).json({ error: 'Datubāzes kļūda' });
     }
 
     if (!team) {
-      return res.status(403).json({ error: 'Only the team coach can upload a logo' });
+      return res.status(403).json({ error: 'Logotipu var augšupielādēt tikai komandas treneris' });
     }
 
     // Save logo (base64 string stored directly in DB for simplicity)
     db.run('UPDATE teams SET logo = ? WHERE id = ?', [logo, teamId], function(updateErr) {
       if (updateErr) {
-        return res.status(500).json({ error: 'Failed to save logo' });
+        return res.status(500).json({ error: 'Neizdevās saglabāt logotipu' });
       }
 
-      res.json({ message: 'Logo uploaded successfully', logo });
+      res.json({ message: 'Logotips veiksmīgi augšupielādēts', logo });
     });
   });
 });
@@ -1725,33 +1977,33 @@ router.delete('/teams/:teamId/logo', authenticateToken, (req, res) => {
       const coach = await getManagedTeamMembership(userId, teamId);
 
       if (!coach) {
-        return res.status(403).json({ error: 'Only coaches from this team can delete the logo' });
+        return res.status(403).json({ error: 'Logotipu var dzēst tikai šīs komandas treneri' });
       }
 
       await dbRun('UPDATE teams SET logo = NULL WHERE id = ?', [teamId]);
-      return res.json({ message: 'Logo deleted successfully' });
+      return res.json({ message: 'Logotips veiksmīgi dzēsts' });
     } catch (error) {
       console.error('Error deleting team logo:', error);
-      return res.status(500).json({ error: 'Failed to delete logo' });
+      return res.status(500).json({ error: 'Neizdevās dzēst logotipu' });
     }
   })();
   return;
 
   db.get('SELECT * FROM teams WHERE id = ? AND coach_id = ?', [teamId, userId], (err, team) => {
     if (err) {
-      return res.status(500).json({ error: 'Database error' });
+      return res.status(500).json({ error: 'Datubāzes kļūda' });
     }
 
     if (!team) {
-      return res.status(403).json({ error: 'Only the team coach can delete the logo' });
+      return res.status(403).json({ error: 'Logotipu var dzēst tikai komandas treneris' });
     }
 
     db.run('UPDATE teams SET logo = NULL WHERE id = ?', [teamId], function(updateErr) {
       if (updateErr) {
-        return res.status(500).json({ error: 'Failed to delete logo' });
+        return res.status(500).json({ error: 'Neizdevās dzēst logotipu' });
       }
 
-      res.json({ message: 'Logo deleted successfully' });
+      res.json({ message: 'Logotips veiksmīgi dzēsts' });
     });
   });
 });
@@ -1760,42 +2012,41 @@ router.delete('/teams/:teamId/logo', authenticateToken, (req, res) => {
 router.get('/teams/:teamId/stats', (req, res) => {
   const { teamId } = req.params;
 
-  // First get the count of past games from schedules
-  db.get(
-    `SELECT COUNT(*) as gameCount 
-     FROM schedules 
-     WHERE team_id = ? 
-       AND LOWER(event_type) = 'game' 
-       AND date(event_date) < date('now')`,
+  db.all(
+    `SELECT event_date, event_time
+     FROM schedules
+     WHERE team_id = ?
+       AND LOWER(event_type) = 'game'`,
     [teamId],
-    (err, gameResult) => {
-      if (err) {
-        return res.status(500).json({ error: 'Database error' });
+    (gamesErr, gameRows) => {
+      if (gamesErr) {
+        return res.status(500).json({ error: 'Datubāzes kļūda' });
       }
 
-      const totalMatches = gameResult ? gameResult.gameCount : 0;
+      const totalMatches = Array.isArray(gameRows)
+        ? gameRows.filter((game) => isScheduleEventCompleted(game.event_date, game.event_time, 2)).length
+        : 0;
 
-      // Get player stats
       db.all(
         `SELECT 
-          ps.user_id,
-          u.name, u.surname,
+          u.id as user_id,
+          u.name,
+          u.surname,
           (u.name || ' ' || u.surname) as username,
-          ps.matches,
-          ps.goals,
-          ps.assists,
-          ps.yellow_cards,
-          ps.red_cards
-         FROM player_stats ps
-         INNER JOIN users u ON ps.user_id = u.id
-         WHERE u.team_id = ? AND u.role != 'Coach'`,
+          COALESCE(ps.matches, 0) as matches,
+          COALESCE(ps.goals, 0) as goals,
+          COALESCE(ps.assists, 0) as assists,
+          COALESCE(ps.yellow_cards, 0) as yellow_cards,
+          COALESCE(ps.red_cards, 0) as red_cards
+         FROM users u
+         LEFT JOIN player_stats ps ON ps.user_id = u.id
+         WHERE u.team_id = ? AND LOWER(u.role) != 'coach'`,
         [teamId],
-        (err, players) => {
-          if (err) {
-            return res.status(500).json({ error: 'Database error' });
+        (playersErr, players) => {
+          if (playersErr) {
+            return res.status(500).json({ error: 'Datubāzes kļūda' });
           }
 
-          // Get average attendance from attendance table (practices only)
           db.get(`
             SELECT 
               COUNT(CASE WHEN a.status = 'present' THEN 1 END) * 100.0 / 
@@ -1803,33 +2054,34 @@ router.get('/teams/:teamId/stats', (req, res) => {
             FROM attendance a
             INNER JOIN schedules s ON a.event_id = s.id
             WHERE s.team_id = ? AND LOWER(s.event_type) = 'practice'
-          `, [teamId], (err, attendanceResult) => {
-            if (err) {
-              console.error('Error getting attendance:', err);
+          `, [teamId], (attendanceErr, attendanceResult) => {
+            if (attendanceErr) {
+              console.error('Error getting attendance:', attendanceErr);
             }
 
-            // Calculate team totals
+            const safePlayers = Array.isArray(players) ? players : [];
+
             const stats = {
-              totalPlayers: players.length,
-              totalMatches: totalMatches,
-              totalGoals: players.reduce((sum, p) => sum + (p.goals || 0), 0),
-              totalAssists: players.reduce((sum, p) => sum + (p.assists || 0), 0),
-              totalYellowCards: players.reduce((sum, p) => sum + (p.yellow_cards || 0), 0),
-              totalRedCards: players.reduce((sum, p) => sum + (p.red_cards || 0), 0),
-              avgAttendance: attendanceResult?.avgAttendance 
-                ? Math.round(attendanceResult.avgAttendance) 
+              totalPlayers: safePlayers.length,
+              totalMatches,
+              totalGoals: safePlayers.reduce((sum, player) => sum + (Number(player.goals) || 0), 0),
+              totalAssists: safePlayers.reduce((sum, player) => sum + (Number(player.assists) || 0), 0),
+              totalYellowCards: safePlayers.reduce((sum, player) => sum + (Number(player.yellow_cards) || 0), 0),
+              totalRedCards: safePlayers.reduce((sum, player) => sum + (Number(player.red_cards) || 0), 0),
+              avgAttendance: attendanceResult?.avgAttendance
+                ? Math.round(attendanceResult.avgAttendance)
                 : 0,
-              topScorers: players
-                .filter(p => p.goals > 0)
-                .sort((a, b) => b.goals - a.goals)
+              topScorers: safePlayers
+                .filter((player) => (Number(player.goals) || 0) > 0)
+                .sort((a, b) => (Number(b.goals) || 0) - (Number(a.goals) || 0))
                 .slice(0, 5),
-              topAssists: players
-                .filter(p => p.assists > 0)
-                .sort((a, b) => b.assists - a.assists)
+              topAssists: safePlayers
+                .filter((player) => (Number(player.assists) || 0) > 0)
+                .sort((a, b) => (Number(b.assists) || 0) - (Number(a.assists) || 0))
                 .slice(0, 5),
-              goalsDistribution: players
-                .filter(p => p.goals > 0)
-                .map(p => ({ name: p.name, surname: p.surname, goals: p.goals }))
+              goalsDistribution: safePlayers
+                .filter((player) => (Number(player.goals) || 0) > 0)
+                .map((player) => ({ name: player.name, surname: player.surname, goals: Number(player.goals) || 0 }))
             };
 
             res.json(stats);

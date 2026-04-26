@@ -12,6 +12,10 @@ db.serialize(() => {
       sender_id INTEGER NOT NULL,
       receiver_id INTEGER NOT NULL,
       message TEXT NOT NULL,
+      attachment_url TEXT,
+      attachment_name TEXT,
+      attachment_type TEXT,
+      attachment_size INTEGER,
       is_read INTEGER DEFAULT 0,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (sender_id) REFERENCES users(id) ON DELETE CASCADE,
@@ -23,6 +27,14 @@ db.serialize(() => {
     } else {
       console.log('direct_messages table created successfully');
     }
+  });
+
+  ['attachment_url TEXT', 'attachment_name TEXT', 'attachment_type TEXT', 'attachment_size INTEGER'].forEach((columnDefinition) => {
+    db.run(`ALTER TABLE direct_messages ADD COLUMN ${columnDefinition}`, (err) => {
+      if (err && !err.message.includes('duplicate column name')) {
+        console.error(`Error adding ${columnDefinition} to direct_messages table:`, err.message);
+      }
+    });
   });
 
   // Create index for faster queries

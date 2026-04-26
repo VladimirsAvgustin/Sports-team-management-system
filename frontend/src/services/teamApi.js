@@ -12,7 +12,7 @@ const buildPlayerStats = (stats = {}) => ({
 const fileToDataUrl = (file) => new Promise((resolve, reject) => {
   const reader = new FileReader()
   reader.onload = (event) => resolve(event.target?.result || '')
-  reader.onerror = () => reject(new Error('Failed to read image file'))
+  reader.onerror = () => reject(new Error('Neizdevās nolasīt attēla failu'))
   reader.readAsDataURL(file)
 })
 
@@ -83,6 +83,11 @@ export const uploadUserAvatar = async (file) => {
 
 export const removeUserAvatar = async () => {
   await axios.delete('/api/auth/avatar')
+}
+
+export const leaveCurrentTeam = async () => {
+  const response = await axios.post('/api/auth/leave-team')
+  return response.data || {}
 }
 
 export const uploadPlayerAvatar = async (playerId, file) => {

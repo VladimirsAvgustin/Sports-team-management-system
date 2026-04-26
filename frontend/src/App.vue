@@ -18,7 +18,14 @@ const { locale, t } = useI18n()
 
 // States
 const showLoginModal = ref(false)
-const isDarkMode = ref(false)
+const readStoredDarkMode = () => localStorage.getItem('darkMode') === 'enabled'
+const applyDarkMode = (enabled) => {
+  document.documentElement.classList.toggle('dark-mode', enabled)
+  document.body.classList.toggle('dark-mode', enabled)
+}
+
+const isDarkMode = ref(readStoredDarkMode())
+applyDarkMode(isDarkMode.value)
 
 const userTeam = ref(null);
 
@@ -72,6 +79,7 @@ const showCoachTeamLinks = computed(() => {
 
 const openLoginModal  = () => showLoginModal.value = true
 const closeLoginModal = () => showLoginModal.value = false
+const isGuestOnlyRoute = () => route.matched.some(record => record.meta.guestOnly)
 
 const showJoinTeamModal = ref(false)
 
@@ -91,6 +99,9 @@ async function handleLogin(email, password) {
   try {
     await auth.login(email, password)
     closeLoginModal()
+    if (isGuestOnlyRoute()) {
+      await router.replace('/')
+    }
   } catch (e) {
     alert(t('messages.loginError') + ': ' + e.message)
   }
@@ -102,7 +113,7 @@ const handleJoin = async (teamCode) => {
       method: 'POST',
       headers: { 
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${auth.token}` // ⬅️ если нужно
+        Authorization: `Bearer ${auth.token}` // Include auth token when available.
       },
       body: JSON.stringify({ teamCode })
     })
@@ -130,8 +141,7 @@ const handleJoin = async (teamCode) => {
 function toggleDarkMode() {
   isDarkMode.value = !isDarkMode.value
   localStorage.setItem('darkMode', isDarkMode.value ? 'enabled' : 'disabled')
-  document.documentElement.classList.toggle('dark-mode', isDarkMode.value)
-  document.body.classList.toggle('dark-mode', isDarkMode.value)
+  applyDarkMode(isDarkMode.value)
 }
 
 // Language toggle
@@ -178,14 +188,12 @@ async function fetchMyTeam() {
 }
 
 onMounted(async () => {
+  applyDarkMode(isDarkMode.value)
+
   // First authenticate
   await auth.fetchUser()
   // Then try to get team (if logged in)
   await fetchMyTeam()
-
-  isDarkMode.value = localStorage.getItem('darkMode') === 'enabled'
-  document.documentElement.classList.toggle('dark-mode', isDarkMode.value)
-  document.body.classList.toggle('dark-mode', isDarkMode.value)
 })
 
 // If token changed (logged in/out) - refresh team
@@ -405,15 +413,6 @@ footer {
 
 /* ========== Responsive ========== */
 @media (max-width: 1024px) {
-  nav {
-    padding: 12px 20px;
-    gap: 8px;
-  }
-
-  nav ul {
-    gap: 15px;
-  }
-
   .nav-actions {
     gap: 8px;
   }
@@ -435,27 +434,6 @@ footer {
 }
 
 @media (max-width: 768px) {
-  nav {
-    flex-direction: column;
-    align-items: stretch;
-    padding: 10px;
-  }
-
-  nav ul {
-    flex-direction: column;
-    gap: 0;
-    width: 100%;
-  }
-
-  nav ul li {
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  }
-
-  nav ul li a {
-    padding: 12px;
-    font-size: 15px;
-  }
-
   .team-actions {
     display: flex;
     flex-direction: column;
@@ -503,28 +481,6 @@ footer {
 }
 
 @media (max-width: 480px) {
-  nav {
-    padding: 8px;
-    gap: 6px;
-    flex-direction: column;
-  }
-
-  nav ul {
-    flex-direction: column;
-    gap: 0;
-    width: 100%;
-  }
-
-  nav ul li {
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  }
-
-  nav ul li a {
-    padding: 12px;
-    font-size: 14px;
-    width: 100%;
-  }
-
   .team-actions,
   .nav-actions {
     gap: 6px;
@@ -572,14 +528,6 @@ footer {
 
 /* Landscape orientation */
 @media (max-height: 500px) and (orientation: landscape) {
-  nav {
-    padding: 8px;
-  }
-
-  nav ul li a {
-    padding: 8px;
-    font-size: 12px;
-  }
 }
 
 .user-actions {

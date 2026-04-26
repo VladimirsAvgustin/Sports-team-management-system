@@ -3,31 +3,31 @@
     <div class="pwa-content">
       <div class="pwa-icon">📱</div>
       <div class="pwa-text">
-        <h3>{{ isIOS ? 'Add to Home Screen' : 'Install App' }}</h3>
-        <p>{{ isIOS ? 'Quick access to the app on your phone' : 'Fast and easy access' }}</p>
+        <h3>{{ isIOS ? 'Pievienot sākuma ekrānam' : 'Instalēt lietotni' }}</h3>
+        <p>{{ isIOS ? 'Ātra piekļuve lietotnei tālrunī' : 'Ātra un vienkārša piekļuve' }}</p>
       </div>
       
       <button 
         @click="installApp" 
         class="install-btn"
-        aria-label="Install application"
+        aria-label="Instalēt lietotni"
       >
-        📥 Install
+        📥 Instalēt
       </button>
 
       <button 
         @click="toggleInstructions"
         class="help-btn"
-        aria-label="Instructions"
-        :title="showInstructions ? 'Hide instructions' : 'Show instructions'"
+        aria-label="Instrukcija"
+        :title="showInstructions ? 'Paslēpt instrukciju' : 'Rādīt instrukciju'"
       >
-        {{ showInstructions ? '▼' : '▶' }} Help
+        {{ showInstructions ? '▼' : '▶' }} Palīdzība
       </button>
 
       <button 
         @click="closeInstallPrompt" 
         class="close-btn"
-        aria-label="Close"
+        aria-label="Aizvērt"
       >
         ✕
       </button>
@@ -36,25 +36,25 @@
     <!-- Instructions Section -->
     <div v-if="showInstructions" class="pwa-instructions">
       <div v-if="isIOS" class="instructions-content">
-        <h4>iOS Installation</h4>
+        <h4>Instalēšana iOS ierīcē</h4>
         <ol>
-          <li>Open Safari menu (share icon ⬆️)</li>
-          <li>Select "Add to Home Screen"</li>
-          <li>Name the app and tap "Add"</li>
-          <li>Open the app from your home screen</li>
+          <li>Atveriet Safari izvēlni (kopīgošanas ikona ⬆️)</li>
+          <li>Izvēlieties "Pievienot sākuma ekrānam"</li>
+          <li>Nosauciet lietotni un pieskarieties "Pievienot"</li>
+          <li>Atveriet lietotni no sākuma ekrāna</li>
         </ol>
       </div>
       <div v-else class="instructions-content">
-        <h4>Android Installation</h4>
+        <h4>Instalēšana Android ierīcē</h4>
         <ol>
-          <li v-if="!hasDeferredPrompt">Open browser menu (⋯ or ≡)</li>
-          <li v-if="!hasDeferredPrompt">Select "Install app" or "Add to Home"</li>
-          <li v-if="!hasDeferredPrompt">Confirm the installation</li>
-          <li v-if="hasDeferredPrompt">Click the "📥 Install" button above</li>
-          <li>App will appear on your home screen ✅</li>
+          <li v-if="!hasDeferredPrompt">Atveriet pārlūka izvēlni (⋯ vai ≡)</li>
+          <li v-if="!hasDeferredPrompt">Izvēlieties "Instalēt lietotni" vai "Pievienot sākuma ekrānam"</li>
+          <li v-if="!hasDeferredPrompt">Apstipriniet instalēšanu</li>
+          <li v-if="hasDeferredPrompt">Nospiediet pogu "📥 Instalēt" augstāk</li>
+          <li>Lietotne parādīsies sākuma ekrānā ✅</li>
         </ol>
         <p v-if="!hasDeferredPrompt" class="info-text">
-          💡 If you don't see the install option, try opening in a different browser (Chrome recommended)
+          💡 Ja instalēšanas opcija nav redzama, mēģiniet atvērt citā pārlūkā (ieteicams Chrome)
         </p>
       </div>
     </div>
@@ -100,7 +100,7 @@ const installApp = async () => {
     
     // Show success notification
     showNotification.value = true
-    notificationMessage.value = 'App installed successfully! ✅'
+    notificationMessage.value = 'Lietotne veiksmīgi instalēta! ✅'
     notificationType.value = 'success'
     
     // Auto-close
@@ -111,7 +111,7 @@ const installApp = async () => {
   } catch (err) {
     console.error('[Install Error]', err)
     showNotification.value = true
-    notificationMessage.value = `Installation started. Check your notifications.`
+    notificationMessage.value = 'Instalēšana sākta. Pārbaudiet paziņojumus.'
     notificationType.value = 'info'
     dismissTimeout = setTimeout(() => {
       showNotification.value = false

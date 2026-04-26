@@ -6,7 +6,7 @@
   "scripts": {
     "gen-cert": "node generate-cert.js",
     "dev": "vite",
-    "dev:https": "npm run gen-cert && vite",
+    "dev:https": "npm run gen-cert && vite --mode https",
     "build": "vite build",
     "preview": "vite preview"
   },

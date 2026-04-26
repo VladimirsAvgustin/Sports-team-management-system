@@ -13,15 +13,15 @@
             >
               <img v-if="team.logo" :src="team.logo" :alt="team.name" class="team-logo-image" />
               <div v-else class="logo-fallback">{{ teamInitials }}</div>
-              <span v-if="isCoach" class="logo-edit-badge">Update crest</span>
+              <span v-if="isCoach" class="logo-edit-badge">Atjaunināt logotipu</span>
             </button>
 
             <div v-if="isCoach" class="logo-actions">
               <button type="button" class="hero-button secondary" @click="triggerLogoUpload">
-                Change logo
+                Mainīt logotipu
               </button>
               <button v-if="team.logo" type="button" class="hero-button danger" @click="deleteLogo">
-                Remove logo
+                Noņemt logotipu
               </button>
             </div>
 
@@ -35,21 +35,21 @@
           </div>
 
           <div class="hero-copy">
-            <p class="eyebrow">Team dashboard</p>
-            <h1>{{ team.name || 'Team space' }}</h1>
+            <p class="eyebrow">Komandas panelis</p>
+            <h1>{{ team.name || 'Komandas vide' }}</h1>
             <p class="hero-description">
-              Central hub for your squad, recent performance and upcoming workload.
+              Komandas centrs ar jaunāko sniegumu, sastāvu un tuvākajiem notikumiem.
             </p>
 
             <div class="hero-pills">
-              <span class="hero-pill code">Code: {{ team.team_code || 'N/A' }}</span>
-              <span class="hero-pill">{{ summary.totalPlayers }} players</span>
-              <span class="hero-pill">{{ upcomingEvents.length }} upcoming events</span>
+              <span class="hero-pill code">Kods: {{ team.team_code || 'nav norādīts' }}</span>
+              <span class="hero-pill">{{ summary.totalPlayers }} spēlētāji</span>
+              <span class="hero-pill">{{ upcomingEvents.length }} gaidāmie notikumi</span>
               <span v-if="isCoach" class="hero-pill accent">
-                {{ isMainCoach ? 'Main coach access' : 'Assistant coach access' }}
+                {{ isMainCoach ? 'Galvenā trenera piekļuve' : 'Trenera asistenta piekļuve' }}
               </span>
               <span v-if="isMainCoach && coachRequests.length" class="hero-pill attention">
-                {{ coachRequests.length }} coach request{{ coachRequests.length === 1 ? '' : 's' }}
+                {{ coachRequests.length }} trenera pieprasījumi
               </span>
             </div>
 
@@ -68,12 +68,12 @@
 
           <div class="hero-highlight">
             <div class="highlight-card">
-              <span class="highlight-label">Next event</span>
+              <span class="highlight-label">Nākamais notikums</span>
               <strong>{{ nextEventTitle }}</strong>
               <p>{{ nextEventMeta }}</p>
             </div>
             <div class="highlight-card soft">
-              <span class="highlight-label">Team pulse</span>
+              <span class="highlight-label">Komandas ritms</span>
               <strong>{{ readinessLabel }}</strong>
               <p>{{ readinessText }}</p>
             </div>
@@ -92,14 +92,14 @@
       <section v-if="isMainCoach" class="panel coach-requests-panel">
         <div class="panel-head">
           <div>
-            <p class="panel-kicker">Coach inbox</p>
-            <h2>Assistant coach requests</h2>
+            <p class="panel-kicker">Trenera iesūtne</p>
+            <h2>Trenera asistentu pieprasījumi</h2>
           </div>
-          <span class="panel-chip">{{ coachRequests.length }} pending</span>
+          <span class="panel-chip">{{ coachRequests.length }} gaida</span>
         </div>
 
         <div v-if="coachRequestsLoading" class="empty-card">
-          Loading assistant coach requests...
+          Ielādē trenera asistentu pieprasījumus...
         </div>
         <div v-else-if="coachRequests.length" class="coach-request-list">
           <article v-for="request in coachRequests" :key="request.id" class="coach-request-card">
@@ -111,21 +111,21 @@
               <div class="coach-request-copy">
                 <strong>{{ coachRequestName(request) }}</strong>
                 <p>{{ request.email }}</p>
-                <small>Requested {{ formatRequestDate(request.created_at) }}</small>
+                <small>Pieprasīts {{ formatRequestDate(request.created_at) }}</small>
               </div>
             </div>
             <div class="coach-request-actions">
               <button type="button" class="hero-button secondary" @click="reviewCoachRequest(request, 'reject')">
-                Reject
+                Noraidīt
               </button>
               <button type="button" class="hero-button primary" @click="reviewCoachRequest(request, 'approve')">
-                Approve
+                Apstiprināt
               </button>
             </div>
           </article>
         </div>
         <div v-else class="empty-card">
-          New assistant coach requests will appear here for the main coach only.
+          Jauni trenera asistenta pieprasījumi parādīsies tikai galvenajam trenerim.
         </div>
       </section>
 
@@ -133,10 +133,10 @@
         <article class="panel panel-large">
           <div class="panel-head">
             <div>
-              <p class="panel-kicker">Performance</p>
-              <h2>Leaders board</h2>
+              <p class="panel-kicker">Sniegums</p>
+              <h2>Līderu saraksts</h2>
             </div>
-            <span class="panel-chip">{{ rankedPlayers.length }} tracked players</span>
+            <span class="panel-chip">{{ rankedPlayers.length }} spēlētāji uzskaitē</span>
           </div>
 
           <div v-if="topPlayers.length" class="leaderboard">
@@ -151,28 +151,27 @@
                 <div class="leader-avatar">{{ getInitials(fullName(player)) }}</div>
                 <div>
                   <h3>{{ fullName(player) }}</h3>
-                  <p>{{ performanceLabel(player) }}</p>
                 </div>
               </div>
               <div class="leader-stats">
-                <span>{{ player.stats.goals }} G</span>
-                <span>{{ player.stats.assists }} A</span>
-                <span>{{ player.stats.matches }} M</span>
+                <span>{{ player.stats.goals }} vārti</span>
+                <span>{{ player.stats.assists }} piesp.</span>
+                <span>{{ player.stats.matches }} spēles</span>
               </div>
             </div>
           </div>
           <div v-else class="empty-card">
-            No player statistics yet. Start tracking matches to populate the board.
+            Spēlētāju statistikas vēl nav. Sāciet uzskaitīt spēles, lai aizpildītu sarakstu.
           </div>
         </article>
 
         <article class="panel">
           <div class="panel-head">
             <div>
-              <p class="panel-kicker">Schedule</p>
-              <h2>Upcoming</h2>
+              <p class="panel-kicker">Grafiks</p>
+              <h2>Tuvākie notikumi</h2>
             </div>
-            <router-link :to="`/team-schedule/${teamId}`" class="panel-link">Open schedule</router-link>
+            <router-link :to="`/team-schedule/${teamId}`" class="panel-link">Atvērt grafiku</router-link>
           </div>
 
           <div v-if="upcomingEvents.length" class="event-list">
@@ -183,7 +182,7 @@
               </div>
               <div class="event-copy">
                 <h3>{{ event.event_name }}</h3>
-                <p>{{ event.location || 'Location to be confirmed' }}</p>
+                <p>{{ event.location || 'Vieta tiks precizēta' }}</p>
               </div>
               <div class="event-meta">
                 <span class="event-badge" :class="event.event_type || 'other'">{{ eventTypeLabel(event.event_type) }}</span>
@@ -192,7 +191,7 @@
             </div>
           </div>
           <div v-else class="empty-card">
-            No upcoming events yet. The schedule page is ready for the next practice or match.
+            Tuvāko notikumu vēl nav. Grafika lapa ir gatava nākamajam treniņam vai spēlei.
           </div>
         </article>
       </section>
@@ -201,8 +200,8 @@
         <article class="panel">
           <div class="panel-head">
             <div>
-              <p class="panel-kicker">Insights</p>
-              <h2>Team stats</h2>
+              <p class="panel-kicker">Ieskati</p>
+              <h2>Komandas statistika</h2>
             </div>
           </div>
 
@@ -218,10 +217,10 @@
         <article class="panel">
           <div class="panel-head">
             <div>
-              <p class="panel-kicker">Roster</p>
-              <h2>Squad snapshot</h2>
+              <p class="panel-kicker">Sastāvs</p>
+              <h2>Komandas īss pārskats</h2>
             </div>
-            <router-link :to="`/team/${teamId}/players`" class="panel-link">Manage players</router-link>
+            <router-link :to="`/team/${teamId}/players`" class="panel-link">Pārvaldīt spēlētājus</router-link>
           </div>
 
           <div v-if="rosterPreview.length" class="roster-list">
@@ -229,22 +228,21 @@
               <div class="roster-avatar">{{ getInitials(fullName(player)) }}</div>
               <div class="roster-copy">
                 <h3>{{ fullName(player) }}</h3>
-                <p>{{ player.email }}</p>
               </div>
               <div class="roster-bars">
                 <div class="bar-row">
-                  <span>Goals</span>
+                  <span>Vārti</span>
                   <div class="bar-track"><div class="bar-fill goals" :style="{ width: statWidth(player.stats.goals, maxGoals) }"></div></div>
                 </div>
                 <div class="bar-row">
-                  <span>Assists</span>
+                  <span>Piespēles</span>
                   <div class="bar-track"><div class="bar-fill assists" :style="{ width: statWidth(player.stats.assists, maxAssists) }"></div></div>
                 </div>
               </div>
             </div>
           </div>
           <div v-else class="empty-card">
-            The roster is empty right now. Once players join, this area becomes your squad overview.
+            Pašlaik sastāvs ir tukšs. Kad spēlētāji pievienosies, šeit būs komandas pārskats.
           </div>
         </article>
       </section>
@@ -307,7 +305,7 @@ const isMainCoach = isTeamOwner({
 
 const fullName = (player) => `${player.name || ''} ${player.surname || ''}`.trim()
 const getInitials = (name) => name.split(' ').map((part) => part[0]).join('').slice(0, 2).toUpperCase() || '?'
-const teamInitials = computed(() => getInitials(team.value.name || 'Team'))
+const teamInitials = computed(() => getInitials(team.value.name || 'Komanda'))
 
 const playerScore = (player) => (
   (player.stats?.goals || 0) * 4 +
@@ -341,15 +339,15 @@ const upcomingEvents = computed(() => {
   })
 })
 
-const nextEventTitle = computed(() => upcomingEvents.value[0]?.event_name || 'No event booked')
+const nextEventTitle = computed(() => upcomingEvents.value[0]?.event_name || 'Notikums nav ieplānots')
 const nextEventMeta = computed(() => {
   const nextEvent = upcomingEvents.value[0]
 
   if (!nextEvent) {
-    return 'The calendar is clear. Add the next session from the schedule page.'
+    return 'Kalendārs ir tukšs. Pievienojiet nākamo nodarbību grafika lapā.'
   }
 
-  return `${formatFullDate(nextEvent.event_date)} at ${formatEventTime(nextEvent.event_time)}`
+  return `${formatFullDate(nextEvent.event_date)} plkst. ${formatEventTime(nextEvent.event_time)}`
 })
 
 const readinessScore = computed(() => {
@@ -359,36 +357,36 @@ const readinessScore = computed(() => {
 })
 
 const readinessLabel = computed(() => {
-  if (readinessScore.value >= 80) return 'High readiness'
-  if (readinessScore.value >= 60) return 'Good rhythm'
-  if (readinessScore.value >= 40) return 'Building momentum'
-  return 'Needs structure'
+  if (readinessScore.value >= 80) return 'Augsta gatavība'
+  if (readinessScore.value >= 60) return 'Labs ritms'
+  if (readinessScore.value >= 40) return 'Veidojas progress'
+  return 'Vajadzīga struktūra'
 })
 
 const readinessText = computed(() => {
-  return `${summary.value.avgAttendance}% practice attendance with ${summary.value.totalRedCards} red cards this cycle.`
+  return `${summary.value.avgAttendance}% treniņu apmeklējums un ${summary.value.totalRedCards} sarkanās kartītes šajā ciklā.`
 })
 
 const headlineMetrics = computed(() => [
   {
-    label: 'Goals',
+    label: 'Vārti',
     value: summary.value.totalGoals,
-    note: `${perPlayer(summary.value.totalGoals)} per player`
+    note: `${perPlayer(summary.value.totalGoals)} uz spēlētāju`
   },
   {
-    label: 'Assists',
+    label: 'Piespēles',
     value: summary.value.totalAssists,
-    note: `${perPlayer(summary.value.totalAssists)} per player`
+    note: `${perPlayer(summary.value.totalAssists)} uz spēlētāju`
   },
   {
-    label: 'Matches',
+    label: 'Spēles',
     value: summary.value.totalMatches,
-    note: `${upcomingEvents.value.length} upcoming`
+    note: `${upcomingEvents.value.length} gaidāmie`
   },
   {
-    label: 'Attendance',
+    label: 'Apmeklējums',
     value: `${summary.value.avgAttendance}%`,
-    note: 'Practice availability'
+    note: 'Treniņu pieejamība'
   }
 ])
 
@@ -406,26 +404,26 @@ const disciplineLeader = computed(() => {
 
 const insightCards = computed(() => [
   {
-    label: 'Top scorer',
-    value: topScorer.value ? fullName(topScorer.value) : 'No data yet',
-    note: topScorer.value ? `${topScorer.value.goals ?? topScorer.value.stats?.goals ?? 0} goals scored` : 'Waiting for first goal'
+    label: 'Labākais vārtu guvējs',
+    value: topScorer.value ? fullName(topScorer.value) : 'Datu vēl nav',
+    note: topScorer.value ? `${topScorer.value.goals ?? topScorer.value.stats?.goals ?? 0} gūti vārti` : 'Gaida pirmos vārtus'
   },
   {
-    label: 'Top creator',
-    value: topCreator.value ? fullName(topCreator.value) : 'No data yet',
-    note: topCreator.value ? `${topCreator.value.assists ?? topCreator.value.stats?.assists ?? 0} assists delivered` : 'Waiting for first assist'
+    label: 'Labākais piespēlētājs',
+    value: topCreator.value ? fullName(topCreator.value) : 'Datu vēl nav',
+    note: topCreator.value ? `${topCreator.value.assists ?? topCreator.value.stats?.assists ?? 0} rezultatīvas piespēles` : 'Gaida pirmo piespēli'
   },
   {
-    label: 'Workhorse',
-    value: everPresent.value ? fullName(everPresent.value) : 'No data yet',
-    note: everPresent.value ? `${everPresent.value.stats?.matches || 0} appearances tracked` : 'Matches are not tracked yet'
+    label: 'Visaktīvākais',
+    value: everPresent.value ? fullName(everPresent.value) : 'Datu vēl nav',
+    note: everPresent.value ? `${everPresent.value.stats?.matches || 0} uzskaitītas spēles` : 'Spēles vēl nav uzskaitītas'
   },
   {
-    label: 'Best discipline',
-    value: disciplineLeader.value ? fullName(disciplineLeader.value) : 'No data yet',
+    label: 'Labākā disciplīna',
+    value: disciplineLeader.value ? fullName(disciplineLeader.value) : 'Datu vēl nav',
     note: disciplineLeader.value
-      ? `${disciplineLeader.value.stats?.yellow_cards || 0} yellow, ${disciplineLeader.value.stats?.red_cards || 0} red`
-      : 'Roster is still empty'
+      ? `${disciplineLeader.value.stats?.yellow_cards || 0} dzeltenās, ${disciplineLeader.value.stats?.red_cards || 0} sarkanās`
+      : 'Sastāvs vēl ir tukšs'
   }
 ])
 
@@ -433,28 +431,28 @@ const quickLinks = computed(() => {
   const links = [
     {
       to: `/team/${teamId}/players`,
-      label: 'Players',
-      description: 'Open the roster and player stats'
+      label: 'Spēlētāji',
+      description: 'Atvērt sastāvu un spēlētāju statistiku'
     },
     {
       to: `/team-schedule/${teamId}`,
-      label: 'Schedule',
-      description: 'Practices, matches and meetings'
+      label: 'Grafiks',
+      description: 'Treniņi, spēles un sapulces'
     }
   ]
 
   if (isCoach.value) {
     links.unshift({
       to: `/team/${teamId}/statistics`,
-      label: 'Statistics',
-      description: 'Coach analytics and distributions'
+      label: 'Statistika',
+      description: 'Trenera analītika un sadalījumi'
     })
   }
 
   return links
 })
 
-const coachRequestName = (request) => `${request.name || ''} ${request.surname || ''}`.trim() || 'Coach request'
+const coachRequestName = (request) => `${request.name || ''} ${request.surname || ''}`.trim() || 'Trenera pieprasījums'
 
 const loadCoachRequests = async () => {
   if (!isMainCoach.value) {
@@ -468,7 +466,7 @@ const loadCoachRequests = async () => {
     coachRequests.value = await fetchCoachJoinRequests(teamId)
   } catch (error) {
     console.error('Error loading coach requests:', error)
-    showToast('Could not load assistant coach requests.', 'error')
+    showToast('Neizdevās ielādēt trenera asistenta pieprasījumus.', 'error')
   } finally {
     coachRequestsLoading.value = false
   }
@@ -490,13 +488,13 @@ const fetchDashboard = async () => {
 
     if (isMainCoach.value && coachRequests.value.length) {
       showToast(
-        `${coachRequests.value.length} assistant coach request${coachRequests.value.length === 1 ? '' : 's'} waiting for review.`,
+        `${coachRequests.value.length} trenera asistenta pieprasījumi gaida pārskatīšanu.`,
         'info'
       )
     }
   } catch (error) {
     console.error('Error loading team dashboard:', error)
-    showToast('Failed to load the team dashboard.', 'error')
+    showToast('Neizdevās ielādēt komandas paneli.', 'error')
   }
 }
 
@@ -510,54 +508,54 @@ const handleLogoUpload = async (event) => {
   if (!file) return
 
   if (file.size > 2 * 1024 * 1024) {
-    showToast('Image must be smaller than 2 MB.', 'error')
+    showToast('Attēlam jābūt mazākam par 2 MB.', 'error')
     return
   }
 
   try {
     team.value.logo = await uploadTeamLogo(teamId, file)
-    showToast('Team logo updated.')
+    showToast('Komandas logotips atjaunināts.')
   } catch (error) {
     console.error('Error uploading team logo:', error)
-    showToast('Could not update the team logo.', 'error')
+    showToast('Neizdevās atjaunināt komandas logotipu.', 'error')
   } finally {
     event.target.value = ''
   }
 }
 
 const deleteLogo = async () => {
-  if (!confirm(`Remove ${team.value.name || 'team'} logo?`)) return
+  if (!confirm(`Noņemt komandas "${team.value.name || 'komanda'}" logotipu?`)) return
 
   try {
     await removeTeamLogo(teamId)
     team.value.logo = null
-    showToast('Team logo removed.')
+    showToast('Komandas logotips noņemts.')
   } catch (error) {
     console.error('Error deleting team logo:', error)
-    showToast('Could not remove the team logo.', 'error')
+    showToast('Neizdevās noņemt komandas logotipu.', 'error')
   }
 }
 
 const reviewCoachRequest = async (request, decision) => {
   const actionLabel = decision === 'approve' ? 'approve' : 'reject'
 
-  if (!confirm(`${actionLabel === 'approve' ? 'Approve' : 'Reject'} ${coachRequestName(request)}?`)) {
+  if (!confirm(`${actionLabel === 'approve' ? 'Apstiprināt' : 'Noraidīt'} pieprasījumu no ${coachRequestName(request)}?`)) {
     return
   }
 
   try {
     if (decision === 'approve') {
       await approveCoachJoinRequest(teamId, request.id)
-      showToast(`${coachRequestName(request)} is now an assistant coach.`)
+      showToast(`${coachRequestName(request)} tagad ir trenera asistents.`)
     } else {
       await rejectCoachJoinRequest(teamId, request.id)
-      showToast(`${coachRequestName(request)} request was rejected.`)
+      showToast(`${coachRequestName(request)} pieprasījums noraidīts.`)
     }
 
     coachRequests.value = coachRequests.value.filter((entry) => entry.id !== request.id)
   } catch (error) {
     console.error(`Error trying to ${actionLabel} coach request:`, error)
-    showToast(error.response?.data?.error || `Could not ${actionLabel} this request.`, 'error')
+    showToast(error.response?.data?.error || 'Neizdevās apstrādāt šo pieprasījumu.', 'error')
   }
 }
 
@@ -574,27 +572,19 @@ const perPlayer = (value) => {
   return (value / summary.value.totalPlayers).toFixed(1)
 }
 
-const performanceLabel = (player) => {
-  const score = playerScore(player)
-  if (score >= 25) return 'Driving the squad'
-  if (score >= 15) return 'Reliable contributor'
-  if (score >= 8) return 'Growing influence'
-  return 'Building up'
-}
-
 const statWidth = (value, maxValue) => `${Math.max(10, (value / maxValue) * 100)}%`
-const formatFullDate = (value) => new Intl.DateTimeFormat('en', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(`${value}T00:00:00`))
-const formatShortDay = (value) => new Intl.DateTimeFormat('en', { weekday: 'short' }).format(new Date(`${value}T00:00:00`))
-const formatDayNumber = (value) => new Intl.DateTimeFormat('en', { day: '2-digit', month: 'short' }).format(new Date(`${value}T00:00:00`))
-const formatEventTime = (value) => (value ? value.slice(0, 5) : 'TBD')
-const formatRequestDate = (value) => new Intl.DateTimeFormat('en', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(value))
+const formatFullDate = (value) => new Intl.DateTimeFormat('lv-LV', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(`${value}T00:00:00`))
+const formatShortDay = (value) => new Intl.DateTimeFormat('lv-LV', { weekday: 'short' }).format(new Date(`${value}T00:00:00`))
+const formatDayNumber = (value) => new Intl.DateTimeFormat('lv-LV', { day: '2-digit', month: 'short' }).format(new Date(`${value}T00:00:00`))
+const formatEventTime = (value) => (value ? value.slice(0, 5) : 'Nav norādīts')
+const formatRequestDate = (value) => new Intl.DateTimeFormat('lv-LV', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(value))
 
 const eventTypeLabel = (value) => {
   const normalized = (value || '').toLowerCase()
-  if (normalized === 'practice') return 'Practice'
-  if (normalized === 'game') return 'Game'
-  if (normalized === 'meeting') return 'Meeting'
-  return 'Event'
+  if (normalized === 'practice') return 'Treniņš'
+  if (normalized === 'game') return 'Spēle'
+  if (normalized === 'meeting') return 'Sapulce'
+  return 'Notikums'
 }
 
 onMounted(() => {
@@ -1167,6 +1157,10 @@ html.dark-mode .event-badge.meeting {
   grid-template-columns: auto minmax(0, 1fr) minmax(180px, 240px);
   gap: 1rem;
   align-items: center;
+}
+
+.roster-copy {
+  min-width: 0;
 }
 
 .roster-bars {

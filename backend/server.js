@@ -19,6 +19,10 @@ const uploadsDir = path.join(__dirname, 'uploads', 'logos');
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
+const chatUploadsDir = path.join(__dirname, 'uploads', 'chat');
+if (!fs.existsSync(chatUploadsDir)) {
+  fs.mkdirSync(chatUploadsDir, { recursive: true });
+}
 
 // Dynamic CORS origin configuration for development
 // Allows localhost, 127.0.0.1, and any local network IPs (192.168.x.x, etc)
@@ -42,7 +46,7 @@ const corsOriginCheck = (origin, callback) => {
     callback(null, true);
   } else {
     console.log('CORS blocked:', origin);
-    callback(new Error('Not allowed by CORS'));
+    callback(new Error('CORS piekļuve nav atļauta'));
   }
 };
 
@@ -127,10 +131,22 @@ const db = new sqlite3.Database(dbPath, (err) => {
         event_name TEXT NOT NULL,
         event_date TEXT NOT NULL,
         location TEXT,
+        description TEXT,
         event_time TEXT,
         event_type TEXT,
+        createdAt TEXT,
         FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE
       )`);
+      db.run(`ALTER TABLE schedules ADD COLUMN createdAt TEXT`, (createdAtErr) => {
+        if (createdAtErr && !createdAtErr.message.includes('duplicate column name')) {
+          console.error('Error adding createdAt column to schedules table:', createdAtErr.message);
+        }
+      });
+      db.run(`ALTER TABLE schedules ADD COLUMN description TEXT`, (descriptionErr) => {
+        if (descriptionErr && !descriptionErr.message.includes('duplicate column name')) {
+          console.error('Error adding description column to schedules table:', descriptionErr.message);
+        }
+      });
       db.run(`CREATE TABLE IF NOT EXISTS attendance (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id INTEGER NOT NULL,
@@ -155,20 +171,42 @@ const db = new sqlite3.Database(dbPath, (err) => {
         user_id INTEGER NOT NULL,
         username TEXT NOT NULL,
         message TEXT NOT NULL,
+        attachment_url TEXT,
+        attachment_name TEXT,
+        attachment_type TEXT,
+        attachment_size INTEGER,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (room_id) REFERENCES chat_rooms(id) ON DELETE CASCADE,
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
       )`);
+      ['attachment_url TEXT', 'attachment_name TEXT', 'attachment_type TEXT', 'attachment_size INTEGER'].forEach((columnDefinition) => {
+        db.run(`ALTER TABLE messages ADD COLUMN ${columnDefinition}`, (columnErr) => {
+          if (columnErr && !columnErr.message.includes('duplicate column name')) {
+            console.error(`Error adding ${columnDefinition} to messages table:`, columnErr.message);
+          }
+        });
+      });
       db.run(`CREATE TABLE IF NOT EXISTS direct_messages (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         sender_id INTEGER NOT NULL,
         receiver_id INTEGER NOT NULL,
         message TEXT NOT NULL,
+        attachment_url TEXT,
+        attachment_name TEXT,
+        attachment_type TEXT,
+        attachment_size INTEGER,
         is_read INTEGER DEFAULT 0,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (sender_id) REFERENCES users(id) ON DELETE CASCADE,
         FOREIGN KEY (receiver_id) REFERENCES users(id) ON DELETE CASCADE
       )`);
+      ['attachment_url TEXT', 'attachment_name TEXT', 'attachment_type TEXT', 'attachment_size INTEGER'].forEach((columnDefinition) => {
+        db.run(`ALTER TABLE direct_messages ADD COLUMN ${columnDefinition}`, (columnErr) => {
+          if (columnErr && !columnErr.message.includes('duplicate column name')) {
+            console.error(`Error adding ${columnDefinition} to direct_messages table:`, columnErr.message);
+          }
+        });
+      });
       db.run(`CREATE TABLE IF NOT EXISTS password_resets (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id INTEGER NOT NULL,
@@ -211,7 +249,7 @@ app.use('/api/admin', adminRoutes)
 const chatRoutes = require('./routes/chat')(db);
 app.use('/api/chat', chatRoutes);
 
-// Contact form - send email
+// Saziņas forma - nosūtīt e-pastu
 const nodemailer = require('nodemailer');
 const emailUser = process.env.EMAIL_USER || 'vladimiravgustin123@gmail.com';
 const emailPass = (process.env.EMAIL_PASS || '').replace(/\s+/g, '');
@@ -228,50 +266,50 @@ app.post('/api/contact', async (req, res) => {
   const { name, email, subject, message } = req.body;
 
   if (!name || !email || !subject || !message) {
-    return res.status(400).json({ error: 'All fields are required' });
+    return res.status(400).json({ error: 'Visi lauki ir obligāti' });
   }
 
   const subjectLabels = {
-    general: 'General Question',
-    bug: 'Bug Report',
-    feature: 'Feature Request',
-    account: 'Account Issue',
-    other: 'Other'
+    general: 'Vispārīgs jautājums',
+    bug: 'Kļūdas ziņojums',
+    feature: 'Funkcijas ierosinājums',
+    account: 'Konta problēma',
+    other: 'Cits'
   };
 
   const mailOptions = {
-    from: `"Sports Team Contact" <${emailUser}>`,
+    from: `"TeamFlow kontakti" <${emailUser}>`,
     to: 'vladimiravgustin123@gmail.com',
     replyTo: email,
-    subject: `${subjectLabels[subject] || subject} - from ${name}`,
+    subject: `${subjectLabels[subject] || subject} - no ${name}`,
     html: `
-      <p><strong>Name:</strong> ${name}</p>
-      <p><strong>Email:</strong> ${email}</p>
-      <p><strong>Subject:</strong> ${subjectLabels[subject] || subject}</p>
+      <p><strong>Vārds:</strong> ${name}</p>
+      <p><strong>E-pasts:</strong> ${email}</p>
+      <p><strong>Tēma:</strong> ${subjectLabels[subject] || subject}</p>
       <hr/>
-      <p><strong>Message:</strong></p>
+      <p><strong>Ziņojums:</strong></p>
       <p>${message.replace(/\n/g, '<br>')}</p>
     `
   };
 
   try {
     await transporter.sendMail(mailOptions);
-    res.status(200).json({ message: 'Email sent successfully' });
+    res.status(200).json({ message: 'E-pasts veiksmīgi nosūtīts' });
   } catch (err) {
     console.error('Error sending email:', err);
-    res.status(500).json({ error: 'Failed to send email. Please try again later.' });
+    res.status(500).json({ error: 'Neizdevās nosūtīt e-pastu. Lūdzu, mēģiniet vēlāk.' });
   }
 });
 
 // Handling non-existing routes
 app.use((req, res, next) => {
-  res.status(404).json({ error: 'Route not found' });
+  res.status(404).json({ error: 'Maršruts nav atrasts' });
 });
 
 // Central error handling
 app.use((err, req, res, next) => {
   console.error(err.stack);
-  res.status(500).json({ error: 'Internal server error' });
+  res.status(500).json({ error: 'Iekšēja servera kļūda' });
 });
 
 // Socket.io authentication middleware
@@ -279,7 +317,7 @@ io.use((socket, next) => {
   const token = socket.handshake.auth.token;
   
   if (!token) {
-    return next(new Error('Authentication error'));
+    return next(new Error('Autentifikācijas kļūda'));
   }
 
   try {
@@ -289,9 +327,32 @@ io.use((socket, next) => {
     socket.userFullName = socket.userFullName.trim();
     next();
   } catch (err) {
-    next(new Error('Authentication error'));
+    next(new Error('Autentifikācijas kļūda'));
   }
 });
+
+const normalizeChatText = (value) => (typeof value === 'string' ? value.trim() : '');
+const normalizeAttachment = (attachment) => {
+  if (!attachment || typeof attachment !== 'object') {
+    return null;
+  }
+
+  const attachmentUrl = normalizeChatText(attachment.attachmentUrl || attachment.attachment_url);
+  const attachmentName = normalizeChatText(attachment.attachmentName || attachment.attachment_name || 'Pielikums');
+  const attachmentType = normalizeChatText(attachment.attachmentType || attachment.attachment_type);
+  const attachmentSize = Number(attachment.attachmentSize || attachment.attachment_size || 0);
+
+  if (!attachmentUrl.startsWith('/uploads/chat/')) {
+    return null;
+  }
+
+  return {
+    attachment_url: attachmentUrl,
+    attachment_name: attachmentName || 'Pielikums',
+    attachment_type: attachmentType,
+    attachment_size: Number.isFinite(attachmentSize) ? attachmentSize : 0
+  };
+};
 
 // Socket.io connection handling
 io.on('connection', (socket) => {
@@ -309,7 +370,7 @@ io.on('connection', (socket) => {
     // Notify others in the room
     socket.to(`room_${roomId}`).emit('user_joined', {
       username: socket.userFullName,
-      message: `${socket.userFullName} joined the chat`
+      message: `${socket.userFullName} pievienojās čatam`
     });
   });
 
@@ -320,22 +381,47 @@ io.on('connection', (socket) => {
     
     socket.to(`room_${roomId}`).emit('user_left', {
       username: socket.userFullName,
-      message: `${socket.userFullName} left the chat`
+      message: `${socket.userFullName} pameta čatu`
     });
   });
 
   // Handle new message
   socket.on('send_message', (data) => {
-    const { roomId, message } = data;
+    const { roomId } = data;
+    const message = normalizeChatText(data?.message);
+    const attachment = normalizeAttachment(data?.attachment);
+
+    if (!message && !attachment) {
+      socket.emit('message_error', { error: 'Ziņojums ir tukšs' });
+      return;
+    }
     
     // Save message to database
     db.run(
-      `INSERT INTO messages (room_id, user_id, username, message) VALUES (?, ?, ?, ?)`,
-      [roomId, socket.userId, socket.userFullName, message],
+      `INSERT INTO messages (
+        room_id,
+        user_id,
+        username,
+        message,
+        attachment_url,
+        attachment_name,
+        attachment_type,
+        attachment_size
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        roomId,
+        socket.userId,
+        socket.userFullName,
+        message,
+        attachment?.attachment_url || null,
+        attachment?.attachment_name || null,
+        attachment?.attachment_type || null,
+        attachment?.attachment_size || null
+      ],
       function(err) {
         if (err) {
           console.error('Error saving message:', err);
-          socket.emit('message_error', { error: 'Failed to send message' });
+          socket.emit('message_error', { error: 'Neizdevās nosūtīt ziņojumu' });
           return;
         }
 
@@ -345,6 +431,10 @@ io.on('connection', (socket) => {
           userId: socket.userId,
           username: socket.userFullName,
           message,
+          attachment_url: attachment?.attachment_url || null,
+          attachment_name: attachment?.attachment_name || null,
+          attachment_type: attachment?.attachment_type || null,
+          attachment_size: attachment?.attachment_size || null,
           createdAt: new Date().toISOString()
         };
 
@@ -371,16 +461,39 @@ io.on('connection', (socket) => {
 
   // Direct Message Handlers
   socket.on('send_dm', (data) => {
-    const { receiverId, message } = data;
+    const { receiverId } = data;
+    const message = normalizeChatText(data?.message);
+    const attachment = normalizeAttachment(data?.attachment);
+
+    if (!message && !attachment) {
+      socket.emit('dm_error', { error: 'Ziņojums ir tukšs' });
+      return;
+    }
     
     // Save DM to database
     db.run(
-      `INSERT INTO direct_messages (sender_id, receiver_id, message) VALUES (?, ?, ?)`,
-      [socket.userId, receiverId, message],
+      `INSERT INTO direct_messages (
+        sender_id,
+        receiver_id,
+        message,
+        attachment_url,
+        attachment_name,
+        attachment_type,
+        attachment_size
+      ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [
+        socket.userId,
+        receiverId,
+        message,
+        attachment?.attachment_url || null,
+        attachment?.attachment_name || null,
+        attachment?.attachment_type || null,
+        attachment?.attachment_size || null
+      ],
       function(err) {
         if (err) {
           console.error('Error saving DM:', err);
-          socket.emit('dm_error', { error: 'Failed to send message' });
+          socket.emit('dm_error', { error: 'Neizdevās nosūtīt ziņojumu' });
           return;
         }
 
@@ -389,6 +502,10 @@ io.on('connection', (socket) => {
           sender_id: socket.userId,
           receiver_id: receiverId,
           message,
+          attachment_url: attachment?.attachment_url || null,
+          attachment_name: attachment?.attachment_name || null,
+          attachment_type: attachment?.attachment_type || null,
+          attachment_size: attachment?.attachment_size || null,
           is_read: 0,
           created_at: new Date().toISOString()
         };

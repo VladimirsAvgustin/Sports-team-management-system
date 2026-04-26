@@ -5,15 +5,15 @@
         <div class="hero-main">
           <div class="schedule-header">
             <div class="header-left">
-              <p class="header-eyebrow">Team calendar</p>
+              <p class="header-eyebrow">Komandas kalendārs</p>
               <h1>{{ $t('schedule.title') }}</h1>
               <p class="header-subtitle">{{ upcomingCount }} {{ upcomingCount !== 1 ? $t('schedule.upcomingEvents') : $t('schedule.upcomingEvent') }}</p>
             </div>
             <div class="header-actions">
-              <button v-if="userRole === 'Coach'" @click="showStats = true; fetchAttendanceStats()" class="header-btn stats-btn">
+              <button v-if="isCoach" @click="showStats = true; fetchAttendanceStats()" class="header-btn stats-btn">
                 {{ $t('schedule.stats') }}
               </button>
-              <button v-if="userRole === 'Coach'" @click="openAddModal()" class="header-btn add-btn">
+              <button v-if="isCoach" @click="openAddModal()" class="header-btn add-btn">
                 {{ $t('schedule.newEvent') }}
               </button>
             </div>
@@ -35,15 +35,59 @@
         <!-- Week view -->
         <div v-if="viewMode === 'week'" class="week-view">
           <div class="week-navigation">
-            <button @click="changeWeek(-1)" class="nav-btn">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg>
-            </button>
-            <div class="week-title">
-              <h2>{{ currentWeekRange }}</h2>
-              <button @click="currentWeek = dayjs()" class="today-btn" v-if="!currentWeek.isSame(dayjs(), 'week')">{{ $t('schedule.today') }}</button>
+            <div class="week-navigation-main">
+              <button @click="changeWeek(-1)" class="nav-btn">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg>
+              </button>
+              <div ref="datePickerRef" class="week-title">
+                <button @click.stop="toggleDatePicker" type="button" class="week-title-btn" :class="{ active: showDatePicker }">
+                  <span class="week-title-text">{{ currentWeekRange }}</span>
+                  <svg class="week-title-caret" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <path d="m6 9 6 6 6-6"/>
+                  </svg>
+                </button>
+
+                <div v-if="showDatePicker" class="date-picker-popover" @click.stop>
+                  <div class="date-picker-header">
+                    <button @click="changeDatePickerMonth(-1)" type="button" class="date-picker-nav-btn">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg>
+                    </button>
+                    <div class="date-picker-month">{{ datePickerMonthLabel }}</div>
+                    <button @click="changeDatePickerMonth(1)" type="button" class="date-picker-nav-btn">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 18l6-6-6-6"/></svg>
+                    </button>
+                  </div>
+
+                  <div class="date-picker-weekdays">
+                    <span v-for="(weekday, index) in datePickerWeekdayLabels" :key="index" class="date-picker-weekday">
+                      {{ weekday }}
+                    </span>
+                  </div>
+
+                  <div class="date-picker-grid">
+                    <button
+                      v-for="day in datePickerDays"
+                      :key="day.key"
+                      type="button"
+                      class="date-picker-day"
+                      :class="{
+                        'outside-month': day.isOutsideMonth,
+                        today: day.isToday,
+                        selected: day.isSelected
+                      }"
+                      @click="selectPickerDate(day.date)"
+                    >
+                      {{ day.label }}
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <button @click="changeWeek(1)" class="nav-btn">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 18l6-6-6-6"/></svg>
+              </button>
             </div>
-            <button @click="changeWeek(1)" class="nav-btn">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 18l6-6-6-6"/></svg>
+            <button @click="goToCurrentWeek" class="today-btn" :disabled="isCurrentWeek">
+              {{ $t('schedule.today') }}
             </button>
           </div>
 
@@ -66,12 +110,12 @@
                   <div class="event-card-body">
                     <div class="event-card-time">{{ formatTime(event.event_time) }}</div>
                     <div class="event-card-title">{{ event.event_name }}</div>
-                    <div class="event-card-location" v-if="event.location">📍 {{ event.location }}</div>
+                    <div class="event-card-location" v-if="event.location">{{ event.location }}</div>
                   </div>
                 </div>
                 
                 <div 
-                  v-if="userRole === 'Coach'" 
+                  v-if="isCoach" 
                   class="add-event-cell"
                   @click="openAddModal(day.date.format('YYYY-MM-DD'))"
                 >
@@ -129,7 +173,7 @@
                 <div class="list-event-badge" :class="event.event_type">
                   {{ getEventIcon(event.event_type) }} {{ getEventTypeLabel(event.event_type) }}
                 </div>
-                <div v-if="userRole === 'Coach'" class="list-event-actions">
+                <div v-if="isCoach" class="list-event-actions">
                   <button @click.stop="startEdit(event)" class="action-icon">✏️</button>
                   <button @click.stop="deleteEvent(event)" class="action-icon delete">🗑️</button>
                 </div>
@@ -176,6 +220,15 @@
           <div class="form-row">
             <label>{{ $t('schedule.eventLocation') }}</label>
             <input v-model="currentEvent.location" :placeholder="$t('schedule.eventLocation') + '?'" />
+          </div>
+
+          <div class="form-row">
+            <label>{{ $t('schedule.eventDescription') }}</label>
+            <textarea
+              v-model="currentEvent.description"
+              rows="4"
+              :placeholder="$t('schedule.eventDescriptionPlaceholder')"
+            ></textarea>
           </div>
           
           <div class="form-actions">
@@ -229,6 +282,11 @@
               </div>
             </div>
           </div>
+
+          <div v-if="selectedEvent.description" class="event-description">
+            <span class="meta-label">{{ $t('schedule.eventDescription') }}</span>
+            <p>{{ selectedEvent.description }}</p>
+          </div>
           
           <!-- Countdown or status -->
           <div class="event-countdown" v-if="isEventUpcoming(selectedEvent)">
@@ -240,8 +298,8 @@
           </div>
         </div>
         
-        <!-- Player's own attendance (for practices only, before event date) -->
-        <div v-if="selectedEvent.event_type === 'practice' && userRole === 'Player' && isEventUpcoming(selectedEvent)" class="attendance-section">
+        <!-- Player's own attendance before event start -->
+        <div v-if="isPracticeEvent(selectedEvent) && isPlayer && isEventUpcoming(selectedEvent)" class="attendance-section">
           <h3> {{ $t('schedule.yourResponse') }}</h3>
           <div class="attendance-choice">
             <button 
@@ -268,7 +326,7 @@
         </div>
 
         <!-- Show attendance status if event passed -->
-        <div v-if="selectedEvent.event_type === 'practice' && userRole === 'Player' && !isEventUpcoming(selectedEvent)" class="attendance-section past">
+        <div v-if="isPracticeEvent(selectedEvent) && isPlayer && !isEventUpcoming(selectedEvent)" class="attendance-section past">
           <h3>📋 {{ $t('schedule.yourAttendance') }}</h3>
           <div class="attendance-result" :class="myAttendanceStatus || 'unmarked'">
             <span class="result-icon">{{ getStatusIcon(myAttendanceStatus) }}</span>
@@ -276,8 +334,8 @@
           </div>
         </div>
         
-        <!-- Coach view: all players attendance (for practices) -->
-        <div v-if="selectedEvent.event_type === 'practice' && userRole === 'Coach'" class="attendance-section coach">
+        <!-- Coach view: all player responses -->
+        <div v-if="isPracticeEvent(selectedEvent) && isCoach" class="attendance-section coach">
           <h3>👥 {{ $t('schedule.teamResponses') }}</h3>
           <div class="attendance-stats-bar">
             <div class="stat-segment yes" :style="{ width: getAttendancePercent('present') + '%' }">
@@ -297,7 +355,7 @@
           </div>
           
           <div class="attendees-grid">
-            <div v-for="player in eventAttendanceList" :key="player.user_id" class="attendee-card" :class="player.status || 'unmarked'">
+            <div v-for="player in sortedEventAttendanceList" :key="player.user_id" class="attendee-card" :class="player.status || 'unmarked'">
               <div class="attendee-avatar">{{ getInitials(player.username) }}</div>
               <div class="attendee-details">
                 <div class="attendee-name">{{ player.username }}</div>
@@ -314,7 +372,7 @@
         </div>
         
         <!-- Coach buttons -->
-        <div v-if="userRole === 'Coach'" class="event-detail-actions">
+        <div v-if="isCoach" class="event-detail-actions">
           <button @click="startEdit(selectedEvent)" class="edit-btn">
             <span></span> {{ $t('buttons.edit') }}
           </button>
@@ -341,40 +399,97 @@
       </div>
     </div>
     
-    <!-- Statistics modal -->
-    <div v-if="showStats" class="modal-overlay" @click.self="showStats = false">
+    <!-- Statistikas modālais logs -->
+    <div v-if="showStats" class="modal-overlay" @click.self="closeStatsModal">
       <div class="modal-content stats-modal">
-        <h3>{{ $t('schedule.attendanceStats') }}</h3>
-        <table>
-          <thead>
-            <tr>
-              <th>{{ $t('schedule.player') }}</th>
-              <th>{{ $t('schedule.attended') }}</th>
-              <th>{{ $t('schedule.missed') }}</th>
-              <th>{{ $t('schedule.rate') }}</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="stat in attendanceStats" :key="stat.user_id">
-              <td>
-                <div class="player-cell">
-                  <div class="player-avatar-sm">{{ getInitials(stat.username) }}</div>
-                  {{ stat.username }}
-                </div>
-              </td>
-              <td class="stat-present">{{ stat.present_count }}</td>
-              <td class="stat-absent">{{ stat.absent_count }}</td>
-              <td>
-                <div class="rate-bar">
-                  <div class="rate-fill" :style="{ width: stat.attendance_rate + '%' }"></div>
-                  <span>{{ stat.attendance_rate }}%</span>
-                </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-        <div class="modal-actions">
-          <button @click="showStats = false" class="modal-btn cancel-btn">{{ $t('buttons.close') }}</button>
+        <div class="stats-modal-header">
+          <div class="stats-modal-copy">
+            <h3>{{ $t('schedule.attendanceStats') }}</h3>
+            <p class="stats-modal-subtitle">
+              {{ $t('schedule.playersShown', { visible: filteredAttendanceStats.length, total: attendanceStats.length }) }}
+            </p>
+          </div>
+          <button type="button" class="stats-modal-close" :aria-label="$t('buttons.close')" @click="closeStatsModal">
+            ×
+          </button>
+        </div>
+
+        <div class="stats-overview">
+          <article class="stats-overview-card">
+            <span class="stats-overview-label">{{ $t('schedule.playersTracked') }}</span>
+            <strong class="stats-overview-value">{{ attendanceStats.length }}</strong>
+          </article>
+          <article class="stats-overview-card">
+            <span class="stats-overview-label">{{ $t('schedule.practiceSessions') }}</span>
+            <strong class="stats-overview-value">{{ totalPracticesCount }}</strong>
+          </article>
+          <article class="stats-overview-card">
+            <span class="stats-overview-label">{{ $t('schedule.averageRate') }}</span>
+            <strong class="stats-overview-value">{{ averageAttendanceRate }}%</strong>
+          </article>
+          <article class="stats-overview-card">
+            <span class="stats-overview-label">{{ $t('schedule.bestRate') }}</span>
+            <strong class="stats-overview-value">{{ bestAttendanceRate }}%</strong>
+          </article>
+        </div>
+
+        <div class="stats-toolbar">
+          <label class="stats-search">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="11" cy="11" r="8"/>
+              <path d="m21 21-4.3-4.3"/>
+            </svg>
+            <input v-model="statsSearchQuery" :placeholder="$t('schedule.searchPlayers')" />
+          </label>
+          <span class="stats-toolbar-note">
+            {{ $t('schedule.playersShown', { visible: filteredAttendanceStats.length, total: attendanceStats.length }) }}
+          </span>
+        </div>
+
+        <div v-if="filteredAttendanceStats.length" class="stats-table-shell">
+          <table class="stats-table">
+            <thead>
+              <tr>
+                <th>{{ $t('schedule.player') }}</th>
+                <th>{{ $t('schedule.attended') }}</th>
+                <th>{{ $t('schedule.missed') }}</th>
+                <th>{{ $t('schedule.rate') }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="stat in filteredAttendanceStats" :key="stat.user_id">
+                <td>
+                  <div class="player-cell">
+                    <div class="player-avatar-sm">{{ getInitials(stat.username) }}</div>
+                    <div class="player-copy">
+                      <span class="player-name">{{ stat.username }}</span>
+                      <small class="player-meta">
+                        {{ stat.present_count + stat.absent_count + (stat.late_count || 0) }} / {{ stat.total_practices }}
+                      </small>
+                    </div>
+                  </div>
+                </td>
+                <td class="stats-number stat-present">{{ stat.present_count }}</td>
+                <td class="stats-number stat-absent">{{ stat.absent_count }}</td>
+                <td>
+                  <div class="rate-bar">
+                    <div class="rate-track">
+                      <div class="rate-fill" :style="{ width: `${stat.attendance_rate}%` }"></div>
+                    </div>
+                    <span class="rate-value">{{ stat.attendance_rate }}%</span>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div v-else class="stats-empty">
+          {{ $t('schedule.noStatsMatch') }}
+        </div>
+
+        <div class="modal-actions stats-modal-actions">
+          <button @click="closeStatsModal" class="modal-btn cancel-btn">{{ $t('buttons.close') }}</button>
         </div>
       </div>
     </div>
@@ -382,14 +497,18 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
 import axios from 'axios'
 import dayjs from 'dayjs'
+import 'dayjs/locale/lv'
 import { useAuthStore } from '../stores/auth'
+import { normalizeRole } from '../utils/teamAccess'
 
-const { t } = useI18n()
+dayjs.locale('lv')
+
+const { t, locale } = useI18n()
 const auth = useAuthStore()
 const route = useRoute()
 const teamId = ref(route.params.id || route.params.teamId)
@@ -400,6 +519,34 @@ const viewMode = ref('week') // 'week' or 'list'
 const typeFilter = ref('')
 const searchQuery = ref('')
 const currentWeek = ref(dayjs())
+const showDatePicker = ref(false)
+const datePickerMonth = ref(currentWeek.value.startOf('month'))
+const datePickerRef = ref(null)
+
+const calendarLocale = computed(() => (locale.value === 'lv' ? 'lv-LV' : 'en-US'))
+const weekdayLabels = computed(() => (
+  locale.value === 'lv'
+    ? ['P.', 'O.', 'T.', 'C.', 'Pk.', 'S.', 'Sv.']
+    : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+))
+
+const getWeekStart = (value) => {
+  const date = dayjs(value).startOf('day')
+  return date.subtract((date.day() + 6) % 7, 'day')
+}
+
+const getWeekEnd = (value) => getWeekStart(value).add(6, 'day')
+
+const formatLocalizedDate = (value, options) =>
+  new Intl.DateTimeFormat(calendarLocale.value, options).format(dayjs(value).toDate())
+
+const formatPickerMonthLabel = (value) => {
+  const monthName = formatLocalizedDate(value, { month: 'long' })
+  const year = dayjs(value).year()
+  return locale.value === 'lv' ? `${year}. g. ${monthName}` : `${monthName} ${year}`
+}
+
+const isCurrentWeek = computed(() => getWeekStart(currentWeek.value).isSame(getWeekStart(dayjs()), 'day'))
 
 // Event type filters for list view
 const eventFilters = computed(() => [
@@ -408,7 +555,7 @@ const eventFilters = computed(() => [
   { value: 'meeting', label: t('schedule.meeting'), icon: '' },
 ])
 
-// Upcoming events count
+// Tuvāko notikumu skaits
 const upcomingCount = computed(() => {
   const now = dayjs()
   return events.value.filter(e => dayjs(`${e.event_date} ${e.event_time}`).isAfter(now)).length
@@ -417,8 +564,8 @@ const upcomingCount = computed(() => {
 const totalEvents = computed(() => events.value.length)
 
 const thisWeekCount = computed(() => {
-  const start = currentWeek.value.startOf('week')
-  const end = currentWeek.value.endOf('week')
+  const start = getWeekStart(currentWeek.value)
+  const end = getWeekEnd(currentWeek.value)
 
   return events.value.filter((event) => {
     const stamp = dayjs(`${event.event_date} ${event.event_time}`)
@@ -434,16 +581,16 @@ const nextEvent = computed(() => {
     .sort((a, b) => dayjs(`${a.event_date} ${a.event_time}`).valueOf() - dayjs(`${b.event_date} ${b.event_time}`).valueOf())[0] || null
 })
 
-const nextEventTitle = computed(() => nextEvent.value?.event_name || 'No upcoming event')
+const nextEventTitle = computed(() => nextEvent.value?.event_name || 'Nav gaidāmu notikumu')
 const nextEventMeta = computed(() => {
   if (!nextEvent.value) {
-    return 'The calendar is clear right now.'
+    return 'Kalendārs pašlaik ir tukšs.'
   }
 
-  return `${dayjs(nextEvent.value.event_date).format('D MMM YYYY')} at ${formatTime(nextEvent.value.event_time)}`
+  return `${dayjs(nextEvent.value.event_date).format('D MMM YYYY')} plkst. ${formatTime(nextEvent.value.event_time)}`
 })
 
-const currentViewLabel = computed(() => viewMode.value === 'week' ? 'Weekly planner' : 'Event list')
+const currentViewLabel = computed(() => viewMode.value === 'week' ? 'Nedēļas plānotājs' : 'Notikumu saraksts')
 
 // Format time (e.g. "18:00" -> "6:00 PM" or keep 24h)
 const formatTime = (time) => {
@@ -451,6 +598,10 @@ const formatTime = (time) => {
   const [h, m] = time.split(':')
   return `${h}:${m}`
 }
+
+const compareScheduleEvents = (a, b) =>
+  dayjs(`${a.event_date} ${a.event_time || '23:59'}`).valueOf() -
+  dayjs(`${b.event_date} ${b.event_time || '23:59'}`).valueOf()
 
 // Grouped events for list view (by date)
 const groupedEvents = computed(() => {
@@ -460,6 +611,9 @@ const groupedEvents = computed(() => {
     if (!groups[label]) groups[label] = []
     groups[label].push(event)
   }
+
+  Object.values(groups).forEach((group) => group.sort(compareScheduleEvents))
+
   return groups
 })
 
@@ -477,7 +631,9 @@ const currentEvent = ref({
 const selectedEvent = ref(null)
 
 // User role
-const userRole = computed(() => auth.user?.role || 'player')
+const userRole = computed(() => normalizeRole(auth.user?.role))
+const isCoach = computed(() => userRole.value === 'coach')
+const isPlayer = computed(() => userRole.value === 'player')
 
 // Data loading
 const fetchData = async () => {
@@ -490,32 +646,99 @@ const fetchData = async () => {
     teamPlayers.value = playersRes.data
   } catch (err) {
     console.error('Error loading data:', err)
-    error.value = 'Failed to load data'
+    error.value = 'Neizdevās ielādēt datus'
   }
 }
 
 // Week view
 const daysOfWeek = computed(() => {
-  const startOfWeek = currentWeek.value.startOf('week')
+  const startOfWeek = getWeekStart(currentWeek.value)
   return Array.from({ length: 7 }, (_, i) => {
     const day = startOfWeek.add(i, 'day')
     return {
       date: day,
-      dayName: day.format('ddd'),
+      dayName: weekdayLabels.value[i],
       isToday: day.isSame(dayjs(), 'day'),
-      events: events.value.filter(e => dayjs(e.event_date).isSame(day, 'day'))
+      events: events.value
+        .filter((e) => dayjs(e.event_date).isSame(day, 'day'))
+        .sort(compareScheduleEvents)
     }
   })
 })
 
 const currentWeekRange = computed(() => {
-  const start = currentWeek.value.startOf('week').format('D MMM')
-  const end = currentWeek.value.endOf('week').format('D MMM')
-  return `${start} - ${end}`
+  const start = getWeekStart(currentWeek.value)
+  const end = getWeekEnd(currentWeek.value)
+  return `${formatLocalizedDate(start, { day: 'numeric', month: 'short' })} - ${formatLocalizedDate(end, { day: 'numeric', month: 'short' })}`
+})
+
+const datePickerWeekdayLabels = computed(() => weekdayLabels.value)
+
+const datePickerMonthLabel = computed(() => formatPickerMonthLabel(datePickerMonth.value))
+
+const datePickerDays = computed(() => {
+  const monthStart = datePickerMonth.value.startOf('month')
+  const calendarStart = getWeekStart(monthStart)
+  const leadingDays = (monthStart.day() + 6) % 7
+  const totalCells = Math.ceil((leadingDays + monthStart.daysInMonth()) / 7) * 7
+
+  return Array.from({ length: totalCells }, (_, index) => {
+    const date = calendarStart.add(index, 'day')
+    return {
+      key: date.format('YYYY-MM-DD'),
+      date,
+      label: date.date(),
+      isOutsideMonth: date.month() !== monthStart.month(),
+      isToday: date.isSame(dayjs(), 'day'),
+      isSelected: date.isSame(currentWeek.value, 'day')
+    }
+  })
 })
 
 const changeWeek = (weeks) => {
   currentWeek.value = currentWeek.value.add(weeks, 'week')
+  showDatePicker.value = false
+}
+
+const goToCurrentWeek = () => {
+  if (isCurrentWeek.value) return
+  currentWeek.value = dayjs()
+  datePickerMonth.value = currentWeek.value.startOf('month')
+  showDatePicker.value = false
+}
+
+const toggleDatePicker = () => {
+  if (!showDatePicker.value) {
+    datePickerMonth.value = currentWeek.value.startOf('month')
+  }
+  showDatePicker.value = !showDatePicker.value
+}
+
+const changeDatePickerMonth = (months) => {
+  datePickerMonth.value = datePickerMonth.value.add(months, 'month').startOf('month')
+}
+
+const selectPickerDate = (date) => {
+  currentWeek.value = dayjs(date)
+  datePickerMonth.value = dayjs(date).startOf('month')
+  showDatePicker.value = false
+}
+
+const closeDatePicker = () => {
+  showDatePicker.value = false
+}
+
+const handleDocumentClick = (event) => {
+  if (!showDatePicker.value || !datePickerRef.value) return
+  if (!datePickerRef.value.contains(event.target)) {
+    closeDatePicker()
+  }
+}
+
+const handleEscapeKey = (event) => {
+  if (event.key === 'Escape') {
+    closeDatePicker()
+  }
 }
 
 // List view
@@ -529,15 +752,14 @@ const filteredEvents = computed(() => {
   if (searchQuery.value) {
     const query = searchQuery.value.toLowerCase()
     result = result.filter(e => 
-      e.event_name.toLowerCase().includes(query) || 
-      e.location.toLowerCase().includes(query)
+      String(e.event_name || '').toLowerCase().includes(query) ||
+      String(e.location || '').toLowerCase().includes(query) ||
+      String(e.description || '').toLowerCase().includes(query)
     )
   }
   
   return result.sort((a, b) => {
-    const dateA = dayjs(`${a.event_date} ${a.event_time}`)
-    const dateB = dayjs(`${b.event_date} ${b.event_time}`)
-    return dateA - dateB
+    return compareScheduleEvents(a, b)
   })
 })
 
@@ -573,7 +795,7 @@ const hasTimeConflict = (date, time, excludeId = null) => {
 
 const addEvent = async () => {
   if (hasTimeConflict(currentEvent.value.event_date, currentEvent.value.event_time)) {
-    error.value = 'An event already exists at this date and time'
+    error.value = 'Šajā datumā un laikā jau ir notikums'
     return
   }
   try {
@@ -587,7 +809,7 @@ const addEvent = async () => {
     if (err.response?.data?.error) {
       error.value = err.response.data.error
     } else {
-      error.value = 'Error adding event'
+      error.value = 'Kļūda, pievienojot notikumu'
     }
   }
 }
@@ -602,7 +824,7 @@ const startEdit = (event) => {
 
 const saveEdit = async () => {
   if (hasTimeConflict(currentEvent.value.event_date, currentEvent.value.event_time, currentEvent.value.id)) {
-    error.value = 'An event already exists at this date and time'
+    error.value = 'Šajā datumā un laikā jau ir notikums'
     return
   }
   try {
@@ -621,13 +843,13 @@ const saveEdit = async () => {
     if (err.response?.data?.error) {
       error.value = err.response.data.error
     } else {
-      error.value = 'Error editing event'
+      error.value = 'Kļūda, rediģējot notikumu'
     }
   }
 }
 
 const deleteEvent = async (event) => {
-  if (!confirm('Are you sure you want to delete this event?')) return
+  if (!confirm('Vai tiešām vēlaties dzēst šo notikumu?')) return
   
   try {
     await axios.delete(`/api/teams/${teamId.value}/schedule/${event.id}`)
@@ -637,7 +859,7 @@ const deleteEvent = async (event) => {
     }
   } catch (err) {
     console.error(err)
-    error.value = 'Error deleting event'
+    error.value = 'Kļūda, dzēšot notikumu'
   }
 }
 
@@ -645,11 +867,12 @@ const deleteEvent = async (event) => {
 const parseAndAddEvent = () => {
   const text = quickAddText.value.toLowerCase()
   const event = {
-    event_name: quickAddText.value.split(' ')[0], // First word as title
-    event_date: dayjs().format('YYYY-MM-DD'), // Default today
-    event_time: '18:00', // Default
+    event_name: quickAddText.value.split(' ')[0], // Pirmais vārds kā nosaukums
+    event_date: dayjs().format('YYYY-MM-DD'), // Noklusējums - šodien
+    event_time: '18:00', // Noklusējums
     event_type: text.includes('game') ? 'game' : 'practice',
-    location: 'Gym' // Default
+    location: 'Sporta zāle',
+    description: ''
   }
 
   // Simple date parsing
@@ -671,12 +894,13 @@ const parseAndAddEvent = () => {
 
 // Attendance status (placeholder)
 const getAttendanceStatus = (playerId) => {
-  const statuses = ['confirmed', 'not confirmed', 'declined']
+  const statuses = ['apstiprināts', 'nav apstiprināts', 'atteikts']
   return statuses[Math.floor(Math.random() * statuses.length)]
 }
 
 const showStats = ref(false)
 const attendanceStats = ref([])
+const statsSearchQuery = ref('')
 const eventAttendanceList = ref([])
 
 // Decline modal
@@ -687,10 +911,17 @@ const declineReason = ref('')
 const myAttendanceStatus = ref(null)
 const myAttendanceNotes = ref('')
 
+const getEventDateTime = (event) => {
+  if (!event?.event_date) return null
+  return dayjs(`${event.event_date} ${event.event_time || '23:59'}`)
+}
+
+const isPracticeEvent = (event) => String(event?.event_type || '').toLowerCase() === 'practice'
+
 // Check if event is upcoming (can still RSVP)
 const isEventUpcoming = (event) => {
-  const eventDateTime = dayjs(`${event.event_date} ${event.event_time}`)
-  return eventDateTime.isAfter(dayjs())
+  const eventDateTime = getEventDateTime(event)
+  return eventDateTime?.isValid() && eventDateTime.isAfter(dayjs())
 }
 
 // Get initials
@@ -713,28 +944,30 @@ const getEventIcon = (type) => {
 // Get event type label
 const getEventTypeLabel = (type) => {
   const labels = {
-    practice: 'Practice',
-    game: 'Game',
-    meeting: 'Meeting',
-    other: 'Event'
+    practice: 'Treniņš',
+    game: 'Spēle',
+    meeting: 'Sapulce',
+    other: 'Notikums'
   }
   return labels[type] || labels.other
 }
 
 // Get time until event
 const getTimeUntilEvent = (event) => {
-  const eventDateTime = dayjs(`${event.event_date} ${event.event_time}`)
+  const eventDateTime = getEventDateTime(event)
+  if (!eventDateTime?.isValid()) return ''
+
   const now = dayjs()
   const diffDays = eventDateTime.diff(now, 'day')
   const diffHours = eventDateTime.diff(now, 'hour') % 24
   
   if (diffDays > 0) {
-    return `${diffDays} day${diffDays > 1 ? 's' : ''}`
+    return `${diffDays} ${diffDays === 1 ? 'diena' : 'dienas'}`
   } else if (diffHours > 0) {
-    return `${diffHours} hour${diffHours > 1 ? 's' : ''}`
+    return `${diffHours} ${diffHours === 1 ? 'stunda' : 'stundas'}`
   } else {
     const diffMinutes = eventDateTime.diff(now, 'minute')
-    return `${diffMinutes} minute${diffMinutes > 1 ? 's' : ''}`
+    return `${diffMinutes} ${diffMinutes === 1 ? 'minūte' : 'minūtes'}`
   }
 }
 
@@ -804,6 +1037,24 @@ const attendanceSummary = computed(() => {
   return { present, absent, unmarked }
 })
 
+const getAttendanceSortGroup = (status) => {
+  if (status === 'present') return 0
+  if (status === 'absent' || status === 'excused') return 1
+  return 2
+}
+
+const sortedEventAttendanceList = computed(() =>
+  [...eventAttendanceList.value].sort((a, b) => {
+    const groupDiff = getAttendanceSortGroup(a.status) - getAttendanceSortGroup(b.status)
+
+    if (groupDiff !== 0) {
+      return groupDiff
+    }
+
+    return String(a.username || '').localeCompare(String(b.username || ''))
+  })
+)
+
 // Set my attendance (for players)
 const setMyAttendance = async (status) => {
   if (!selectedEvent.value) return
@@ -855,15 +1106,20 @@ const fetchAttendanceStats = async () => {
     const res = await axios.get(`/api/teams/${teamId.value}/attendance/stats`)
     attendanceStats.value = res.data
   } catch (err) {
-    console.error('Error fetching attendance stats:', err)
+    console.error('Kļūda, ielādējot apmeklējuma statistiku:', err)
   }
 }
 
 // Watch for selected event changes
-import { watch } from 'vue'
 watch(selectedEvent, (newEvent) => {
   if (newEvent) {
     fetchEventAttendance(newEvent.id)
+  }
+})
+
+watch(viewMode, (mode) => {
+  if (mode !== 'week') {
+    closeDatePicker()
   }
 })
 
@@ -895,25 +1151,74 @@ const toggleAttendance = async (playerId, eventId) => {
   }
 }
 
-// Statistics methods
+// Statistikas metodes
 const totalPracticesCount = computed(() => 
   events.value.filter(e => e.event_type === 'practice').length
 )
 
-const getPlayerAttendanceCount = (playerId) => {
-  const stat = attendanceStats.value.find(s => s.user_id === playerId)
-  return stat?.present_count || 0
-}
+const sortedAttendanceStats = computed(() =>
+  [...attendanceStats.value].sort((a, b) => {
+    const rateDiff = (Number(b.attendance_rate) || 0) - (Number(a.attendance_rate) || 0)
 
-const getAttendancePercentage = (playerId) => {
-  const stat = attendanceStats.value.find(s => s.user_id === playerId)
-  return stat?.attendance_rate || 0
+    if (rateDiff !== 0) {
+      return rateDiff
+    }
+
+    const presentDiff = (Number(b.present_count) || 0) - (Number(a.present_count) || 0)
+
+    if (presentDiff !== 0) {
+      return presentDiff
+    }
+
+    return String(a.username || '').localeCompare(String(b.username || ''))
+  })
+)
+
+const filteredAttendanceStats = computed(() => {
+  const query = statsSearchQuery.value.trim().toLowerCase()
+
+  if (!query) {
+    return sortedAttendanceStats.value
+  }
+
+  return sortedAttendanceStats.value.filter((stat) =>
+    String(stat.username || '').toLowerCase().includes(query)
+  )
+})
+
+const averageAttendanceRate = computed(() => {
+  if (!attendanceStats.value.length) {
+    return 0
+  }
+
+  const totalRate = attendanceStats.value.reduce(
+    (sum, stat) => sum + (Number(stat.attendance_rate) || 0),
+    0
+  )
+
+  return Math.round(totalRate / attendanceStats.value.length)
+})
+
+const bestAttendanceRate = computed(() =>
+  attendanceStats.value.reduce((max, stat) => Math.max(max, Number(stat.attendance_rate) || 0), 0)
+)
+
+const closeStatsModal = () => {
+  showStats.value = false
+  statsSearchQuery.value = ''
 }
 
 // Update mounted to load attendance
 onMounted(async () => {
+  document.addEventListener('click', handleDocumentClick)
+  document.addEventListener('keydown', handleEscapeKey)
   await fetchData()
   await fetchAttendances()
+})
+
+onBeforeUnmount(() => {
+  document.removeEventListener('click', handleDocumentClick)
+  document.removeEventListener('keydown', handleEscapeKey)
 })
 
 </script>
@@ -1172,11 +1477,18 @@ onMounted(async () => {
 }
 
 .week-navigation {
-  display: flex;
-  justify-content: center;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
   gap: 20px;
   margin-bottom: 20px;
+}
+
+.week-navigation-main {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  grid-column: 2;
 }
 
 .nav-btn {
@@ -1199,19 +1511,152 @@ onMounted(async () => {
 }
 
 .week-title {
+  position: relative;
   display: flex;
-  align-items: center;
-  gap: 12px;
+  justify-content: center;
 }
 
-.week-title h2 {
-  margin: 0;
+.week-title-btn {
+  border: none;
+  background: transparent;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.week-title-text {
   font-size: 17px;
   font-weight: 600;
   color: var(--page-text);
 }
 
+.week-title-btn:hover .week-title-text,
+.week-title-btn.active .week-title-text {
+  color: var(--page-accent);
+}
+
+.week-title-caret {
+  color: var(--page-muted);
+  transition: transform 0.2s, color 0.2s;
+}
+
+.week-title-btn.active .week-title-caret {
+  color: var(--page-accent);
+  transform: rotate(180deg);
+}
+
+.date-picker-popover {
+  position: absolute;
+  top: calc(100% + 12px);
+  left: 50%;
+  transform: translateX(-50%);
+  width: 320px;
+  padding: 18px;
+  border-radius: 22px;
+  border: 1px solid var(--page-border);
+  background: var(--page-surface);
+  box-shadow: 0 20px 48px rgba(15, 23, 42, 0.16);
+  z-index: 30;
+}
+
+.date-picker-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.date-picker-month {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--page-text);
+  text-align: center;
+}
+
+.date-picker-nav-btn {
+  width: 34px;
+  height: 34px;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--page-text);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s, color 0.2s;
+}
+
+.date-picker-nav-btn:hover {
+  background: var(--page-accent-soft);
+  color: var(--page-accent);
+}
+
+.date-picker-weekdays,
+.date-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
+.date-picker-weekdays {
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.date-picker-weekday {
+  text-align: center;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--page-muted);
+}
+
+.date-picker-grid {
+  gap: 6px;
+}
+
+.date-picker-day {
+  aspect-ratio: 1;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--page-text);
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s, box-shadow 0.2s;
+}
+
+.date-picker-day:hover {
+  background: var(--page-accent-soft);
+  color: var(--page-accent);
+}
+
+.date-picker-day.outside-month {
+  color: var(--page-muted);
+  opacity: 0.7;
+}
+
+.date-picker-day.today {
+  box-shadow: 0 0 0 1.5px rgba(11, 114, 231, 0.35);
+}
+
+.date-picker-day.selected {
+  background: var(--page-accent);
+  color: white;
+  box-shadow: none;
+}
+
+.date-picker-day.selected:hover {
+  color: white;
+}
+
 .today-btn {
+  grid-column: 3;
+  justify-self: end;
   padding: 4px 12px;
   border: 1.5px solid var(--page-accent);
   border-radius: 6px;
@@ -1226,6 +1671,13 @@ onMounted(async () => {
 .today-btn:hover {
   background: var(--page-accent);
   color: white;
+}
+
+.today-btn:disabled {
+  border-color: rgba(127, 127, 127, 0.24);
+  color: var(--page-muted);
+  cursor: default;
+  background: rgba(127, 127, 127, 0.08);
 }
 
 .calendar-grid {
@@ -1609,6 +2061,8 @@ onMounted(async () => {
   border-radius: 16px;
   width: 90%;
   max-width: 480px;
+  max-height: min(90vh, 760px);
+  overflow-y: auto;
   padding: 28px;
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
   animation: slideUp 0.25s ease;
@@ -1655,7 +2109,8 @@ onMounted(async () => {
 }
 
 .form-row input,
-.form-row select {
+.form-row select,
+.form-row textarea {
   padding: 10px 12px;
   border: 1.5px solid #e5e7eb;
   border-radius: 10px;
@@ -1663,12 +2118,20 @@ onMounted(async () => {
   color: var(--text-color);
   background: var(--card-bg, white);
   transition: border-color 0.2s;
+  font-family: inherit;
 }
 
 .form-row input:focus,
-.form-row select:focus {
+.form-row select:focus,
+.form-row textarea:focus {
   outline: none;
   border-color: #667eea;
+}
+
+.form-row textarea {
+  min-height: 104px;
+  line-height: 1.5;
+  resize: vertical;
 }
 
 .form-actions {
@@ -1803,6 +2266,21 @@ onMounted(async () => {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 10px;
+}
+
+.event-description {
+  margin-top: 12px;
+  padding: 14px;
+  background: #f9fafb;
+  border-radius: 12px;
+  color: var(--text-color, #111827);
+}
+
+.event-description p {
+  margin: 6px 0 0;
+  color: var(--text-color, #111827);
+  line-height: 1.6;
+  white-space: pre-wrap;
 }
 
 .meta-item {
@@ -2200,39 +2678,198 @@ onMounted(async () => {
 
 /* ==================== STATS MODAL ==================== */
 .stats-modal {
-  max-width: 700px;
+  width: min(960px, calc(100vw - 32px));
+  max-width: 960px;
+  max-height: min(88vh, 860px);
+  padding: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow: hidden;
 }
 
-.stats-modal table {
+.stats-modal h3 {
+  margin: 0;
+}
+
+.stats-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.stats-modal-copy {
+  min-width: 0;
+}
+
+.stats-modal-subtitle {
+  margin: 6px 0 0;
+  color: var(--page-muted);
+  font-size: 13px;
+}
+
+.stats-modal-close {
+  width: 38px;
+  height: 38px;
+  border: 1px solid #d1d5db;
+  border-radius: 12px;
+  background: #f8fafc;
+  color: #6b7280;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.stats-modal-close:hover {
+  background: #eef2f7;
+  color: #111827;
+}
+
+.stats-overview {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.stats-overview-card {
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1px solid #e5e7eb;
+  background: #f8fafc;
+}
+
+.stats-overview-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--page-muted);
+}
+
+.stats-overview-value {
+  display: block;
+  margin-top: 8px;
+  font-size: 1.4rem;
+  line-height: 1;
+  color: var(--page-text);
+}
+
+.stats-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.stats-search {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid #e5e7eb;
+  background: #f8fafc;
+  color: var(--page-muted);
+}
+
+.stats-search input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  font: inherit;
+  color: var(--page-text);
+}
+
+.stats-search input::placeholder {
+  color: var(--page-muted);
+}
+
+.stats-toolbar-note {
+  font-size: 13px;
+  color: var(--page-muted);
+  white-space: nowrap;
+}
+
+.stats-table-shell {
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  overflow: auto;
+  max-height: min(58vh, 560px);
+  background: var(--card-bg, white);
+}
+
+.stats-table {
   width: 100%;
-  border-collapse: collapse;
-  margin: 16px 0;
+  min-width: 680px;
+  margin: 0;
+  border-collapse: separate;
+  border-spacing: 0;
+  table-layout: fixed;
 }
 
-.stats-modal th, .stats-modal td {
-  padding: 10px 12px;
-  text-align: left;
+.stats-table th,
+.stats-table td {
+  padding: 12px 14px;
   border-bottom: 1px solid #f3f4f6;
+  vertical-align: middle;
 }
 
-.stats-modal th {
-  background: #f9fafb;
+.stats-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #f8fafc;
   font-size: 12px;
   font-weight: 600;
   color: #6b7280;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  text-align: left;
+}
+
+.stats-table th:nth-child(1),
+.stats-table td:nth-child(1) {
+  width: 44%;
+}
+
+.stats-table th:nth-child(2),
+.stats-table th:nth-child(3),
+.stats-table td:nth-child(2),
+.stats-table td:nth-child(3) {
+  width: 14%;
+  text-align: center;
+}
+
+.stats-table th:nth-child(4),
+.stats-table td:nth-child(4) {
+  width: 28%;
+}
+
+.stats-table tbody tr:hover td {
+  background: rgba(11, 114, 231, 0.03);
 }
 
 .player-cell {
   display: flex;
   align-items: center;
   gap: 10px;
+  min-width: 0;
 }
 
 .player-avatar-sm {
-  width: 30px;
-  height: 30px;
+  width: 34px;
+  height: 34px;
   border-radius: 50%;
   background: linear-gradient(135deg, #667eea, #764ba2);
   color: white;
@@ -2243,28 +2880,77 @@ onMounted(async () => {
   font-size: 11px;
 }
 
-.stat-present { color: #059669; font-weight: 600; }
-.stat-absent { color: #dc2626; font-weight: 600; }
+.player-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.player-name {
+  font-weight: 600;
+  color: var(--page-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.player-meta {
+  color: var(--page-muted);
+  font-size: 12px;
+}
+
+.stats-number {
+  text-align: center;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.stat-present { color: #059669; }
+.stat-absent { color: #dc2626; }
 
 .rate-bar {
   display: flex;
   align-items: center;
   gap: 10px;
+  min-width: 0;
+}
+
+.rate-track {
+  flex: 1;
+  min-width: 80px;
+  height: 8px;
+  background: #e5e7eb;
+  border-radius: 999px;
+  overflow: hidden;
 }
 
 .rate-fill {
-  height: 6px;
+  height: 100%;
   background: linear-gradient(90deg, #667eea, #764ba2);
-  border-radius: 3px;
-  min-width: 4px;
-  max-width: 100px;
+  border-radius: inherit;
   transition: width 0.3s;
 }
 
-.rate-bar span {
+.rate-value {
   font-weight: 600;
   font-size: 13px;
-  min-width: 40px;
+  min-width: 42px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.stats-empty {
+  border-radius: 16px;
+  border: 1px dashed #d1d5db;
+  background: #f8fafc;
+  padding: 28px 20px;
+  text-align: center;
+  color: var(--page-muted);
+}
+
+.stats-modal-actions {
+  margin-top: auto;
 }
 
 /* ==================== DARK MODE ==================== */
@@ -2302,9 +2988,37 @@ onMounted(async () => {
   background: #3d3d3d;
 }
 
+.dark-mode .week-title-text {
+  color: #f0f0f0;
+}
+
+.dark-mode .date-picker-popover {
+  background: #1e1e1e;
+  border-color: #2d2d2d;
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.4);
+}
+
+.dark-mode .date-picker-nav-btn {
+  color: #f0f0f0;
+}
+
+.dark-mode .date-picker-nav-btn:hover {
+  background: #2d2d2d;
+}
+
+.dark-mode .date-picker-day.today {
+  box-shadow: 0 0 0 1.5px rgba(129, 140, 248, 0.45);
+}
+
 .dark-mode .today-btn {
   border-color: #667eea;
   color: #818cf8;
+}
+
+.dark-mode .today-btn:disabled {
+  border-color: #3d3d3d;
+  color: #6b7280;
+  background: #2d2d2d;
 }
 
 .dark-mode .day-column {
@@ -2381,7 +3095,8 @@ onMounted(async () => {
 }
 
 .dark-mode .form-row input,
-.dark-mode .form-row select {
+.dark-mode .form-row select,
+.dark-mode .form-row textarea {
   background: #2d2d2d;
   border-color: #3d3d3d;
   color: #f0f0f0;
@@ -2412,6 +3127,14 @@ onMounted(async () => {
 
 .dark-mode .meta-item {
   background: #2d2d2d;
+}
+
+.dark-mode .event-description {
+  background: #2d2d2d;
+}
+
+.dark-mode .event-description p {
+  color: #f0f0f0;
 }
 
 .dark-mode .meta-icon {
@@ -2513,9 +3236,52 @@ onMounted(async () => {
   color: #9ca3af;
 }
 
-.dark-mode .stats-modal th,
-.dark-mode .stats-modal td {
+.dark-mode .stats-overview-card,
+.dark-mode .stats-search,
+.dark-mode .stats-table-shell,
+.dark-mode .stats-empty {
+  background: #1b2432;
+  border-color: #2d3748;
+}
+
+.dark-mode .stats-modal-close {
+  background: #1b2432;
+  border-color: #2d3748;
+  color: #cbd5e1;
+}
+
+.dark-mode .stats-modal-close:hover {
+  background: #243041;
+  color: #f8fafc;
+}
+
+.dark-mode .stats-table th,
+.dark-mode .stats-table td {
   border-bottom-color: #2d2d2d;
+}
+
+.dark-mode .stats-table tbody tr:hover td {
+  background: rgba(111, 178, 255, 0.08);
+}
+
+.dark-mode .player-meta,
+.dark-mode .stats-modal-subtitle,
+.dark-mode .stats-overview-label,
+.dark-mode .stats-toolbar-note,
+.dark-mode .stats-search {
+  color: #9ca3af;
+}
+
+.dark-mode .stats-search input {
+  color: #e5e7eb;
+}
+
+.dark-mode .stats-search input::placeholder {
+  color: #7b8797;
+}
+
+.dark-mode .rate-track {
+  background: #2d3748;
 }
 
 .dark-mode .date-group-label {
@@ -2547,6 +3313,35 @@ onMounted(async () => {
     flex-direction: column;
     align-items: flex-start;
     gap: 12px;
+  }
+
+  .week-navigation {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .week-navigation-main {
+    justify-content: center;
+  }
+
+  .week-title {
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  .date-picker-popover {
+    position: static;
+    left: auto;
+    transform: none;
+    width: min(100vw - 48px, 320px);
+    margin-top: 12px;
+  }
+
+  .today-btn {
+    justify-self: center;
+    align-self: center;
   }
   
   .calendar-grid {
@@ -2600,6 +3395,26 @@ onMounted(async () => {
   
   .list-event-actions {
     opacity: 1;
+  }
+
+  .stats-modal {
+    width: calc(100vw - 24px);
+    max-height: 90vh;
+    padding: 18px;
+    gap: 14px;
+  }
+
+  .stats-overview {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .stats-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .stats-toolbar-note {
+    white-space: normal;
   }
 }
 </style>

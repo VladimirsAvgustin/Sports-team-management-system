@@ -12,7 +12,7 @@
         <input id="confirm" v-model="confirmPassword" type="password" minlength="6" required />
 
         <button type="submit" :disabled="loading">
-          {{ loading ? 'Saving...' : $t('password.savePassword') }}
+          {{ loading ? 'Saglabā...' : $t('password.savePassword') }}
         </button>
       </form>
 
@@ -45,12 +45,12 @@ async function resetPassword() {
   message.value = ''
 
   if (!token || typeof token !== 'string') {
-    error.value = 'Reset token is missing or invalid'
+    error.value = 'Atiestatīšanas marķieris nav norādīts vai nav derīgs'
     return
   }
 
   if (password.value !== confirmPassword.value) {
-    error.value = 'Passwords do not match'
+    error.value = 'Paroles nesakrīt'
     return
   }
 

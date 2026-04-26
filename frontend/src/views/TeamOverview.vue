@@ -3,10 +3,10 @@
     <!-- Hero Section with Team Info -->
     <div class="team-hero">
       <div class="hero-content">
-        <!-- Team Logo -->
+        <!-- Komandas logotips -->
         <div class="team-logo-section">
           <div class="team-logo" @click="isCoach && triggerLogoUpload()">
-            <img v-if="team.logo" :src="team.logo" alt="Team Logo" class="logo-image" />
+            <img v-if="team.logo" :src="team.logo" alt="Komandas logotips" class="logo-image" />
             <div v-else class="logo-placeholder">
               <span class="logo-initials">{{ getTeamInitials(team.name) }}</span>
             </div>
@@ -35,16 +35,16 @@
             <span class="code-value">{{ team.team_code }}</span>
           </div>
           <div class="page-highlights">
-            <span v-if="isCoach" class="page-pill accent">Coach tools enabled</span>
-            <span class="page-pill">{{ sortedPlayers.length }} rostered players</span>
+            <span v-if="isCoach" class="page-pill accent">Trenera rīki ieslēgti</span>
+            <span class="page-pill">{{ sortedPlayers.length }} spēlētāji sastāvā</span>
           </div>
           <div class="team-meta">
             <span class="meta-item">
               <span class="meta-icon"></span>
               {{ sortedPlayers.length }} {{ $t('teamPage.players') }}
             </span>
-            <button @click="toggleChat" class="chat-toggle-btn" title="Team Chat">
-              Chat
+            <button @click="toggleChat" class="chat-toggle-btn" title="Komandas čats">
+              Čats
               <span v-if="unreadCount > 0" class="unread-badge">{{ unreadCount }}</span>
             </button>
           </div>
@@ -83,7 +83,7 @@
     <!-- Team Navigation -->
     <div class="team-nav">
       <router-link :to="`/team/${teamId}/overview`" class="nav-link" active-class="active">
-        {{ $t('nav.overview') || 'Overview' }}
+        {{ $t('nav.overview') }}
       </router-link>
       <router-link :to="`/team/${teamId}/players`" class="nav-link" active-class="active">
         {{ $t('teamPage.players') }}
@@ -96,25 +96,25 @@
       </router-link>
     </div>
 
-    <!-- Overview Section -->
+    <!-- Pārskata sadaļa -->
     <div class="overview-section">
       <div class="overview-stats-detail">
         <h3>{{ $t('teamPage.teamStats') }}</h3>
         <div class="stats-detail-grid">
           <div class="stat-detail-card">
-            <div class="stat-detail-label">Goals</div>
+            <div class="stat-detail-label">Vārti</div>
             <p class="stat-number">{{ teamStats.totalGoals }}</p>
           </div>
           <div class="stat-detail-card">
-            <div class="stat-detail-label">Assists</div>
+            <div class="stat-detail-label">Piespēles</div>
             <p class="stat-number">{{ teamStats.totalAssists }}</p>
           </div>
           <div class="stat-detail-card">
-            <div class="stat-detail-label">Matches</div>
+            <div class="stat-detail-label">Spēles</div>
             <p class="stat-number">{{ teamStats.totalMatches }}</p>
           </div>
           <div class="stat-detail-card">
-            <div class="stat-detail-label">Attendance</div>
+            <div class="stat-detail-label">Apmeklējums</div>
             <p class="stat-number">{{ teamStats.avgAttendance }}%</p>
           </div>
         </div>
@@ -124,11 +124,11 @@
         <h3>{{ $t('teamPage.playersInTeam') }}</h3>
         <p class="players-count">{{ sortedPlayers.length }} {{ $t('teamPage.players') }}</p>
         <div v-if="sortedPlayers.length > 0" class="top-performers">
-          <h4>Top Performers</h4>
+          <h4>Labākie spēlētāji</h4>
           <div class="top-performers-list">
             <div v-for="player in sortedPlayers.slice(0, 5)" :key="player.id" class="top-performer-item">
               <span class="performer-name">{{ fullName(player) }}</span>
-              <span class="performer-stats">Goals: {{ player.stats.goals }} | Assists: {{ player.stats.assists }}</span>
+              <span class="performer-stats">Vārti: {{ player.stats.goals }} | Piespēles: {{ player.stats.assists }}</span>
             </div>
           </div>
         </div>

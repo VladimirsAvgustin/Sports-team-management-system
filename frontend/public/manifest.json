@@ -1,7 +1,7 @@
 {
-  "name": "Sports Team Management System",
-  "short_name": "Sports Team",
-  "description": "Система управления спортивной командой",
+  "name": "Sporta komandas vadības sistēma",
+  "short_name": "TeamFlow",
+  "description": "Sporta komandas grafika, apmeklējuma un saziņas pārvaldība",
   "start_url": "/?pwa=true",
   "scope": "/",
   "display": "standalone",
@@ -63,16 +63,16 @@
   ],
   "shortcuts": [
     {
-      "name": "Создать команду",
-      "short_name": "Новая команда",
-      "description": "Быстро создать новую команду",
+      "name": "Izveidot komandu",
+      "short_name": "Jauna komanda",
+      "description": "Ātri izveidot jaunu komandu",
       "url": "/create-team",
       "icons": [{ "src": "/launchericon-96x96.png", "sizes": "96x96", "type": "image/png" }]
     },
     {
-      "name": "Присоединиться к команде",
-      "short_name": "Присоединиться",
-      "description": "Присоединиться к существующей команде",
+      "name": "Pievienoties komandai",
+      "short_name": "Pievienoties",
+      "description": "Pievienoties esošai komandai",
       "url": "/join-team",
       "icons": [{ "src": "/launchericon-96x96.png", "sizes": "96x96", "type": "image/png" }]
     }

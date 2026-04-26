@@ -9,7 +9,7 @@
         <input id="email" v-model="email" type="email" :placeholder="$t('auth.enterEmail')" required />
 
         <button type="submit" :disabled="loading">
-          {{ loading ? 'Sending...' : $t('password.sendReset') }}
+          {{ loading ? 'Sūta...' : $t('password.sendReset') }}
         </button>
       </form>
 
@@ -39,9 +39,9 @@ async function sendResetLink() {
     const response = await axios.post('/api/auth/forgot-password', {
       email: email.value
     })
-    message.value = response.data.message || 'If the account exists, a reset link has been sent to email.'
+    message.value = response.data.message || 'Paroles atiestatīšanas e-pasts ir nosūtīts. Tas var pienākt līdz 5 minūšu laikā.'
   } catch (err) {
-    error.value = err.response?.data?.error || 'Failed to request password reset'
+    error.value = err.response?.data?.error || 'Neizdevās pieprasīt paroles atiestatīšanu'
   } finally {
     loading.value = false
   }
@@ -122,13 +122,25 @@ button:disabled {
 }
 
 .message {
-  color: #047857;
   margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  border-radius: 8px;
+  background: rgba(16, 185, 129, 0.1);
+  color: #374151;
+  font-weight: 500;
+  text-align: center;
 }
 
 .error {
-  color: #b91c1c;
   margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px solid rgba(239, 68, 68, 0.18);
+  border-radius: 8px;
+  background: rgba(239, 68, 68, 0.1);
+  color: #b91c1c;
+  font-weight: 600;
+  text-align: center;
 }
 
 .back-link {
@@ -186,4 +198,21 @@ button:disabled {
 :global(.dark-mode) .back-link {
   color: #93c5fd;
 }
+
+:global(.dark-mode .forgot-page .message),
+:global(html.dark-mode .forgot-page .message),
+:global(body.dark-mode .forgot-page .message) {
+  border-color: rgba(110, 231, 183, 0.22);
+  background: rgba(16, 185, 129, 0.16);
+  color: #111827;
+}
+
+:global(.dark-mode .forgot-page .error),
+:global(html.dark-mode .forgot-page .error),
+:global(body.dark-mode .forgot-page .error) {
+  border-color: rgba(252, 165, 165, 0.24);
+  background: rgba(239, 68, 68, 0.16);
+  color: #fca5a5;
+}
+
 </style>

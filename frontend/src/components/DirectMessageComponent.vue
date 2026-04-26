@@ -25,12 +25,31 @@
       >
         <div class="message-header">
           <span class="message-author">
-            {{ message.sender_id === currentUserId ? 'You' : username }}
+            {{ message.sender_id === currentUserId ? 'Jūs' : username }}
           </span>
           <span class="message-time">{{ formatTime(message.created_at) }}</span>
         </div>
         <div class="message-content">
-          {{ message.message }}
+          <p v-if="message.message" class="message-text">{{ message.message }}</p>
+          <a
+            v-if="getAttachment(message)"
+            class="message-attachment"
+            :href="getAttachment(message).url"
+            target="_blank"
+            rel="noopener"
+          >
+            <img
+              v-if="isImageAttachment(getAttachment(message))"
+              :src="getAttachment(message).url"
+              :alt="getAttachment(message).name"
+              class="attachment-image"
+            />
+            <span v-else class="attachment-file-icon">📎</span>
+            <span class="attachment-meta">
+              <strong>{{ getAttachment(message).name }}</strong>
+              <small>{{ formatFileSize(getAttachment(message).size) }}</small>
+            </span>
+          </a>
         </div>
       </div>
     </div>
@@ -38,19 +57,50 @@
     <!-- Message Input -->
     <div class="message-input-container">
       <input
+        ref="fileInput"
+        type="file"
+        class="file-input"
+        @change="handleFileChange"
+      />
+      <button
+        type="button"
+        class="attach-btn"
+        :disabled="!isConnected || isUploading"
+        @click="openFilePicker"
+        :title="$t('chatPage.attachFile')"
+      >
+        <svg viewBox="0 0 24 24" aria-hidden="true" class="attach-icon">
+          <path
+            d="M21.44 11.05l-8.49 8.49a6 6 0 11-8.49-8.49l9.19-9.19a4 4 0 115.66 5.66L9.4 17.43a2 2 0 11-2.83-2.83l8.49-8.49"
+            fill="none"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="1.8"
+          />
+        </svg>
+      </button>
+      <input
         v-model="newMessage"
         @keyup.enter="sendMessage"
         :placeholder="$t('chatPage.typeMessage')"
         class="message-input"
-        :disabled="!isConnected"
+        :disabled="!isConnected || isUploading"
       />
       <button
         @click="sendMessage"
-        :disabled="!newMessage.trim() || !isConnected"
+        :disabled="(!newMessage.trim() && !selectedFile) || !isConnected || isUploading"
         class="send-btn"
       >
-        <span>{{ $t('buttons.send') }}</span>
+        <span>{{ isUploading ? $t('chatPage.uploading') : $t('buttons.send') }}</span>
       </button>
+      <div v-if="selectedFile || uploadError" class="attachment-preview">
+        <span v-if="selectedFile">{{ selectedFile.name }} · {{ formatFileSize(selectedFile.size) }}</span>
+        <span v-else class="upload-error">{{ uploadError }}</span>
+        <button v-if="selectedFile" type="button" @click="removeSelectedFile">
+          {{ $t('chatPage.removeAttachment') }}
+        </button>
+      </div>
     </div>
   </div>
 </template>
@@ -78,6 +128,10 @@ export default {
     
     const newMessage = ref('')
     const messagesContainer = ref(null)
+    const fileInput = ref(null)
+    const selectedFile = ref(null)
+    const uploadError = ref('')
+    const isUploading = ref(false)
 
     const messages = computed(() => chatStore.dmMessages)
     const sortedMessages = computed(() => {
@@ -88,11 +142,62 @@ export default {
     const isConnected = computed(() => chatStore.isConnected)
     const currentUserId = computed(() => authStore.user?.id)
 
-    const sendMessage = () => {
-      if (newMessage.value.trim()) {
-        chatStore.sendDM(props.userId, newMessage.value)
+    const sendMessage = async () => {
+      const text = newMessage.value.trim()
+      if (!text && !selectedFile.value) return
+
+      try {
+        isUploading.value = true
+        uploadError.value = ''
+        const attachment = selectedFile.value
+          ? await chatStore.uploadAttachment(selectedFile.value)
+          : null
+
+        chatStore.sendDM(props.userId, text, attachment)
         newMessage.value = ''
+        removeSelectedFile()
+      } catch (error) {
+        uploadError.value = error.message || 'Neizdevās augšupielādēt failu'
+      } finally {
+        isUploading.value = false
       }
+    }
+
+    const openFilePicker = () => {
+      fileInput.value?.click()
+    }
+
+    const handleFileChange = (event) => {
+      selectedFile.value = event.target.files?.[0] || null
+      uploadError.value = ''
+    }
+
+    const removeSelectedFile = () => {
+      selectedFile.value = null
+      if (fileInput.value) {
+        fileInput.value.value = ''
+      }
+    }
+
+    const getAttachment = (message) => {
+      const url = message.attachment_url || message.attachmentUrl
+      if (!url) return null
+
+      return {
+        url,
+        name: message.attachment_name || message.attachmentName || 'Pielikums',
+        type: message.attachment_type || message.attachmentType || '',
+        size: message.attachment_size || message.attachmentSize || 0
+      }
+    }
+
+    const isImageAttachment = (attachment) => attachment?.type?.startsWith('image/')
+
+    const formatFileSize = (size) => {
+      const bytes = Number(size) || 0
+      if (bytes < 1024) return `${bytes} B`
+      if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`
+      return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
     }
 
     const getInitials = (name) => {
@@ -111,18 +216,18 @@ export default {
       const diffInHours = (now - date) / (1000 * 60 * 60)
 
       if (diffInHours < 24) {
-        return date.toLocaleTimeString('en-US', {
+        return date.toLocaleTimeString('lv-LV', {
           hour: '2-digit',
           minute: '2-digit'
         })
       } else if (diffInHours < 168) { // 7 days
-        return date.toLocaleDateString('en-US', {
+        return date.toLocaleDateString('lv-LV', {
           weekday: 'short',
           hour: '2-digit',
           minute: '2-digit'
         })
       } else {
-        return date.toLocaleDateString('en-US', {
+        return date.toLocaleDateString('lv-LV', {
           month: 'short',
           day: 'numeric',
           hour: '2-digit',
@@ -144,11 +249,21 @@ export default {
     return {
       newMessage,
       messagesContainer,
+      fileInput,
+      selectedFile,
+      uploadError,
+      isUploading,
       messages,
       sortedMessages,
       isConnected,
       currentUserId,
       sendMessage,
+      openFilePicker,
+      handleFileChange,
+      removeSelectedFile,
+      getAttachment,
+      isImageAttachment,
+      formatFileSize,
       getInitials,
       formatTime
     }
@@ -287,16 +402,103 @@ export default {
   line-height: 1.5;
 }
 
+.message-text {
+  margin: 0;
+}
+
+.message-attachment {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+  padding: 0.65rem;
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.06);
+  color: inherit;
+  text-decoration: none;
+}
+
+.message-text + .message-attachment {
+  margin-top: 0.7rem;
+}
+
+.attachment-image {
+  width: min(220px, 100%);
+  max-height: 180px;
+  border-radius: 10px;
+  object-fit: cover;
+}
+
+.attachment-file-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: rgba(102, 126, 234, 0.14);
+}
+
+.attachment-meta {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.attachment-meta strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.attachment-meta small {
+  opacity: 0.72;
+}
+
 .message-input-container {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.75rem;
   padding: 1rem 1.5rem;
   background: var(--card-bg, #fff);
   border-top: 1px solid var(--border-color, #e2e8f0);
 }
 
+.file-input {
+  display: none;
+}
+
+.attach-btn {
+  width: 46px;
+  height: 46px;
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 50%;
+  background: var(--input-bg, #fff);
+  color: var(--text-color);
+  cursor: pointer;
+  transition: transform 0.2s, border-color 0.2s;
+}
+
+.attach-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  border-color: #667eea;
+}
+
+.attach-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.attach-icon {
+  width: 18px;
+  height: 18px;
+  display: block;
+  margin: 0 auto;
+}
+
 .message-input {
   flex: 1;
+  min-width: 160px;
   padding: 0.75rem 1rem;
   border: 2px solid var(--border-color, #e2e8f0);
   border-radius: 24px;
@@ -339,6 +541,31 @@ export default {
 
 .send-btn:active:not(:disabled) {
   transform: translateY(0);
+}
+
+.attachment-preview {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0.65rem 0.75rem;
+  border-radius: 12px;
+  background: rgba(102, 126, 234, 0.1);
+  color: var(--text-color);
+  font-size: 0.9rem;
+}
+
+.attachment-preview button {
+  border: none;
+  background: transparent;
+  color: #ef4444;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.upload-error {
+  color: #ef4444;
 }
 
 /* Scrollbar styling */
@@ -407,6 +634,21 @@ html.dark-mode .dm-container .message-input::placeholder {
 
 html.dark-mode .dm-container .message-input:disabled {
   background: #1a1a1a;
+}
+
+html.dark-mode .dm-container .attach-btn {
+  background: #2d2d2d;
+  border-color: #444;
+  color: #e0e0e0;
+}
+
+html.dark-mode .dm-container .message-attachment {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+html.dark-mode .dm-container .attachment-preview {
+  background: rgba(102, 126, 234, 0.16);
+  color: #e0e0e0;
 }
 
 html.dark-mode .dm-container .empty-state {
