@@ -9,7 +9,7 @@ function authenticateToken(req, res, next) {
   const authHeader = req.headers.authorization;
 
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ error: 'Autorizācijas marķieris nav norādīts' });
+    return res.status(401).json({ error: 'Autorizācijas tokens nav norādīts' });
   }
 
   const token = authHeader.split(' ')[1];
@@ -18,7 +18,7 @@ function authenticateToken(req, res, next) {
     req.user = jwt.verify(token, JWT_SECRET);
     next();
   } catch (error) {
-    return res.status(403).json({ error: 'Nederīgs autorizācijas marķieris' });
+    return res.status(403).json({ error: 'Nederīgs autorizācijas tokens' });
   }
 }
 

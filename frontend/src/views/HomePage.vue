@@ -1,5 +1,5 @@
 <template>
-  <div class="home-page" :class="localeKey === 'lv' ? 'locale-lv' : ''">
+  <div class="home-page" :class="[localeKey === 'lv' ? 'locale-lv' : '', isDarkMode ? 'dark' : '']">
     <div class="home-shell">
       <div class="home-wordmark-wrap">
         <span class="home-wordmark-line" aria-hidden="true"></span>
@@ -45,7 +45,7 @@
               <div class="preview-copy">
                 <span class="preview-label">{{ homeCopy.member.summaryTitle }}</span>
                 <strong>{{ hasTeam ? teamName : homeCopy.member.noTeamHeadline }}</strong>
-                <p>{{ hasTeam ? teamCodeText : homeCopy.member.noTeamText }}</p>
+                <p v-if="!hasTeam">{{ homeCopy.member.noTeamText }}</p>
               </div>
 
               <div class="member-overview">
@@ -167,14 +167,6 @@
       </template>
 
       <template v-else>
-        <section class="metric-strip">
-          <article v-for="card in memberSummaryCards" :key="card.label" class="metric-card">
-            <span class="metric-label">{{ card.label }}</span>
-            <strong class="metric-value">{{ card.value }}</strong>
-            <small class="metric-note">{{ card.note }}</small>
-          </article>
-        </section>
-
         <section class="content-section dashboard-grid">
           <article class="panel">
             <div class="section-head left compact">
@@ -223,11 +215,11 @@
                 <div class="activity-avatar">{{ getInitials(activity.user) }}</div>
                 <div class="activity-copy">
                   <strong>{{ activity.user }}</strong>
-                  <p>{{ activity.action }}</p>
+                  <p>{{ formatActivityAction(activity) }}</p>
                 </div>
                 <div class="activity-side">
                   <span class="activity-badge" :class="activity.type">{{ activityTypeLabel(activity.type) }}</span>
-                  <small>{{ activity.time }}</small>
+                  <small>{{ formatActivityTime(activity.time) }}</small>
                 </div>
               </article>
             </div>
@@ -240,12 +232,12 @@
       </template>
     </div>
 
-    <LoginModal v-if="showLoginModal" @close="showLoginModal = false" @login="handleLogin" />
+    <LoginModal v-if="showLoginModal" :is-dark-mode="isDarkMode" @close="showLoginModal = false" @login="handleLogin" />
   </div>
 </template>
 
 <script setup>
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import axios from 'axios'
@@ -259,7 +251,7 @@ const HOME_CONTENT = {
       title: 'Manage your team more easily',
       description: 'Everything you need for practices, games and communication.',
       actions: {
-        login: 'Log in',
+        login: 'Login',
         register: 'Create account',
         contact: 'Contact support'
       },
@@ -311,7 +303,7 @@ const HOME_CONTENT = {
       ctaText: 'New visitors should understand the product in seconds, then move directly to login or registration.'
     },
     member: {
-      welcome: 'Welcome back',
+      welcome: 'Welcome',
       withTeamDescription: 'See the next events, recent updates and the fastest links to the pages you need.',
       withoutTeamCoachDescription: 'Create a team to invite players and publish your first schedule.',
       withoutTeamPlayerDescription: 'Ask your coach for the team code and join the team.',
@@ -376,6 +368,18 @@ const HOME_CONTENT = {
         team: 'Roster',
         stats: 'Stats',
         other: 'Update'
+      },
+      activityActions: {
+        'created event': 'Created event',
+        'upcoming event': 'Upcoming event',
+        'joined team': 'Joined team'
+      },
+      activityTime: {
+        justNow: 'Just now',
+        hourAgo: '1 hour ago',
+        hoursAgo: '{count} hours ago',
+        dayAgo: '1 day ago',
+        daysAgo: '{count} days ago'
       }
     }
   },
@@ -384,7 +388,7 @@ const HOME_CONTENT = {
       title: 'Pārvaldi komandu vienkāršāk',
       description: 'Viss, kas vajadzīgs treniņiem, spēlēm un saziņai.',
       actions: {
-        login: 'Pieslēgties',
+        login: 'Pierakstīties',
         register: 'Izveidot kontu',
         contact: 'Sazināties ar atbalstu'
       },
@@ -436,7 +440,7 @@ const HOME_CONTENT = {
       ctaText: 'Jaunam apmeklētājam produkts jāsaprot dažu sekunžu laikā, pēc tam uzreiz jāpāriet uz pieslēgšanos vai reģistrāciju.'
     },
     member: {
-      welcome: 'Prieks redzēt atkal',
+      welcome: 'Laipni lūdzam',
       withTeamDescription: 'Tuvākie notikumi, pēdējās izmaiņas un ātrākie ceļi uz vajadzīgajām lapām.',
       withoutTeamCoachDescription: 'Izveidojiet komandu, lai uzaicinātu spēlētājus un publicētu pirmo grafiku.',
       withoutTeamPlayerDescription: 'Palūdziet trenerim komandas kodu un pievienojieties komandai.',
@@ -501,6 +505,18 @@ const HOME_CONTENT = {
         team: 'Sastāvs',
         stats: 'Statistika',
         other: 'Jaunums'
+      },
+      activityActions: {
+        'created event': 'Izveidots notikums',
+        'upcoming event': 'Gaidāms notikums',
+        'joined team': 'Pievienojās komandai'
+      },
+      activityTime: {
+        justNow: 'Tikko',
+        hourAgo: 'Pirms 1 stundas',
+        hoursAgo: 'Pirms {count} stundām',
+        dayAgo: 'Pirms 1 dienas',
+        daysAgo: 'Pirms {count} dienām'
       }
     }
   }
@@ -590,6 +606,20 @@ const upcomingEvents = ref([])
 const recentActivity = ref([])
 const loading = ref(false)
 const loadError = ref('')
+const isDarkMode = ref(false)
+let themeObserver = null
+
+const readDarkMode = () => {
+  if (typeof document === 'undefined') return false
+
+  return document.documentElement.classList.contains('dark-mode') ||
+    document.body.classList.contains('dark-mode') ||
+    localStorage.getItem('darkMode') === 'enabled'
+}
+
+const syncDarkMode = () => {
+  isDarkMode.value = readDarkMode()
+}
 
 const localeKey = computed(() => (locale.value === 'en' ? 'en' : 'lv'))
 const homeCopy = computed(() => HOME_CONTENT[localeKey.value])
@@ -604,10 +634,6 @@ const displayName = computed(() => {
 })
 const firstName = computed(() => authStore.user?.name || displayName.value.split(' ')[0] || homeCopy.value.member.roles.member)
 const teamName = computed(() => team.value?.name || homeCopy.value.member.badges.noTeam)
-const teamCodeText = computed(() => {
-  if (!team.value?.team_code) return homeCopy.value.member.summaryNotes.pending
-  return `${homeCopy.value.member.summaryLabels.code}: ${team.value.team_code}`
-})
 const teamOverviewLink = computed(() => (activeTeamId.value ? `/team/${activeTeamId.value}` : '/profile'))
 const teamPlayersLink = computed(() => (activeTeamId.value ? `/team/${activeTeamId.value}/players` : '/profile'))
 const teamScheduleLink = computed(() => (activeTeamId.value ? `/team-schedule/${activeTeamId.value}` : '/profile'))
@@ -652,34 +678,6 @@ const memberActionCards = computed(() => {
 })
 
 const heroActionCards = computed(() => memberActionCards.value.slice(0, 3))
-
-const memberSummaryCards = computed(() => {
-  const member = homeCopy.value.member
-  const noTeamValue = member.badges.noTeam
-
-  return [
-    {
-      label: member.summaryLabels.team,
-      value: hasTeam.value ? teamName.value : noTeamValue,
-      note: member.summaryNotes.team
-    },
-    {
-      label: member.summaryLabels.code,
-      value: hasTeam.value ? (team.value?.team_code || '—') : '—',
-      note: hasTeam.value ? member.summaryNotes.code : member.summaryNotes.pending
-    },
-    {
-      label: member.summaryLabels.upcoming,
-      value: String(summary.value.upcomingEvents),
-      note: member.summaryNotes.upcoming
-    },
-    {
-      label: member.summaryLabels.players,
-      value: String(summary.value.playerCount),
-      note: hasTeam.value ? member.summaryNotes.players : member.summaryNotes.pending
-    }
-  ]
-})
 
 const nextFocusCard = computed(() => {
   const focus = HOME_ACTIONS[localeKey.value].focus
@@ -741,6 +739,48 @@ const eventTypeLabel = (type) => {
 const activityTypeLabel = (type) => {
   const activityType = typeof type === 'string' ? type.toLowerCase() : 'other'
   return homeCopy.value.member.activityTypes[activityType] || homeCopy.value.member.activityTypes.other
+}
+
+const formatActivityAction = (activity) => {
+  const rawAction = String(activity?.action || '').trim()
+  if (!rawAction) return ''
+
+  const [rawType, ...descriptionParts] = rawAction.split(':')
+  if (!descriptionParts.length) return rawAction
+
+  const actionKey = rawType.trim().toLowerCase()
+  const actionLabel = homeCopy.value.member.activityActions[actionKey] || rawType.trim()
+  const description = descriptionParts.join(':').trim()
+
+  return description ? `${actionLabel}: ${description}` : actionLabel
+}
+
+const formatActivityTime = (value) => {
+  const rawTime = String(value || '').trim()
+  if (!rawTime) return ''
+
+  const timeCopy = homeCopy.value.member.activityTime
+  const normalizedTime = rawTime.toLowerCase()
+
+  if (normalizedTime === 'just now') return timeCopy.justNow
+
+  const hoursMatch = normalizedTime.match(/^(\d+)\s+hours?\s+ago$/)
+  if (hoursMatch) {
+    const count = Number(hoursMatch[1]) || 0
+    return count === 1
+      ? timeCopy.hourAgo
+      : timeCopy.hoursAgo.replace('{count}', String(count))
+  }
+
+  const daysMatch = normalizedTime.match(/^(\d+)\s+days?\s+ago$/)
+  if (daysMatch) {
+    const count = Number(daysMatch[1]) || 0
+    return count === 1
+      ? timeCopy.dayAgo
+      : timeCopy.daysAgo.replace('{count}', String(count))
+  }
+
+  return rawTime
 }
 
 const formatEventTime = (value) => {
@@ -877,6 +917,14 @@ watch(localeKey, () => {
 })
 
 onMounted(async () => {
+  syncDarkMode()
+
+  if (typeof MutationObserver !== 'undefined') {
+    themeObserver = new MutationObserver(syncDarkMode)
+    themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] })
+    themeObserver.observe(document.body, { attributes: true, attributeFilter: ['class'] })
+  }
+
   if (!isLoggedIn.value) {
     resetMemberData()
     return
@@ -884,6 +932,10 @@ onMounted(async () => {
 
   await authStore.fetchUser()
   await loadMemberHome()
+})
+
+onBeforeUnmount(() => {
+  themeObserver?.disconnect()
 })
 </script>
 
@@ -907,6 +959,19 @@ onMounted(async () => {
   --home-ambient-warm-soft: rgba(235, 139, 45, 0.03);
   --home-ambient-mint: rgba(16, 185, 129, 0.14);
   --home-ambient-mint-soft: rgba(16, 185, 129, 0.03);
+  --home-hero-guest-text: #0f172a;
+  --home-hero-guest-bg:
+    radial-gradient(circle at 96% 0%, rgba(235, 139, 45, 0.18), transparent 32%),
+    radial-gradient(circle at 2% 100%, rgba(11, 114, 231, 0.14), transparent 38%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.94) 0%, rgba(232, 243, 255, 0.92) 52%, rgba(244, 249, 255, 0.95) 100%);
+  --home-hero-guest-border: rgba(11, 114, 231, 0.12);
+  --home-hero-guest-shadow: 0 18px 44px rgba(15, 23, 42, 0.1);
+  --home-hero-guest-description: #536274;
+  --home-hero-guest-orb-a: rgba(11, 114, 231, 0.08);
+  --home-hero-guest-orb-b: rgba(16, 185, 129, 0.08);
+  --home-hero-guest-secondary-bg: rgba(255, 255, 255, 0.72);
+  --home-hero-guest-secondary-border: rgba(11, 114, 231, 0.16);
+  --home-hero-guest-secondary-text: #1f3b57;
   min-height: 100vh;
   padding: 24px 20px 56px;
   background:
@@ -1054,11 +1119,10 @@ onMounted(async () => {
 
 .home-hero.guest {
   grid-template-columns: minmax(0, 1fr);
-  background:
-    radial-gradient(circle at top right, rgba(235, 139, 45, 0.24), transparent 32%),
-    radial-gradient(circle at left bottom, rgba(11, 114, 231, 0.18), transparent 38%),
-    linear-gradient(135deg, #11213f 0%, #1a335c 48%, #12345f 100%);
-  color: white;
+  border-color: var(--home-hero-guest-border);
+  background: var(--home-hero-guest-bg);
+  box-shadow: var(--home-hero-guest-shadow);
+  color: var(--home-hero-guest-text);
 }
 
 .home-hero.guest::before {
@@ -1066,7 +1130,7 @@ onMounted(async () => {
   height: 280px;
   right: -110px;
   top: -90px;
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--home-hero-guest-orb-a);
   animation: hero-orb-float 16s ease-in-out infinite;
 }
 
@@ -1075,7 +1139,7 @@ onMounted(async () => {
   height: 220px;
   left: -70px;
   bottom: -90px;
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--home-hero-guest-orb-b);
   animation: hero-orb-float 20s ease-in-out infinite reverse;
 }
 
@@ -1125,7 +1189,6 @@ onMounted(async () => {
 
 .section-kicker,
 .preview-label,
-.metric-label,
 .step-index {
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -1180,6 +1243,7 @@ onMounted(async () => {
   max-width: 52ch;
   margin-left: auto;
   margin-right: auto;
+  color: var(--home-hero-guest-description);
 }
 
 .hero-actions,
@@ -1210,7 +1274,6 @@ onMounted(async () => {
 .hero-button:hover,
 .action-card:hover,
 .capability-card:hover,
-.metric-card:hover,
 .event-card:hover,
 .activity-card:hover {
   transform: translateY(-2px);
@@ -1226,6 +1289,12 @@ onMounted(async () => {
   background: rgba(255, 255, 255, 0.1);
   color: inherit;
   border-color: rgba(255, 255, 255, 0.16);
+}
+
+.home-hero.guest .hero-button.secondary {
+  background: var(--home-hero-guest-secondary-bg);
+  border-color: var(--home-hero-guest-secondary-border);
+  color: var(--home-hero-guest-secondary-text);
 }
 
 .home-hero.member .hero-button.secondary {
@@ -1386,8 +1455,7 @@ onMounted(async () => {
 
 .capability-grid,
 .support-points,
-.action-grid,
-.metric-strip {
+.action-grid {
   display: grid;
   gap: 18px;
 }
@@ -1401,13 +1469,7 @@ onMounted(async () => {
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
 }
 
-.metric-strip {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  margin-top: 24px;
-}
-
 .capability-card,
-.metric-card,
 .event-card,
 .activity-card,
 .action-card,
@@ -1494,7 +1556,6 @@ onMounted(async () => {
 
 .capability-card p,
 .action-card p,
-.metric-note,
 .event-copy p,
 .activity-copy p,
 .empty-card {
@@ -1533,21 +1594,6 @@ onMounted(async () => {
   align-items: center;
   justify-content: space-between;
   gap: 24px;
-}
-
-.metric-card {
-  background: rgba(255, 255, 255, 0.8);
-}
-
-.metric-value {
-  display: block;
-  margin-top: 10px;
-  font-size: 1.8rem;
-  line-height: 1.1;
-}
-
-.metric-note {
-  display: block;
 }
 
 .panel {
@@ -1747,8 +1793,7 @@ onMounted(async () => {
 }
 
 .home-hero,
-.content-section,
-.metric-strip {
+.content-section {
   animation: rise-in 0.45s ease both;
 }
 
@@ -1757,10 +1802,6 @@ onMounted(async () => {
   .content-section.two-column,
   .dashboard-grid {
     grid-template-columns: 1fr;
-  }
-
-  .metric-strip {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
 }
@@ -1836,7 +1877,6 @@ onMounted(async () => {
     width: 100%;
   }
 
-  .metric-strip,
   .capability-grid,
   .action-grid {
     grid-template-columns: 1fr;
@@ -1912,11 +1952,23 @@ body.dark-mode .home-page {
   --home-ambient-warm-soft: rgba(246, 173, 85, 0.03);
   --home-ambient-mint: rgba(52, 211, 153, 0.16);
   --home-ambient-mint-soft: rgba(52, 211, 153, 0.03);
+  --home-hero-guest-text: #ffffff;
+  --home-hero-guest-bg:
+    radial-gradient(circle at 92% -6%, rgba(96, 165, 250, 0.22), transparent 34%),
+    radial-gradient(circle at 8% 104%, rgba(52, 211, 153, 0.16), transparent 38%),
+    linear-gradient(135deg, #09111f 0%, #0d1d36 54%, #13243f 100%);
+  --home-hero-guest-border: rgba(125, 169, 224, 0.24);
+  --home-hero-guest-shadow: 0 30px 80px rgba(0, 0, 0, 0.48), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  --home-hero-guest-description: rgba(226, 232, 240, 0.84);
+  --home-hero-guest-orb-a: rgba(96, 165, 250, 0.1);
+  --home-hero-guest-orb-b: rgba(247, 186, 104, 0.08);
+  --home-hero-guest-secondary-bg: rgba(148, 163, 184, 0.13);
+  --home-hero-guest-secondary-border: rgba(203, 213, 225, 0.2);
+  --home-hero-guest-secondary-text: #f8fbff;
 }
 
 html.dark-mode .home-page .content-section,
 html.dark-mode .home-page .panel,
-html.dark-mode .home-page .metric-card,
 html.dark-mode .home-page .capability-card,
 html.dark-mode .home-page .event-card,
 html.dark-mode .home-page .activity-card,
@@ -1926,7 +1978,6 @@ html.dark-mode .home-page .support-point,
 html.dark-mode .home-page .empty-card,
 body.dark-mode .home-page .content-section,
 body.dark-mode .home-page .panel,
-body.dark-mode .home-page .metric-card,
 body.dark-mode .home-page .capability-card,
 body.dark-mode .home-page .event-card,
 body.dark-mode .home-page .activity-card,
@@ -2006,10 +2057,9 @@ body.dark-mode .home-page .home-hero.member::after {
 
 html.dark-mode .home-page .home-hero.guest,
 body.dark-mode .home-page .home-hero.guest {
-  background:
-    radial-gradient(circle at top right, rgba(246, 173, 85, 0.18), transparent 30%),
-    radial-gradient(circle at left bottom, rgba(96, 165, 250, 0.18), transparent 40%),
-    linear-gradient(135deg, #0f1d37 0%, #132646 48%, #173057 100%);
+  border-color: var(--home-hero-guest-border);
+  background: var(--home-hero-guest-bg);
+  box-shadow: var(--home-hero-guest-shadow);
 }
 
 html.dark-mode .home-page .hero-button.secondary,
@@ -2018,6 +2068,13 @@ body.dark-mode .home-page .hero-button.secondary,
 body.dark-mode .home-page .hero-button.ghost {
   background: rgba(255, 255, 255, 0.03);
   border-color: var(--home-border);
+}
+
+html.dark-mode .home-page .home-hero.guest .hero-button.secondary,
+body.dark-mode .home-page .home-hero.guest .hero-button.secondary {
+  background: var(--home-hero-guest-secondary-bg);
+  border-color: var(--home-hero-guest-secondary-border);
+  color: var(--home-hero-guest-secondary-text);
 }
 
 html.dark-mode .home-page .member-overview-row,
@@ -2040,5 +2097,126 @@ body.dark-mode .home-page .event-type.game {
 html.dark-mode .home-page .cta-banner,
 body.dark-mode .home-page .cta-banner {
   background: linear-gradient(135deg, rgba(96, 165, 250, 0.12), rgba(246, 173, 85, 0.08));
+}
+
+.home-page.dark {
+  --home-bg: linear-gradient(180deg, #070d1a 0%, #0b1222 48%, #111827 100%);
+  --home-surface: rgba(15, 23, 42, 0.88);
+  --home-panel: rgba(15, 23, 42, 0.9);
+  --home-border: rgba(148, 163, 184, 0.2);
+  --home-text: #eef4ff;
+  --home-muted: #a9b8cf;
+  --home-accent: #6fb2ff;
+  --home-accent-strong: #4b8fff;
+  --home-accent-soft: rgba(111, 178, 255, 0.16);
+  --home-warm: #f7ba68;
+  --home-warm-soft: rgba(247, 186, 104, 0.14);
+  --home-shadow: 0 28px 70px rgba(0, 0, 0, 0.42);
+  --home-ambient-blue: rgba(74, 144, 226, 0.16);
+  --home-ambient-blue-soft: rgba(74, 144, 226, 0.035);
+  --home-ambient-warm: rgba(247, 186, 104, 0.1);
+  --home-ambient-warm-soft: rgba(247, 186, 104, 0.025);
+  --home-ambient-mint: rgba(52, 211, 153, 0.12);
+  --home-ambient-mint-soft: rgba(52, 211, 153, 0.025);
+  --home-hero-guest-text: #ffffff;
+  --home-hero-guest-bg:
+    radial-gradient(circle at 92% -6%, rgba(111, 178, 255, 0.23), transparent 34%),
+    radial-gradient(circle at 8% 104%, rgba(93, 224, 175, 0.15), transparent 38%),
+    linear-gradient(135deg, #08111f 0%, #0d1d36 54%, #13243f 100%);
+  --home-hero-guest-border: rgba(148, 163, 184, 0.24);
+  --home-hero-guest-shadow: 0 30px 80px rgba(0, 0, 0, 0.48), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  --home-hero-guest-description: rgba(226, 232, 240, 0.86);
+  --home-hero-guest-orb-a: rgba(111, 178, 255, 0.1);
+  --home-hero-guest-orb-b: rgba(247, 186, 104, 0.08);
+  --home-hero-guest-secondary-bg: rgba(148, 163, 184, 0.13);
+  --home-hero-guest-secondary-border: rgba(203, 213, 225, 0.2);
+  --home-hero-guest-secondary-text: #f8fbff;
+  background:
+    radial-gradient(circle at 16% 12%, rgba(74, 144, 226, 0.18) 0%, transparent 24%),
+    radial-gradient(circle at 84% 14%, rgba(247, 186, 104, 0.12) 0%, transparent 22%),
+    radial-gradient(circle at 50% 82%, rgba(52, 211, 153, 0.1) 0%, transparent 26%),
+    var(--home-bg);
+}
+
+.home-page.dark .content-section,
+.home-page.dark .panel,
+.home-page.dark .capability-card,
+.home-page.dark .event-card,
+.home-page.dark .activity-card,
+.home-page.dark .action-card,
+.home-page.dark .support-box,
+.home-page.dark .support-point,
+.home-page.dark .empty-card {
+  background-color: var(--home-panel);
+}
+
+.home-page.dark .home-wordmark-line {
+  background: linear-gradient(90deg, transparent, rgba(148, 163, 184, 0.42), transparent);
+}
+
+.home-page.dark .home-wordmark span {
+  background: linear-gradient(120deg, #7ab7ff 0%, #f7c978 46%, #5de0af 100%);
+  background-size: 200% 200%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  text-shadow: 0 0 30px rgba(111, 178, 255, 0.22);
+}
+
+.home-page.dark .home-shell::before {
+  background: radial-gradient(ellipse at center, rgba(52, 211, 153, 0.12) 0%, transparent 72%);
+  opacity: 0.62;
+}
+
+.home-page.dark .home-shell::after {
+  background: radial-gradient(ellipse at center, rgba(111, 178, 255, 0.14) 0%, transparent 70%);
+  opacity: 0.58;
+}
+
+.home-page.dark .home-hero.guest {
+  border-color: var(--home-hero-guest-border);
+  box-shadow: var(--home-hero-guest-shadow);
+  background: var(--home-hero-guest-bg);
+}
+
+.home-page.dark .home-hero.guest::before {
+  background: var(--home-hero-guest-orb-a);
+  box-shadow: 0 0 90px rgba(111, 178, 255, 0.12);
+}
+
+.home-page.dark .home-hero.guest::after {
+  background: var(--home-hero-guest-orb-b);
+  box-shadow: 0 0 80px rgba(111, 178, 255, 0.12);
+}
+
+.home-page.dark .home-hero.member {
+  background:
+    radial-gradient(circle at top right, rgba(111, 178, 255, 0.14), transparent 34%),
+    radial-gradient(circle at left bottom, rgba(247, 186, 104, 0.1), transparent 38%),
+    linear-gradient(180deg, rgba(15, 23, 42, 0.96), rgba(17, 24, 39, 0.9));
+}
+
+.home-page.dark .hero-button.secondary,
+.home-page.dark .hero-button.ghost {
+  background: rgba(15, 23, 42, 0.46);
+  border-color: rgba(148, 163, 184, 0.24);
+  color: #eef4ff;
+}
+
+.home-page.dark .home-hero.guest .hero-button.secondary {
+  background: var(--home-hero-guest-secondary-bg);
+  border-color: var(--home-hero-guest-secondary-border);
+  color: var(--home-hero-guest-secondary-text);
+}
+
+.home-page.dark .member-overview-row {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.home-page.dark .member-focus {
+  border-top-color: var(--home-border);
+}
+
+.home-page.dark .cta-banner {
+  background: linear-gradient(135deg, rgba(111, 178, 255, 0.13), rgba(247, 186, 104, 0.08));
 }
 </style>

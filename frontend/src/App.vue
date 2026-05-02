@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, computed, watch } from 'vue'
+import { ref, onMounted, onBeforeUnmount, computed, watch } from 'vue'
 import { useAuthStore } from './stores/auth'
 import LoginModal from './components/LoginModal.vue'
 // import PWAInstallPrompt from './components/PWAInstallPrompt.vue' // DISABLED for now
@@ -82,12 +82,32 @@ const closeLoginModal = () => showLoginModal.value = false
 const isGuestOnlyRoute = () => route.matched.some(record => record.meta.guestOnly)
 
 const showJoinTeamModal = ref(false)
+const joinTeamSubmitting = ref(false)
+const joinTeamError = ref('')
+const joinTeamSuccess = ref('')
+let joinTeamCloseTimer = null
+
+const clearJoinTeamCloseTimer = () => {
+  if (joinTeamCloseTimer) {
+    window.clearTimeout(joinTeamCloseTimer)
+    joinTeamCloseTimer = null
+  }
+}
+
+const resetJoinTeamFeedback = () => {
+  clearJoinTeamCloseTimer()
+  joinTeamSubmitting.value = false
+  joinTeamError.value = ''
+  joinTeamSuccess.value = ''
+}
 
 const openJoinTeamModal = () => {
+  resetJoinTeamFeedback()
   showJoinTeamModal.value = true
 }
 
 const closeJoinTeamModal = () => {
+  resetJoinTeamFeedback()
   showJoinTeamModal.value = false
 }
 
@@ -108,6 +128,15 @@ async function handleLogin(email, password) {
 }
 
 const handleJoin = async (teamCode) => {
+  if (joinTeamSubmitting.value) {
+    return
+  }
+
+  clearJoinTeamCloseTimer()
+  joinTeamSubmitting.value = true
+  joinTeamError.value = ''
+  joinTeamSuccess.value = ''
+
   try {
     const response = await fetch('/api/auth/join-team', {
       method: 'POST',
@@ -118,21 +147,25 @@ const handleJoin = async (teamCode) => {
       body: JSON.stringify({ teamCode })
     })
 
-    const result = await response.json()
+    const result = await response.json().catch(() => ({}))
 
     if (response.ok) {
-      alert(result.message || t('messages.teamJoined'))
+      joinTeamSuccess.value = result.message || t('messages.teamJoined')
       if (result.team) {
         await fetchMyTeam()
         await auth.fetchUser()
+        joinTeamCloseTimer = window.setTimeout(() => {
+          closeJoinTeamModal()
+        }, 900)
       }
-      closeJoinTeamModal()
     } else {
-      alert(result.message || t('messages.failedToJoinTeam'))
+      joinTeamError.value = result.message || result.error || t('messages.failedToJoinTeam')
     }
   } catch (err) {
     console.error(err)
-    alert(t('messages.somethingWentWrong'))
+    joinTeamError.value = t('messages.somethingWentWrong')
+  } finally {
+    joinTeamSubmitting.value = false
   }
 }
 
@@ -207,6 +240,10 @@ watch(() => route.path, async (newPath) => {
     await fetchMyTeam()
   }
 })
+
+onBeforeUnmount(() => {
+  clearJoinTeamCloseTimer()
+})
 </script>
 
 <template>
@@ -244,12 +281,17 @@ watch(() => route.path, async (newPath) => {
 
     <LoginModal
       v-if="showLoginModal"
+      :is-dark-mode="isDarkMode"
       @close="closeLoginModal"
       @login="handleLogin"
     />
     <JoinTeamModal
       v-if="showJoinTeamModal"
       :is-coach="hasCoachRole(auth.user)"
+      :is-dark-mode="isDarkMode"
+      :is-submitting="joinTeamSubmitting"
+      :server-error="joinTeamError"
+      :success-message="joinTeamSuccess"
       @close="closeJoinTeamModal"
       @join="handleJoin"
     />

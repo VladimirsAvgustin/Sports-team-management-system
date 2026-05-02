@@ -13,15 +13,15 @@
             >
               <img v-if="team.logo" :src="team.logo" :alt="team.name" class="team-logo-image" />
               <div v-else class="logo-fallback">{{ teamInitials }}</div>
-              <span v-if="isCoach" class="logo-edit-badge">Atjaunināt logotipu</span>
+              <span v-if="isCoach" class="logo-edit-badge">{{ copy.updateLogo }}</span>
             </button>
 
             <div v-if="isCoach" class="logo-actions">
               <button type="button" class="hero-button secondary" @click="triggerLogoUpload">
-                Mainīt logotipu
+                {{ copy.changeLogo }}
               </button>
               <button v-if="team.logo" type="button" class="hero-button danger" @click="deleteLogo">
-                Noņemt logotipu
+                {{ copy.removeLogo }}
               </button>
             </div>
 
@@ -35,21 +35,18 @@
           </div>
 
           <div class="hero-copy">
-            <p class="eyebrow">Komandas panelis</p>
-            <h1>{{ team.name || 'Komandas vide' }}</h1>
-            <p class="hero-description">
-              Komandas centrs ar jaunāko sniegumu, sastāvu un tuvākajiem notikumiem.
-            </p>
+            <p class="eyebrow">{{ copy.eyebrow }}</p>
+            <h1>{{ team.name || copy.teamFallback }}</h1>
 
             <div class="hero-pills">
-              <span class="hero-pill code">Kods: {{ team.team_code || 'nav norādīts' }}</span>
-              <span class="hero-pill">{{ summary.totalPlayers }} spēlētāji</span>
-              <span class="hero-pill">{{ upcomingEvents.length }} gaidāmie notikumi</span>
+              <span class="hero-pill code">{{ copy.code }}: {{ team.team_code || copy.notSpecified }}</span>
+              <span class="hero-pill">{{ playerCountText(summary.totalPlayers) }}</span>
+              <span class="hero-pill">{{ upcomingCountText(upcomingEvents.length) }}</span>
               <span v-if="isCoach" class="hero-pill accent">
-                {{ isMainCoach ? 'Galvenā trenera piekļuve' : 'Trenera asistenta piekļuve' }}
+                {{ isMainCoach ? copy.mainCoachAccess : copy.assistantCoachAccess }}
               </span>
               <span v-if="isMainCoach && coachRequests.length" class="hero-pill attention">
-                {{ coachRequests.length }} trenera pieprasījumi
+                {{ coachRequestCountText(coachRequests.length) }}
               </span>
             </div>
 
@@ -68,14 +65,14 @@
 
           <div class="hero-highlight">
             <div class="highlight-card">
-              <span class="highlight-label">Nākamais notikums</span>
+              <span class="highlight-label">{{ copy.nextEvent }}</span>
               <strong>{{ nextEventTitle }}</strong>
               <p>{{ nextEventMeta }}</p>
             </div>
             <div class="highlight-card soft">
-              <span class="highlight-label">Komandas ritms</span>
-              <strong>{{ readinessLabel }}</strong>
-              <p>{{ readinessText }}</p>
+              <span class="highlight-label">{{ copy.attendanceOverview }}</span>
+              <strong>{{ attendanceOverviewValue }}</strong>
+              <p>{{ attendanceOverviewText }}</p>
             </div>
           </div>
         </div>
@@ -89,54 +86,14 @@
         </article>
       </section>
 
-      <section v-if="isMainCoach" class="panel coach-requests-panel">
-        <div class="panel-head">
-          <div>
-            <p class="panel-kicker">Trenera iesūtne</p>
-            <h2>Trenera asistentu pieprasījumi</h2>
-          </div>
-          <span class="panel-chip">{{ coachRequests.length }} gaida</span>
-        </div>
-
-        <div v-if="coachRequestsLoading" class="empty-card">
-          Ielādē trenera asistentu pieprasījumus...
-        </div>
-        <div v-else-if="coachRequests.length" class="coach-request-list">
-          <article v-for="request in coachRequests" :key="request.id" class="coach-request-card">
-            <div class="coach-request-main">
-              <div class="coach-request-avatar">
-                <img v-if="request.avatar" :src="request.avatar" :alt="coachRequestName(request)" class="coach-request-image">
-                <template v-else>{{ getInitials(coachRequestName(request)) }}</template>
-              </div>
-              <div class="coach-request-copy">
-                <strong>{{ coachRequestName(request) }}</strong>
-                <p>{{ request.email }}</p>
-                <small>Pieprasīts {{ formatRequestDate(request.created_at) }}</small>
-              </div>
-            </div>
-            <div class="coach-request-actions">
-              <button type="button" class="hero-button secondary" @click="reviewCoachRequest(request, 'reject')">
-                Noraidīt
-              </button>
-              <button type="button" class="hero-button primary" @click="reviewCoachRequest(request, 'approve')">
-                Apstiprināt
-              </button>
-            </div>
-          </article>
-        </div>
-        <div v-else class="empty-card">
-          Jauni trenera asistenta pieprasījumi parādīsies tikai galvenajam trenerim.
-        </div>
-      </section>
-
       <section class="section-grid">
-        <article class="panel panel-large">
+        <article class="panel">
           <div class="panel-head">
             <div>
-              <p class="panel-kicker">Sniegums</p>
-              <h2>Līderu saraksts</h2>
+              <p class="panel-kicker">{{ copy.performance }}</p>
+              <h2>{{ copy.leaderboard }}</h2>
             </div>
-            <span class="panel-chip">{{ rankedPlayers.length }} spēlētāji uzskaitē</span>
+            <span class="panel-chip">{{ trackedPlayerCountText(rankedPlayers.length) }}</span>
           </div>
 
           <div v-if="topPlayers.length" class="leaderboard">
@@ -154,24 +111,24 @@
                 </div>
               </div>
               <div class="leader-stats">
-                <span>{{ player.stats.goals }} vārti</span>
-                <span>{{ player.stats.assists }} piesp.</span>
-                <span>{{ player.stats.matches }} spēles</span>
+                <span>{{ player.stats.goals }} {{ copy.goalsLower }}</span>
+                <span>{{ player.stats.assists }} {{ copy.assistsShort }}</span>
+                <span>{{ player.stats.matches }} {{ copy.matchesLower }}</span>
               </div>
             </div>
           </div>
           <div v-else class="empty-card">
-            Spēlētāju statistikas vēl nav. Sāciet uzskaitīt spēles, lai aizpildītu sarakstu.
+            {{ copy.leaderboardEmpty }}
           </div>
         </article>
 
         <article class="panel">
           <div class="panel-head">
             <div>
-              <p class="panel-kicker">Grafiks</p>
-              <h2>Tuvākie notikumi</h2>
+              <p class="panel-kicker">{{ copy.schedule }}</p>
+              <h2>{{ copy.upcomingEventsTitle }}</h2>
             </div>
-            <router-link :to="`/team-schedule/${teamId}`" class="panel-link">Atvērt grafiku</router-link>
+            <router-link :to="`/team-schedule/${teamId}`" class="panel-link">{{ copy.openSchedule }}</router-link>
           </div>
 
           <div v-if="upcomingEvents.length" class="event-list">
@@ -182,7 +139,7 @@
               </div>
               <div class="event-copy">
                 <h3>{{ event.event_name }}</h3>
-                <p>{{ event.location || 'Vieta tiks precizēta' }}</p>
+                <p>{{ event.location || copy.locationFallback }}</p>
               </div>
               <div class="event-meta">
                 <span class="event-badge" :class="event.event_type || 'other'">{{ eventTypeLabel(event.event_type) }}</span>
@@ -191,60 +148,49 @@
             </div>
           </div>
           <div v-else class="empty-card">
-            Tuvāko notikumu vēl nav. Grafika lapa ir gatava nākamajam treniņam vai spēlei.
+            {{ copy.scheduleEmpty }}
           </div>
         </article>
       </section>
 
-      <section class="section-grid">
-        <article class="panel">
-          <div class="panel-head">
-            <div>
-              <p class="panel-kicker">Ieskati</p>
-              <h2>Komandas statistika</h2>
-            </div>
+      <section v-if="isMainCoach" class="panel coach-requests-panel">
+        <div class="panel-head">
+          <div>
+            <p class="panel-kicker">{{ copy.coachInbox }}</p>
+            <h2>{{ copy.assistantRequests }}</h2>
           </div>
+          <span class="panel-chip">{{ copy.waitingCount(coachRequests.length) }}</span>
+        </div>
 
-          <div class="insight-list">
-            <div v-for="item in insightCards" :key="item.label" class="insight-item">
-              <span class="insight-label">{{ item.label }}</span>
-              <strong>{{ item.value }}</strong>
-              <small>{{ item.note }}</small>
-            </div>
-          </div>
-        </article>
-
-        <article class="panel">
-          <div class="panel-head">
-            <div>
-              <p class="panel-kicker">Sastāvs</p>
-              <h2>Komandas īss pārskats</h2>
-            </div>
-            <router-link :to="`/team/${teamId}/players`" class="panel-link">Pārvaldīt spēlētājus</router-link>
-          </div>
-
-          <div v-if="rosterPreview.length" class="roster-list">
-            <div v-for="player in rosterPreview" :key="player.id" class="roster-item">
-              <div class="roster-avatar">{{ getInitials(fullName(player)) }}</div>
-              <div class="roster-copy">
-                <h3>{{ fullName(player) }}</h3>
+        <div v-if="coachRequestsLoading" class="empty-card">
+          {{ copy.loadingRequests }}
+        </div>
+        <div v-else-if="coachRequests.length" class="coach-request-list">
+          <article v-for="request in coachRequests" :key="request.id" class="coach-request-card">
+            <div class="coach-request-main">
+              <div class="coach-request-avatar">
+                <img v-if="request.avatar" :src="request.avatar" :alt="coachRequestName(request)" class="coach-request-image">
+                <template v-else>{{ getInitials(coachRequestName(request)) }}</template>
               </div>
-              <div class="roster-bars">
-                <div class="bar-row">
-                  <span>Vārti</span>
-                  <div class="bar-track"><div class="bar-fill goals" :style="{ width: statWidth(player.stats.goals, maxGoals) }"></div></div>
-                </div>
-                <div class="bar-row">
-                  <span>Piespēles</span>
-                  <div class="bar-track"><div class="bar-fill assists" :style="{ width: statWidth(player.stats.assists, maxAssists) }"></div></div>
-                </div>
+              <div class="coach-request-copy">
+                <strong>{{ coachRequestName(request) }}</strong>
+                <p>{{ request.email }}</p>
+                <small>{{ copy.requested }} {{ formatRequestDate(request.created_at) }}</small>
               </div>
             </div>
-          </div>
-          <div v-else class="empty-card">
-            Pašlaik sastāvs ir tukšs. Kad spēlētāji pievienosies, šeit būs komandas pārskats.
-          </div>
-        </article>
+            <div class="coach-request-actions">
+              <button type="button" class="hero-button secondary" @click="reviewCoachRequest(request, 'reject')">
+                {{ copy.reject }}
+              </button>
+              <button type="button" class="hero-button primary" @click="reviewCoachRequest(request, 'approve')">
+                {{ copy.approve }}
+              </button>
+            </div>
+          </article>
+        </div>
+        <div v-else class="empty-card">
+          {{ copy.noRequests }}
+        </div>
       </section>
 
       <div v-if="toastMessage" class="toast" :class="toastType">{{ toastMessage }}</div>
@@ -254,6 +200,7 @@
 
 <script setup>
 import { computed, onMounted, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { canManageTeam, isTeamOwner } from '../utils/teamAccess'
@@ -268,6 +215,178 @@ import {
   uploadTeamLogo
 } from '../services/teamApi'
 
+const DASHBOARD_COPY = {
+  en: {
+    updateLogo: 'Update logo',
+    changeLogo: 'Change logo',
+    removeLogo: 'Remove logo',
+    eyebrow: 'Team dashboard',
+    teamFallback: 'Team workspace',
+    code: 'Code',
+    notSpecified: 'not specified',
+    mainCoachAccess: 'Head coach access',
+    assistantCoachAccess: 'Assistant coach access',
+    nextEvent: 'Next event',
+    attendanceOverview: 'Practice attendance',
+    coachInbox: 'Coach inbox',
+    assistantRequests: 'Assistant coach requests',
+    requested: 'Requested',
+    reject: 'Reject',
+    approve: 'Approve',
+    loadingRequests: 'Loading assistant coach requests...',
+    noRequests: 'New assistant coach requests will appear only for the head coach.',
+    performance: 'Performance',
+    leaderboard: 'Leaderboard',
+    leaderboardEmpty: 'Player statistics are not available yet. Start tracking matches to fill the leaderboard.',
+    schedule: 'Schedule',
+    upcomingEventsTitle: 'Upcoming events',
+    openSchedule: 'Open schedule',
+    locationFallback: 'Location will be confirmed',
+    scheduleEmpty: 'No upcoming events yet. The schedule page is ready for the next practice or match.',
+    goals: 'Goals',
+    assists: 'Assists',
+    matches: 'Matches',
+    attendance: 'Attendance',
+    goalsLower: 'goals',
+    assistsShort: 'ast.',
+    matchesLower: 'matches',
+    perPlayer: 'per player',
+    practiceAvailability: 'Practice availability',
+    noEventTitle: 'No event planned',
+    noEventMeta: 'The calendar is empty. Add the next session on the schedule page.',
+    players: (count) => `${count} ${count === 1 ? 'player' : 'players'}`,
+    upcomingCount: (count) => `${count} ${count === 1 ? 'upcoming event' : 'upcoming events'}`,
+    upcomingGames: (count) => `${count} ${count === 1 ? 'upcoming match' : 'upcoming matches'}`,
+    coachRequests: (count) => `${count} ${count === 1 ? 'coach request' : 'coach requests'}`,
+    waitingCount: (count) => `${count} ${count === 1 ? 'waiting' : 'waiting'}`,
+    trackedPlayers: (count) => `${count} ${count === 1 ? 'player tracked' : 'players tracked'}`,
+    eventCountText: (count) => `${count} ${count === 1 ? 'upcoming event' : 'upcoming events'}`,
+    scheduledEvents: (count) => count === 1 ? '1 upcoming event planned' : `${count} upcoming events planned`,
+    attendanceOverviewText: (eventText) => `${eventText}.`,
+    quickLinks: {
+      players: {
+        label: 'Players',
+        description: 'Open the roster and player statistics'
+      },
+      schedule: {
+        label: 'Schedule',
+        description: 'Practices, matches and team meetings'
+      },
+      statistics: {
+        label: 'Statistics',
+        description: 'Coach analytics and breakdowns'
+      }
+    },
+    coachRequestFallback: 'Coach request',
+    loadRequestsError: 'Could not load assistant coach requests.',
+    coachRequestsWaitingToast: (count) => `${count} assistant coach ${count === 1 ? 'request is' : 'requests are'} waiting for review.`,
+    dashboardLoadError: 'Could not load the team dashboard.',
+    imageTooLarge: 'Image must be smaller than 2 MB.',
+    logoUpdated: 'Team logo updated.',
+    logoUpdateError: 'Could not update the team logo.',
+    removeLogoConfirm: (name) => `Remove the logo for "${name}"?`,
+    logoRemoved: 'Team logo removed.',
+    logoRemoveError: 'Could not remove the team logo.',
+    reviewConfirm: (action, name) => `${action === 'approve' ? 'Approve' : 'Reject'} request from ${name}?`,
+    coachApproved: (name) => `${name} is now an assistant coach.`,
+    coachRejected: (name) => `${name} request rejected.`,
+    coachReviewError: 'Could not process this request.',
+    timePrefix: 'at',
+    dateLocale: 'en-US',
+    eventTypes: {
+      practice: 'Practice',
+      game: 'Match',
+      meeting: 'Meeting',
+      other: 'Event'
+    }
+  },
+  lv: {
+    updateLogo: 'Atjaunināt logotipu',
+    changeLogo: 'Mainīt logotipu',
+    removeLogo: 'Noņemt logotipu',
+    eyebrow: 'Komandas panelis',
+    teamFallback: 'Komandas vide',
+    code: 'Kods',
+    notSpecified: 'nav norādīts',
+    mainCoachAccess: 'Galvenā trenera piekļuve',
+    assistantCoachAccess: 'Trenera asistenta piekļuve',
+    nextEvent: 'Nākamais notikums',
+    attendanceOverview: 'Treni\u0146u apmekl\u0113jums',
+    coachInbox: 'Trenera iesūtne',
+    assistantRequests: 'Trenera asistentu pieprasījumi',
+    requested: 'Pieprasīts',
+    reject: 'Noraidīt',
+    approve: 'Apstiprināt',
+    loadingRequests: 'Ielādē trenera asistentu pieprasījumus...',
+    noRequests: 'Jauni trenera asistenta pieprasījumi parādīsies tikai galvenajam trenerim.',
+    performance: 'Sniegums',
+    leaderboard: 'Līderu saraksts',
+    leaderboardEmpty: 'Spēlētāju statistikas vēl nav. Sāciet uzskaitīt spēles, lai aizpildītu sarakstu.',
+    schedule: 'Grafiks',
+    upcomingEventsTitle: 'Tuvākie notikumi',
+    openSchedule: 'Atvērt grafiku',
+    locationFallback: 'Vieta tiks precizēta',
+    scheduleEmpty: 'Tuvāko notikumu vēl nav. Grafika lapa ir gatava nākamajam treniņam vai spēlei.',
+    goals: 'Vārti',
+    assists: 'Piespēles',
+    matches: 'Spēles',
+    attendance: 'Apmeklējums',
+    goalsLower: 'vārti',
+    assistsShort: 'piesp.',
+    matchesLower: 'spēles',
+    perPlayer: 'uz spēlētāju',
+    practiceAvailability: 'Treniņu pieejamība',
+    noEventTitle: 'Notikums nav ieplānots',
+    noEventMeta: 'Kalendārs ir tukšs. Pievienojiet nākamo nodarbību grafika lapā.',
+    players: (count) => `${count} spēlētāji`,
+    upcomingCount: (count) => `${count} gaidāmie notikumi`,
+    upcomingGames: (count) => count === 1 ? '1 gaidāma spēle' : `${count} gaidāmas spēles`,
+    coachRequests: (count) => `${count} trenera pieprasījumi`,
+    waitingCount: (count) => `${count} gaida`,
+    trackedPlayers: (count) => `${count} spēlētāji uzskaitē`,
+    eventCountText: (count) => count === 1 ? '1 gaidāms notikums' : `${count} gaidāmie notikumi`,
+    scheduledEvents: (count) => count === 1 ? 'Iepl\u0101nots 1 gaid\u0101ms notikums' : `Iepl\u0101noti ${count} gaid\u0101mi notikumi`,
+    attendanceOverviewText: (eventText) => `${eventText}.`,
+    quickLinks: {
+      players: {
+        label: 'Spēlētāji',
+        description: 'Atvērt sastāvu un spēlētāju statistiku'
+      },
+      schedule: {
+        label: 'Grafiks',
+        description: 'Treniņi, spēles un sapulces'
+      },
+      statistics: {
+        label: 'Statistika',
+        description: 'Trenera analītika un sadalījumi'
+      }
+    },
+    coachRequestFallback: 'Trenera pieprasījums',
+    loadRequestsError: 'Neizdevās ielādēt trenera asistenta pieprasījumus.',
+    coachRequestsWaitingToast: (count) => `${count} trenera asistenta pieprasījumi gaida pārskatīšanu.`,
+    dashboardLoadError: 'Neizdevās ielādēt komandas paneli.',
+    imageTooLarge: 'Attēlam jābūt mazākam par 2 MB.',
+    logoUpdated: 'Komandas logotips atjaunināts.',
+    logoUpdateError: 'Neizdevās atjaunināt komandas logotipu.',
+    removeLogoConfirm: (name) => `Noņemt komandas "${name}" logotipu?`,
+    logoRemoved: 'Komandas logotips noņemts.',
+    logoRemoveError: 'Neizdevās noņemt komandas logotipu.',
+    reviewConfirm: (action, name) => `${action === 'approve' ? 'Apstiprināt' : 'Noraidīt'} pieprasījumu no ${name}?`,
+    coachApproved: (name) => `${name} tagad ir trenera asistents.`,
+    coachRejected: (name) => `${name} pieprasījums noraidīts.`,
+    coachReviewError: 'Neizdevās apstrādāt šo pieprasījumu.',
+    timePrefix: 'plkst.',
+    dateLocale: 'lv-LV',
+    eventTypes: {
+      practice: 'Treniņš',
+      game: 'Spēle',
+      meeting: 'Sapulce',
+      other: 'Notikums'
+    }
+  }
+}
+
+const { locale } = useI18n()
 const route = useRoute()
 const authStore = useAuthStore()
 
@@ -280,17 +399,15 @@ const summary = ref({
   totalMatches: 0,
   totalGoals: 0,
   totalAssists: 0,
-  totalYellowCards: 0,
-  totalRedCards: 0,
-  avgAttendance: 0,
-  topScorers: [],
-  topAssists: []
+  avgAttendance: 0
 })
 const toastMessage = ref('')
 const toastType = ref('success')
 const logoInput = ref(null)
 const coachRequests = ref([])
 const coachRequestsLoading = ref(false)
+const localeKey = computed(() => (locale.value === 'en' ? 'en' : 'lv'))
+const copy = computed(() => DASHBOARD_COPY[localeKey.value])
 
 const currentUser = computed(() => authStore.user)
 const isCoach = canManageTeam({
@@ -305,7 +422,11 @@ const isMainCoach = isTeamOwner({
 
 const fullName = (player) => `${player.name || ''} ${player.surname || ''}`.trim()
 const getInitials = (name) => name.split(' ').map((part) => part[0]).join('').slice(0, 2).toUpperCase() || '?'
-const teamInitials = computed(() => getInitials(team.value.name || 'Komanda'))
+const teamInitials = computed(() => getInitials(team.value.name || copy.value.teamFallback))
+const playerCountText = (count) => copy.value.players(count)
+const upcomingCountText = (count) => copy.value.upcomingCount(count)
+const coachRequestCountText = (count) => copy.value.coachRequests(count)
+const trackedPlayerCountText = (count) => copy.value.trackedPlayers(count)
 
 const playerScore = (player) => (
   (player.stats?.goals || 0) * 4 +
@@ -320,9 +441,6 @@ const rankedPlayers = computed(() => [...players.value].sort((a, b) => {
 }))
 
 const topPlayers = computed(() => rankedPlayers.value.slice(0, 3))
-const rosterPreview = computed(() => rankedPlayers.value.slice(0, 6))
-const maxGoals = computed(() => Math.max(1, ...players.value.map((player) => player.stats?.goals || 0)))
-const maxAssists = computed(() => Math.max(1, ...players.value.map((player) => player.stats?.assists || 0)))
 
 const sortEvents = (events) => [...events].sort((a, b) => {
   const aStamp = new Date(`${a.event_date}T${a.event_time || '00:00'}`).getTime()
@@ -339,91 +457,48 @@ const upcomingEvents = computed(() => {
   })
 })
 
-const nextEventTitle = computed(() => upcomingEvents.value[0]?.event_name || 'Notikums nav ieplānots')
+const upcomingGames = computed(() =>
+  upcomingEvents.value.filter((event) => String(event.event_type || '').toLowerCase() === 'game')
+)
+
+const nextEventTitle = computed(() => upcomingEvents.value[0]?.event_name || copy.value.noEventTitle)
 const nextEventMeta = computed(() => {
   const nextEvent = upcomingEvents.value[0]
 
   if (!nextEvent) {
-    return 'Kalendārs ir tukšs. Pievienojiet nākamo nodarbību grafika lapā.'
+    return copy.value.noEventMeta
   }
 
-  return `${formatFullDate(nextEvent.event_date)} plkst. ${formatEventTime(nextEvent.event_time)}`
+  return `${formatFullDate(nextEvent.event_date)} ${copy.value.timePrefix} ${formatEventTime(nextEvent.event_time)}`
 })
 
-const readinessScore = computed(() => {
-  const attendance = summary.value.avgAttendance || 0
-  const disciplinePenalty = (summary.value.totalRedCards * 10) + (summary.value.totalYellowCards * 2)
-  return Math.max(0, Math.min(100, Math.round(attendance + 15 - disciplinePenalty)))
-})
+const attendanceOverviewValue = computed(() => `${summary.value.avgAttendance || 0}%`)
 
-const readinessLabel = computed(() => {
-  if (readinessScore.value >= 80) return 'Augsta gatavība'
-  if (readinessScore.value >= 60) return 'Labs ritms'
-  if (readinessScore.value >= 40) return 'Veidojas progress'
-  return 'Vajadzīga struktūra'
-})
-
-const readinessText = computed(() => {
-  return `${summary.value.avgAttendance}% treniņu apmeklējums un ${summary.value.totalRedCards} sarkanās kartītes šajā ciklā.`
+const attendanceOverviewText = computed(() => {
+  const eventText = copy.value.scheduledEvents(upcomingEvents.value.length)
+  return copy.value.attendanceOverviewText(eventText)
 })
 
 const headlineMetrics = computed(() => [
   {
-    label: 'Vārti',
+    label: copy.value.goals,
     value: summary.value.totalGoals,
-    note: `${perPlayer(summary.value.totalGoals)} uz spēlētāju`
+    note: `${perPlayer(summary.value.totalGoals)} ${copy.value.perPlayer}`
   },
   {
-    label: 'Piespēles',
+    label: copy.value.assists,
     value: summary.value.totalAssists,
-    note: `${perPlayer(summary.value.totalAssists)} uz spēlētāju`
+    note: `${perPlayer(summary.value.totalAssists)} ${copy.value.perPlayer}`
   },
   {
-    label: 'Spēles',
+    label: copy.value.matches,
     value: summary.value.totalMatches,
-    note: `${upcomingEvents.value.length} gaidāmie`
+    note: copy.value.upcomingGames(upcomingGames.value.length)
   },
   {
-    label: 'Apmeklējums',
+    label: copy.value.attendance,
     value: `${summary.value.avgAttendance}%`,
-    note: 'Treniņu pieejamība'
-  }
-])
-
-const topScorer = computed(() => summary.value.topScorers[0] || rankedPlayers.value[0] || null)
-const topCreator = computed(() => summary.value.topAssists[0] || null)
-const everPresent = computed(() => rankedPlayers.value[0] || null)
-const disciplineLeader = computed(() => {
-  if (!players.value.length) return null
-  return [...players.value].sort((a, b) => {
-    const aCards = (a.stats?.yellow_cards || 0) + ((a.stats?.red_cards || 0) * 3)
-    const bCards = (b.stats?.yellow_cards || 0) + ((b.stats?.red_cards || 0) * 3)
-    return aCards - bCards
-  })[0]
-})
-
-const insightCards = computed(() => [
-  {
-    label: 'Labākais vārtu guvējs',
-    value: topScorer.value ? fullName(topScorer.value) : 'Datu vēl nav',
-    note: topScorer.value ? `${topScorer.value.goals ?? topScorer.value.stats?.goals ?? 0} gūti vārti` : 'Gaida pirmos vārtus'
-  },
-  {
-    label: 'Labākais piespēlētājs',
-    value: topCreator.value ? fullName(topCreator.value) : 'Datu vēl nav',
-    note: topCreator.value ? `${topCreator.value.assists ?? topCreator.value.stats?.assists ?? 0} rezultatīvas piespēles` : 'Gaida pirmo piespēli'
-  },
-  {
-    label: 'Visaktīvākais',
-    value: everPresent.value ? fullName(everPresent.value) : 'Datu vēl nav',
-    note: everPresent.value ? `${everPresent.value.stats?.matches || 0} uzskaitītas spēles` : 'Spēles vēl nav uzskaitītas'
-  },
-  {
-    label: 'Labākā disciplīna',
-    value: disciplineLeader.value ? fullName(disciplineLeader.value) : 'Datu vēl nav',
-    note: disciplineLeader.value
-      ? `${disciplineLeader.value.stats?.yellow_cards || 0} dzeltenās, ${disciplineLeader.value.stats?.red_cards || 0} sarkanās`
-      : 'Sastāvs vēl ir tukšs'
+    note: copy.value.practiceAvailability
   }
 ])
 
@@ -431,28 +506,28 @@ const quickLinks = computed(() => {
   const links = [
     {
       to: `/team/${teamId}/players`,
-      label: 'Spēlētāji',
-      description: 'Atvērt sastāvu un spēlētāju statistiku'
+      label: copy.value.quickLinks.players.label,
+      description: copy.value.quickLinks.players.description
     },
     {
       to: `/team-schedule/${teamId}`,
-      label: 'Grafiks',
-      description: 'Treniņi, spēles un sapulces'
+      label: copy.value.quickLinks.schedule.label,
+      description: copy.value.quickLinks.schedule.description
     }
   ]
 
   if (isCoach.value) {
     links.unshift({
       to: `/team/${teamId}/statistics`,
-      label: 'Statistika',
-      description: 'Trenera analītika un sadalījumi'
+      label: copy.value.quickLinks.statistics.label,
+      description: copy.value.quickLinks.statistics.description
     })
   }
 
   return links
 })
 
-const coachRequestName = (request) => `${request.name || ''} ${request.surname || ''}`.trim() || 'Trenera pieprasījums'
+const coachRequestName = (request) => `${request.name || ''} ${request.surname || ''}`.trim() || copy.value.coachRequestFallback
 
 const loadCoachRequests = async () => {
   if (!isMainCoach.value) {
@@ -466,7 +541,7 @@ const loadCoachRequests = async () => {
     coachRequests.value = await fetchCoachJoinRequests(teamId)
   } catch (error) {
     console.error('Error loading coach requests:', error)
-    showToast('Neizdevās ielādēt trenera asistenta pieprasījumus.', 'error')
+    showToast(copy.value.loadRequestsError, 'error')
   } finally {
     coachRequestsLoading.value = false
   }
@@ -488,13 +563,13 @@ const fetchDashboard = async () => {
 
     if (isMainCoach.value && coachRequests.value.length) {
       showToast(
-        `${coachRequests.value.length} trenera asistenta pieprasījumi gaida pārskatīšanu.`,
+        copy.value.coachRequestsWaitingToast(coachRequests.value.length),
         'info'
       )
     }
   } catch (error) {
     console.error('Error loading team dashboard:', error)
-    showToast('Neizdevās ielādēt komandas paneli.', 'error')
+    showToast(copy.value.dashboardLoadError, 'error')
   }
 }
 
@@ -508,54 +583,54 @@ const handleLogoUpload = async (event) => {
   if (!file) return
 
   if (file.size > 2 * 1024 * 1024) {
-    showToast('Attēlam jābūt mazākam par 2 MB.', 'error')
+    showToast(copy.value.imageTooLarge, 'error')
     return
   }
 
   try {
     team.value.logo = await uploadTeamLogo(teamId, file)
-    showToast('Komandas logotips atjaunināts.')
+    showToast(copy.value.logoUpdated)
   } catch (error) {
     console.error('Error uploading team logo:', error)
-    showToast('Neizdevās atjaunināt komandas logotipu.', 'error')
+    showToast(copy.value.logoUpdateError, 'error')
   } finally {
     event.target.value = ''
   }
 }
 
 const deleteLogo = async () => {
-  if (!confirm(`Noņemt komandas "${team.value.name || 'komanda'}" logotipu?`)) return
+  if (!confirm(copy.value.removeLogoConfirm(team.value.name || copy.value.teamFallback))) return
 
   try {
     await removeTeamLogo(teamId)
     team.value.logo = null
-    showToast('Komandas logotips noņemts.')
+    showToast(copy.value.logoRemoved)
   } catch (error) {
     console.error('Error deleting team logo:', error)
-    showToast('Neizdevās noņemt komandas logotipu.', 'error')
+    showToast(copy.value.logoRemoveError, 'error')
   }
 }
 
 const reviewCoachRequest = async (request, decision) => {
   const actionLabel = decision === 'approve' ? 'approve' : 'reject'
 
-  if (!confirm(`${actionLabel === 'approve' ? 'Apstiprināt' : 'Noraidīt'} pieprasījumu no ${coachRequestName(request)}?`)) {
+  if (!confirm(copy.value.reviewConfirm(actionLabel, coachRequestName(request)))) {
     return
   }
 
   try {
     if (decision === 'approve') {
       await approveCoachJoinRequest(teamId, request.id)
-      showToast(`${coachRequestName(request)} tagad ir trenera asistents.`)
+      showToast(copy.value.coachApproved(coachRequestName(request)))
     } else {
       await rejectCoachJoinRequest(teamId, request.id)
-      showToast(`${coachRequestName(request)} pieprasījums noraidīts.`)
+      showToast(copy.value.coachRejected(coachRequestName(request)))
     }
 
     coachRequests.value = coachRequests.value.filter((entry) => entry.id !== request.id)
   } catch (error) {
     console.error(`Error trying to ${actionLabel} coach request:`, error)
-    showToast(error.response?.data?.error || 'Neizdevās apstrādāt šo pieprasījumu.', 'error')
+    showToast(error.response?.data?.error || copy.value.coachReviewError, 'error')
   }
 }
 
@@ -572,19 +647,18 @@ const perPlayer = (value) => {
   return (value / summary.value.totalPlayers).toFixed(1)
 }
 
-const statWidth = (value, maxValue) => `${Math.max(10, (value / maxValue) * 100)}%`
-const formatFullDate = (value) => new Intl.DateTimeFormat('lv-LV', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(`${value}T00:00:00`))
-const formatShortDay = (value) => new Intl.DateTimeFormat('lv-LV', { weekday: 'short' }).format(new Date(`${value}T00:00:00`))
-const formatDayNumber = (value) => new Intl.DateTimeFormat('lv-LV', { day: '2-digit', month: 'short' }).format(new Date(`${value}T00:00:00`))
-const formatEventTime = (value) => (value ? value.slice(0, 5) : 'Nav norādīts')
-const formatRequestDate = (value) => new Intl.DateTimeFormat('lv-LV', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(value))
+const formatFullDate = (value) => new Intl.DateTimeFormat(copy.value.dateLocale, { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(`${value}T00:00:00`))
+const formatShortDay = (value) => new Intl.DateTimeFormat(copy.value.dateLocale, { weekday: 'short' }).format(new Date(`${value}T00:00:00`))
+const formatDayNumber = (value) => new Intl.DateTimeFormat(copy.value.dateLocale, { day: '2-digit', month: 'short' }).format(new Date(`${value}T00:00:00`))
+const formatEventTime = (value) => (value ? value.slice(0, 5) : copy.value.notSpecified)
+const formatRequestDate = (value) => new Intl.DateTimeFormat(copy.value.dateLocale, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(value))
 
 const eventTypeLabel = (value) => {
   const normalized = (value || '').toLowerCase()
-  if (normalized === 'practice') return 'Treniņš'
-  if (normalized === 'game') return 'Spēle'
-  if (normalized === 'meeting') return 'Sapulce'
-  return 'Notikums'
+  if (normalized === 'practice') return copy.value.eventTypes.practice
+  if (normalized === 'game') return copy.value.eventTypes.game
+  if (normalized === 'meeting') return copy.value.eventTypes.meeting
+  return copy.value.eventTypes.other
 }
 
 onMounted(() => {
@@ -733,12 +807,6 @@ html.dark-mode .team-dashboard {
   font-size: 0.72rem;
 }
 
-.hero-description {
-  max-width: 58ch;
-  margin: 0;
-  color: var(--team-muted);
-}
-
 .hero-pills {
   display: flex;
   flex-wrap: wrap;
@@ -839,8 +907,7 @@ html.dark-mode .team-dashboard {
 }
 
 .highlight-label,
-.metric-label,
-.insight-label {
+.metric-label {
   color: var(--team-muted);
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -899,7 +966,7 @@ html.dark-mode .hero-button.danger {
 }
 
 .section-grid {
-  grid-template-columns: 1.2fr 0.95fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .panel,
@@ -939,7 +1006,6 @@ html.dark-mode .hero-button.danger {
 
 .leaderboard,
 .event-list,
-.roster-list,
 .coach-request-list {
   display: flex;
   flex-direction: column;
@@ -948,9 +1014,7 @@ html.dark-mode .hero-button.danger {
 
 .leader-card,
 .event-item,
-.roster-item,
 .coach-request-card,
-.insight-item,
 .empty-card {
   border: 1px solid var(--team-border);
   border-radius: 18px;
@@ -1034,7 +1098,6 @@ html.dark-mode .hero-button.danger {
 
 .leader-rank,
 .leader-avatar,
-.roster-avatar,
 .event-date {
   background: var(--team-accent-soft);
   color: var(--team-accent);
@@ -1057,22 +1120,18 @@ html.dark-mode .hero-button.danger {
 }
 
 .leader-main h3,
-.event-copy h3,
-.roster-copy h3 {
+.event-copy h3 {
   margin: 0;
 }
 
 .leader-main p,
 .event-copy p,
-.roster-copy p,
-.empty-card,
-.insight-item small {
+.empty-card {
   margin: 0.2rem 0 0;
   color: var(--team-muted);
 }
 
-.leader-avatar,
-.roster-avatar {
+.leader-avatar {
   width: 48px;
   height: 48px;
   border-radius: 14px;
@@ -1152,75 +1211,6 @@ html.dark-mode .event-badge.meeting {
   font-size: 0.88rem;
 }
 
-.roster-item {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) minmax(180px, 240px);
-  gap: 1rem;
-  align-items: center;
-}
-
-.roster-copy {
-  min-width: 0;
-}
-
-.roster-bars {
-  display: flex;
-  flex-direction: column;
-  gap: 0.55rem;
-}
-
-.bar-row {
-  display: grid;
-  grid-template-columns: 54px 1fr;
-  gap: 0.7rem;
-  align-items: center;
-}
-
-.bar-row span {
-  color: var(--team-muted);
-  font-size: 0.82rem;
-}
-
-.bar-track {
-  height: 9px;
-  border-radius: 999px;
-  background: rgba(127, 127, 127, 0.14);
-  overflow: hidden;
-}
-
-.bar-fill {
-  height: 100%;
-  border-radius: inherit;
-}
-
-.bar-fill.goals {
-  background: linear-gradient(90deg, #0b72e7, #4aa4ff);
-}
-
-.bar-fill.assists {
-  background: linear-gradient(90deg, #2456d3, #6fa3ff);
-}
-
-html.dark-mode .bar-fill.goals {
-  background: linear-gradient(90deg, #4b8fff, #8dc0ff);
-}
-
-html.dark-mode .bar-fill.assists {
-  background: linear-gradient(90deg, #3266e4, #8eb7ff);
-}
-
-.insight-list {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.85rem;
-}
-
-.insight-item {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-}
-
 .empty-card {
   background: rgba(255, 255, 255, 0.02);
 }
@@ -1298,8 +1288,7 @@ html.dark-mode .bar-fill.assists {
   }
 
   .hero-actions,
-  .metrics-grid,
-  .insight-list {
+  .metrics-grid {
     grid-template-columns: 1fr;
   }
 
@@ -1309,7 +1298,6 @@ html.dark-mode .bar-fill.assists {
 
   .leader-card,
   .event-item,
-  .roster-item,
   .coach-request-card {
     grid-template-columns: 1fr;
   }
@@ -1318,10 +1306,6 @@ html.dark-mode .bar-fill.assists {
   .event-meta {
     justify-content: flex-start;
     align-items: flex-start;
-  }
-
-  .roster-bars {
-    width: 100%;
   }
 
   .coach-request-card,

@@ -7,6 +7,8 @@ const { authenticateToken } = require('../middleware/auth');
 
 const MAX_CHAT_UPLOAD_BYTES = 6 * 1024 * 1024;
 const CHAT_UPLOAD_DIR = path.join(__dirname, '..', 'uploads', 'chat');
+const CHAT_ATTACHMENT_API_PREFIX = '/api/chat/attachments/';
+const CHAT_ATTACHMENT_LEGACY_PREFIX = '/uploads/chat/';
 const MIME_EXTENSIONS = {
   'image/jpeg': '.jpg',
   'image/png': '.png',
@@ -30,6 +32,20 @@ const sanitizeFileName = (fileName) => {
   return cleaned || 'attachment';
 };
 
+const getSafeStoredName = (fileName) => {
+  const value = String(fileName || '').trim();
+
+  if (!value || value.includes('/') || value.includes('\\')) {
+    return null;
+  }
+
+  if (!/^\d+-[a-f0-9]{16}\.[a-z0-9]+$/i.test(value)) {
+    return null;
+  }
+
+  return value;
+};
+
 const parseDataUrl = (dataUrl) => {
   const match = String(dataUrl || '').match(/^data:([^;,]+);base64,(.+)$/s);
   if (!match) return null;
@@ -40,6 +56,42 @@ const parseDataUrl = (dataUrl) => {
 };
 
 module.exports = (db) => {
+  const dbGet = (sql, params = []) => new Promise((resolve, reject) => {
+    db.get(sql, params, (err, row) => {
+      if (err) reject(err);
+      else resolve(row);
+    });
+  });
+
+  const findAccessibleAttachment = async (storedName, userId) => {
+    const attachmentUrls = [
+      `${CHAT_ATTACHMENT_API_PREFIX}${storedName}`,
+      `${CHAT_ATTACHMENT_LEGACY_PREFIX}${storedName}`
+    ];
+
+    const roomAttachment = await dbGet(
+      `SELECT m.attachment_name, m.attachment_type, m.attachment_size
+       FROM messages m
+       INNER JOIN chat_rooms cr ON cr.id = m.room_id
+       INNER JOIN users u ON u.team_id = cr.team_id
+       WHERE m.attachment_url IN (?, ?) AND u.id = ?
+       LIMIT 1`,
+      [...attachmentUrls, userId]
+    );
+
+    if (roomAttachment) {
+      return roomAttachment;
+    }
+
+    return dbGet(
+      `SELECT attachment_name, attachment_type, attachment_size
+       FROM direct_messages
+       WHERE attachment_url IN (?, ?) AND (sender_id = ? OR receiver_id = ?)
+       LIMIT 1`,
+      [...attachmentUrls, userId, userId]
+    );
+  };
+
   // Upload a chat attachment first, then send its returned metadata via socket.
   router.post('/upload', authenticateToken, (req, res) => {
     const parsedData = parseDataUrl(req.body?.data);
@@ -75,12 +127,50 @@ module.exports = (db) => {
       }
 
       return res.status(201).json({
-        attachmentUrl: `/uploads/chat/${storedName}`,
+        attachmentUrl: `${CHAT_ATTACHMENT_API_PREFIX}${storedName}`,
         attachmentName: originalName,
         attachmentType: mimeType,
         attachmentSize: fileBuffer.length
       });
     });
+  });
+
+  router.get('/attachments/:fileName', authenticateToken, async (req, res) => {
+    const storedName = getSafeStoredName(req.params.fileName);
+
+    if (!storedName) {
+      return res.status(400).json({ error: 'NederД«gs faila nosaukums' });
+    }
+
+    try {
+      const attachment = await findAccessibleAttachment(storedName, req.user.id);
+
+      if (!attachment) {
+        return res.status(404).json({ error: 'Fails nav atrasts' });
+      }
+
+      const uploadRoot = path.resolve(CHAT_UPLOAD_DIR);
+      const storedPath = path.resolve(uploadRoot, storedName);
+
+      if (!storedPath.startsWith(`${uploadRoot}${path.sep}`)) {
+        return res.status(400).json({ error: 'NederД«gs faila ceДјЕЎ' });
+      }
+
+      try {
+        await fs.promises.access(storedPath, fs.constants.R_OK);
+      } catch {
+        return res.status(404).json({ error: 'Fails nav atrasts' });
+      }
+
+      const downloadName = sanitizeFileName(attachment.attachment_name || storedName).replace(/"/g, '');
+      res.setHeader('Content-Type', attachment.attachment_type || 'application/octet-stream');
+      res.setHeader('Content-Disposition', `inline; filename="${downloadName}"`);
+      res.setHeader('X-Content-Type-Options', 'nosniff');
+      return res.sendFile(storedPath);
+    } catch (error) {
+      console.error('Attachment download error:', error);
+      return res.status(500).json({ error: 'NeizdevДЃs ielДЃdД“t failu' });
+    }
   });
 
   // Get or create chat room for a team

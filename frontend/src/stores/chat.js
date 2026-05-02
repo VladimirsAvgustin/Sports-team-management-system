@@ -17,6 +17,9 @@ const getApiBaseUrl = () => {
 
 const API_BASE_URL = getApiBaseUrl()
 const ATTACHMENT_LABEL = 'Pielikums'
+const CHAT_ATTACHMENT_API_PREFIX = '/api/chat/attachments/'
+const CHAT_ATTACHMENT_LEGACY_PREFIX = '/uploads/chat/'
+const attachmentObjectUrlPromises = new Map()
 
 const fileToDataUrl = (file) => new Promise((resolve, reject) => {
   const reader = new FileReader()
@@ -28,6 +31,27 @@ const fileToDataUrl = (file) => new Promise((resolve, reject) => {
 const getMessagePreview = (message) => {
   if (message?.message) return message.message
   return message?.attachment_name || message?.attachmentName || ATTACHMENT_LABEL
+}
+
+const toApiUrl = (pathOrUrl) => {
+  const value = String(pathOrUrl || '').trim()
+  if (/^https?:\/\//i.test(value)) return value
+  return `${API_BASE_URL}${value.startsWith('/') ? '' : '/'}${value}`
+}
+
+const normalizeAttachmentPath = (attachmentUrl) => {
+  const value = String(attachmentUrl || '').trim()
+
+  if (value.startsWith(CHAT_ATTACHMENT_API_PREFIX)) {
+    return value
+  }
+
+  if (value.startsWith(CHAT_ATTACHMENT_LEGACY_PREFIX)) {
+    const fileName = value.slice(CHAT_ATTACHMENT_LEGACY_PREFIX.length).split(/[?#]/)[0]
+    return `${CHAT_ATTACHMENT_API_PREFIX}${encodeURIComponent(fileName)}`
+  }
+
+  return value
 }
 
 export const useChatStore = defineStore('chat', {
@@ -43,7 +67,8 @@ export const useChatStore = defineStore('chat', {
     currentDM: null,
     dmMessages: [],
     dmConversations: [],
-    allUsers: []
+    allUsers: [],
+    attachmentObjectUrls: {}
   }),
 
   getters: {
@@ -102,6 +127,21 @@ export const useChatStore = defineStore('chat', {
         if (roomIndex !== -1) {
           this.rooms[roomIndex].last_message = getMessagePreview(message)
           this.rooms[roomIndex].last_message_time = message.createdAt
+        }
+      })
+
+      this.socket.on('message_deleted', ({ messageId, roomId }) => {
+        const normalizedRoomId = Number(roomId)
+
+        if (this.currentRoom && normalizedRoomId === Number(this.currentRoom.id)) {
+          this.messages = this.messages.filter(message => Number(message.id) !== Number(messageId))
+        }
+
+        const roomIndex = this.rooms.findIndex(room => Number(room.id) === normalizedRoomId)
+        if (roomIndex !== -1 && this.currentRoom && normalizedRoomId === Number(this.currentRoom.id)) {
+          const lastMessage = this.sortedMessages[this.sortedMessages.length - 1]
+          this.rooms[roomIndex].last_message = lastMessage ? getMessagePreview(lastMessage) : ''
+          this.rooms[roomIndex].last_message_time = lastMessage?.createdAt || lastMessage?.created_at || null
         }
       })
 
@@ -242,7 +282,7 @@ export const useChatStore = defineStore('chat', {
     },
 
     // Send a message
-    sendMessage(message, attachment = null) {
+    sendMessage(message, attachment = null, replyTo = null) {
       const text = typeof message === 'string' ? message.trim() : ''
       if (!this.socket || !this.currentRoom || (!text && !attachment)) {
         return
@@ -251,11 +291,20 @@ export const useChatStore = defineStore('chat', {
       this.socket.emit('send_message', {
         roomId: this.currentRoom.id,
         message: text,
-        attachment
+        attachment,
+        replyTo: replyTo?.id ? { id: replyTo.id } : null
       })
 
       // Stop typing indicator
       this.stopTyping()
+    },
+
+    deleteMessage(messageId) {
+      if (!this.socket || !messageId) {
+        return
+      }
+
+      this.socket.emit('delete_message', { messageId })
     },
 
     async uploadAttachment(file) {
@@ -282,6 +331,45 @@ export const useChatStore = defineStore('chat', {
       }
 
       return payload
+    },
+
+    getAttachmentObjectUrl(attachmentUrl) {
+      const attachmentPath = normalizeAttachmentPath(attachmentUrl)
+      return this.attachmentObjectUrls[attachmentPath] || ''
+    },
+
+    async loadAttachmentObjectUrl(attachmentUrl) {
+      const attachmentPath = normalizeAttachmentPath(attachmentUrl)
+      if (!attachmentPath) return ''
+
+      if (this.attachmentObjectUrls[attachmentPath]) {
+        return this.attachmentObjectUrls[attachmentPath]
+      }
+
+      if (attachmentObjectUrlPromises.has(attachmentPath)) {
+        return attachmentObjectUrlPromises.get(attachmentPath)
+      }
+
+      const promise = (async () => {
+        const response = await fetch(toApiUrl(attachmentPath), {
+          headers: {
+            'Authorization': `Bearer ${useAuthStore().token}`
+          }
+        })
+
+        if (!response.ok) {
+          throw new Error('NeizdevДЃs ielДЃdД“t failu')
+        }
+
+        const objectUrl = URL.createObjectURL(await response.blob())
+        this.attachmentObjectUrls[attachmentPath] = objectUrl
+        return objectUrl
+      })().finally(() => {
+        attachmentObjectUrlPromises.delete(attachmentPath)
+      })
+
+      attachmentObjectUrlPromises.set(attachmentPath, promise)
+      return promise
     },
 
     // Typing indicators

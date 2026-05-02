@@ -12,70 +12,70 @@
       <section class="players-hero">
         <div class="hero-main">
           <div class="hero-copy">
-            <p class="eyebrow">Sastāva pārvaldība</p>
-            <h1>{{ team.name || 'Komandas sastāvs' }}</h1>
+            <p class="eyebrow">{{ copy.eyebrow }}</p>
+            <h1>{{ team.name || copy.teamFallback }}</h1>
             <p class="hero-description">
-              Pārskatiet sastāvu, sekojiet spēlētāju ieguldījumam un atjauniniet statistiku vienuviet.
+              {{ copy.description }}
             </p>
 
             <div class="hero-pills">
-              <span class="hero-pill strong">{{ players.length }} spēlētāji</span>
-              <span class="hero-pill">{{ totalGoals }} vārti</span>
-              <span class="hero-pill">{{ totalAssists }} piespēles</span>
+              <span class="hero-pill strong">{{ copy.playersCount(players.length) }}</span>
+              <span class="hero-pill">{{ totalGoals }} {{ copy.goalsLower }}</span>
+              <span class="hero-pill">{{ totalAssists }} {{ copy.assistsLower }}</span>
               <span v-if="isCoach" class="hero-pill accent">
-                {{ isMainCoach ? 'Galvenā trenera rediģēšanas režīms' : 'Trenera asistenta rediģēšanas režīms' }}
+                {{ isMainCoach ? copy.mainCoachMode : copy.assistantCoachMode }}
               </span>
             </div>
           </div>
 
           <div class="hero-nav">
             <router-link :to="`/team/${teamId}/players`" class="nav-chip" active-class="active">
-              Spēlētāji
+              {{ copy.navPlayers }}
             </router-link>
             <router-link v-if="isCoach" :to="`/team/${teamId}/statistics`" class="nav-chip" active-class="active">
-              Statistika
+              {{ copy.navStatistics }}
             </router-link>
             <router-link :to="`/team-schedule/${teamId}`" class="nav-chip">
-              Grafiks
+              {{ copy.navSchedule }}
             </router-link>
           </div>
         </div>
 
         <div class="hero-side">
           <div class="summary-card">
-            <span class="summary-label">Labākais vārtu guvējs</span>
-            <strong>{{ topScorer ? fullName(topScorer) : 'Datu vēl nav' }}</strong>
-            <p>{{ topScorer ? `${topScorer.stats.goals} gūti vārti` : 'Pirmie vārti atvērs līderu sarakstu.' }}</p>
+            <span class="summary-label">{{ copy.topScorer }}</span>
+            <strong>{{ topScorer ? fullName(topScorer) : copy.noData }}</strong>
+            <p>{{ topScorer ? copy.topScorerNote(topScorer.stats.goals) : copy.topScorerEmpty }}</p>
           </div>
           <div class="summary-card soft">
-            <span class="summary-label">Labākais piespēlētājs</span>
-            <strong>{{ topCreator ? fullName(topCreator) : 'Datu vēl nav' }}</strong>
-            <p>{{ topCreator ? `${topCreator.stats.assists} rezultatīvas piespēles` : 'Piespēles parādīsies šeit.' }}</p>
+            <span class="summary-label">{{ copy.topCreator }}</span>
+            <strong>{{ topCreator ? fullName(topCreator) : copy.noData }}</strong>
+            <p>{{ topCreator ? copy.topCreatorNote(topCreator.stats.assists) : copy.topCreatorEmpty }}</p>
           </div>
         </div>
       </section>
 
       <section class="headline-grid">
         <article class="headline-card">
-          <span class="headline-label">Vid. spēles</span>
+          <span class="headline-label">{{ copy.avgMatches }}</span>
           <strong>{{ averageMatches }}</strong>
-          <small>Visā sastāvā</small>
+          <small>{{ copy.wholeRoster }}</small>
         </article>
         <article class="headline-card">
-          <span class="headline-label">Dzeltenās kartītes</span>
+          <span class="headline-label">{{ copy.yellowCards }}</span>
           <strong>{{ totalYellowCards }}</strong>
-          <small>Disciplīnas pārskats</small>
+          <small>{{ copy.disciplineOverview }}</small>
         </article>
         <article class="headline-card">
-          <span class="headline-label">Sarkanās kartītes</span>
+          <span class="headline-label">{{ copy.redCards }}</span>
           <strong>{{ totalRedCards }}</strong>
-          <small>Nepieciešama uzmanība</small>
+          <small>{{ copy.needsAttention }}</small>
         </article>
       </section>
 
       <section class="controls-panel">
         <div class="search-box">
-          <span class="search-icon">Meklēt</span>
+          <span class="search-icon">{{ copy.search }}</span>
           <input
             v-model="searchQuery"
             :placeholder="$t('teamPage.searchPlayers')"
@@ -97,22 +97,22 @@
               :class="{ active: viewMode === 'cards' }"
               @click="viewMode = 'cards'"
             >
-              Kartītes
+              {{ copy.cardsView }}
             </button>
             <button
               type="button"
               :class="{ active: viewMode === 'list' }"
               @click="viewMode = 'list'"
             >
-              Tabula
+              {{ copy.tableView }}
             </button>
           </div>
         </div>
       </section>
 
       <div class="players-status">
-        <span>Parādīti {{ filteredPlayers.length }} no {{ players.length }} spēlētājiem</span>
-        <span v-if="searchQuery">Filtrs: "{{ searchQuery }}"</span>
+        <span>{{ copy.showingPlayers(filteredPlayers.length, players.length) }}</span>
+        <span v-if="searchQuery">{{ copy.filter }}: "{{ searchQuery }}"</span>
       </div>
 
       <section v-if="filteredPlayers.length" class="content-panel">
@@ -139,7 +139,7 @@
                       class="avatar-action-btn danger"
                       @click="deletePlayerAvatar(player)"
                     >
-                      Noņemt profila attēlu
+                      {{ copy.removeProfileImage }}
                     </button>
                   </div>
                 </div>
@@ -152,15 +152,15 @@
 
             <div class="quick-stats">
               <div class="quick-stat">
-                <span>Vārti</span>
+                <span>{{ copy.goals }}</span>
                 <strong>{{ player.stats.goals }}</strong>
               </div>
               <div class="quick-stat">
-                <span>Piespēles</span>
+                <span>{{ copy.assists }}</span>
                 <strong>{{ player.stats.assists }}</strong>
               </div>
               <div class="quick-stat">
-                <span>Spēles</span>
+                <span>{{ copy.matches }}</span>
                 <strong>{{ player.stats.matches }}</strong>
               </div>
             </div>
@@ -204,7 +204,7 @@
 
             <div v-if="isMainCoach" class="card-footer">
               <button type="button" class="remove-btn" @click="confirmRemovePlayer(player)">
-                Noņemt spēlētāju
+                {{ copy.removePlayer }}
               </button>
             </div>
           </article>
@@ -214,9 +214,9 @@
           <table class="players-table">
             <thead>
               <tr>
-                <th>Spēlētājs</th>
+                <th>{{ copy.player }}</th>
                 <th v-for="field in statFields" :key="field.key">{{ field.label }}</th>
-                <th v-if="isMainCoach">Darbība</th>
+                <th v-if="isMainCoach">{{ copy.action }}</th>
               </tr>
             </thead>
             <tbody>
@@ -242,7 +242,7 @@
                           class="avatar-action-btn danger"
                           @click="deletePlayerAvatar(player)"
                         >
-                          Noņemt
+                          {{ copy.remove }}
                         </button>
                       </div>
                     </div>
@@ -260,7 +260,7 @@
                 </td>
                 <td v-if="isMainCoach">
                   <button type="button" class="table-remove" @click="confirmRemovePlayer(player)">
-                    Noņemt
+                    {{ copy.remove }}
                   </button>
                 </td>
               </tr>
@@ -295,7 +295,116 @@ import { useAuthStore } from '../stores/auth'
 import { canManageTeam, isTeamOwner } from '../utils/teamAccess'
 import { fetchTeamBundle, removePlayerAvatar, uploadPlayerAvatar } from '../services/teamApi'
 
-const { t } = useI18n()
+const PLAYERS_COPY = {
+  en: {
+    eyebrow: 'Roster management',
+    teamFallback: 'Team roster',
+    description: 'Review the roster, track player contribution and update statistics in one place.',
+    playersCount: (count) => `${count} ${count === 1 ? 'player' : 'players'}`,
+    goalsLower: 'goals',
+    assistsLower: 'assists',
+    mainCoachMode: 'Head coach editing mode',
+    assistantCoachMode: 'Assistant coach editing mode',
+    navPlayers: 'Players',
+    navStatistics: 'Statistics',
+    navSchedule: 'Schedule',
+    topScorer: 'Top scorer',
+    topCreator: 'Top creator',
+    noData: 'No data yet',
+    topScorerNote: (goals) => `${goals} goals scored`,
+    topScorerEmpty: 'First goals will open the leaderboard.',
+    topCreatorNote: (assists) => `${assists} assists`,
+    topCreatorEmpty: 'Assists will appear here.',
+    avgMatches: 'Avg. matches',
+    wholeRoster: 'Across the roster',
+    yellowCards: 'Yellow cards',
+    redCards: 'Red cards',
+    disciplineOverview: 'Discipline overview',
+    needsAttention: 'Needs attention',
+    search: 'Search',
+    cardsView: 'Cards',
+    tableView: 'Table',
+    showingPlayers: (visible, total) => `Showing ${visible} of ${total} players`,
+    filter: 'Filter',
+    removeProfileImage: 'Remove profile image',
+    goals: 'Goals',
+    assists: 'Assists',
+    matches: 'Matches',
+    yellowShort: 'Yellow',
+    redShort: 'Red',
+    player: 'Player',
+    action: 'Action',
+    remove: 'Remove',
+    removePlayer: 'Remove player',
+    tiers: {
+      elite: 'Starter',
+      strong: 'Reliable',
+      steady: 'Rotation',
+      rising: 'Developing'
+    },
+    selectImage: 'Please select an image file.',
+    imageTooLarge: 'Image must be smaller than 2 MB.',
+    avatarUpdated: 'Player profile image updated.',
+    avatarUpdateError: 'Could not update the player profile image.',
+    avatarRemoved: 'Player profile image removed.',
+    avatarRemoveError: 'Could not remove the player profile image.'
+  },
+  lv: {
+    eyebrow: 'Sastāva pārvaldība',
+    teamFallback: 'Komandas sastāvs',
+    description: 'Pārskatiet sastāvu, sekojiet spēlētāju ieguldījumam un atjauniniet statistiku vienuviet.',
+    playersCount: (count) => `${count} spēlētāji`,
+    goalsLower: 'vārti',
+    assistsLower: 'piespēles',
+    mainCoachMode: 'Galvenā trenera rediģēšanas režīms',
+    assistantCoachMode: 'Trenera asistenta rediģēšanas režīms',
+    navPlayers: 'Spēlētāji',
+    navStatistics: 'Statistika',
+    navSchedule: 'Grafiks',
+    topScorer: 'Labākais vārtu guvējs',
+    topCreator: 'Labākais piespēlētājs',
+    noData: 'Datu vēl nav',
+    topScorerNote: (goals) => `${goals} gūti vārti`,
+    topScorerEmpty: 'Pirmie vārti atvērs līderu sarakstu.',
+    topCreatorNote: (assists) => `${assists} rezultatīvas piespēles`,
+    topCreatorEmpty: 'Piespēles parādīsies šeit.',
+    avgMatches: 'Vid. spēles',
+    wholeRoster: 'Visā sastāvā',
+    yellowCards: 'Dzeltenās kartītes',
+    redCards: 'Sarkanās kartītes',
+    disciplineOverview: 'Disciplīnas pārskats',
+    needsAttention: 'Nepieciešama uzmanība',
+    search: 'Meklēt',
+    cardsView: 'Kartītes',
+    tableView: 'Tabula',
+    showingPlayers: (visible, total) => `Parādīti ${visible} no ${total} spēlētājiem`,
+    filter: 'Filtrs',
+    removeProfileImage: 'Noņemt profila attēlu',
+    goals: 'Vārti',
+    assists: 'Piespēles',
+    matches: 'Spēles',
+    yellowShort: 'Dzeltenās',
+    redShort: 'Sarkanās',
+    player: 'Spēlētājs',
+    action: 'Darbība',
+    remove: 'Noņemt',
+    removePlayer: 'Noņemt spēlētāju',
+    tiers: {
+      elite: 'Pamatsastāvs',
+      strong: 'Uzticams',
+      steady: 'Rotācijā',
+      rising: 'Attīstībā'
+    },
+    selectImage: 'Izvēlieties attēla failu.',
+    imageTooLarge: 'Attēlam jābūt mazākam par 2 MB.',
+    avatarUpdated: 'Spēlētāja profila attēls atjaunināts.',
+    avatarUpdateError: 'Neizdevās atjaunināt spēlētāja profila attēlu.',
+    avatarRemoved: 'Spēlētāja profila attēls noņemts.',
+    avatarRemoveError: 'Neizdevās noņemt spēlētāja profila attēlu.'
+  }
+}
+
+const { t, locale } = useI18n()
 const route = useRoute()
 const authStore = useAuthStore()
 
@@ -310,6 +419,8 @@ const sortBy = ref('name')
 const viewMode = ref('list')
 const avatarInput = ref(null)
 const activeAvatarPlayerId = ref(null)
+const localeKey = computed(() => (locale.value === 'en' ? 'en' : 'lv'))
+const copy = computed(() => PLAYERS_COPY[localeKey.value])
 
 const currentUser = computed(() => authStore.user)
 const isCoach = canManageTeam({
@@ -322,13 +433,13 @@ const isMainCoach = isTeamOwner({
   teamRef: team
 })
 
-const statFields = [
-  { key: 'matches', label: 'Spēles' },
-  { key: 'goals', label: 'Vārti' },
-  { key: 'assists', label: 'Piespēles' },
-  { key: 'yellow_cards', label: 'Dzeltenās' },
-  { key: 'red_cards', label: 'Sarkanās' }
-]
+const statFields = computed(() => [
+  { key: 'matches', label: copy.value.matches },
+  { key: 'goals', label: copy.value.goals },
+  { key: 'assists', label: copy.value.assists },
+  { key: 'yellow_cards', label: copy.value.yellowShort },
+  { key: 'red_cards', label: copy.value.redShort }
+])
 
 const fullName = (player) => `${player.name || ''} ${player.surname || ''}`.trim()
 const getInitials = (name = '') => name.split(' ').filter(Boolean).map((part) => part[0]).join('').slice(0, 2).toUpperCase() || '?'
@@ -391,10 +502,10 @@ const playerImpact = (player) => (
 
 const playerTierLabel = (player) => {
   const score = playerImpact(player)
-  if (score >= 25) return 'Pamatsastāvs'
-  if (score >= 14) return 'Uzticams'
-  if (score >= 6) return 'Rotācijā'
-  return 'Attīstībā'
+  if (score >= 25) return copy.value.tiers.elite
+  if (score >= 14) return copy.value.tiers.strong
+  if (score >= 6) return copy.value.tiers.steady
+  return copy.value.tiers.rising
 }
 
 const playerTierClass = (player) => {
@@ -433,12 +544,12 @@ const handleAvatarUpload = async (event) => {
   if (!file || !playerId) return
 
   if (!file.type.startsWith('image/')) {
-    showToast('Izvēlieties attēla failu.', 'error')
+    showToast(copy.value.selectImage, 'error')
     return
   }
 
   if (file.size > 2 * 1024 * 1024) {
-    showToast('Attēlam jābūt mazākam par 2 MB.', 'error')
+    showToast(copy.value.imageTooLarge, 'error')
     return
   }
 
@@ -448,10 +559,10 @@ const handleAvatarUpload = async (event) => {
     if (player) {
       player.avatar = avatar
     }
-    showToast('Spēlētāja profila attēls atjaunināts.', 'success')
+    showToast(copy.value.avatarUpdated, 'success')
   } catch (error) {
     console.error('Error updating player avatar:', error)
-    showToast(error.response?.data?.error || 'Neizdevās atjaunināt spēlētāja profila attēlu.', 'error')
+    showToast(error.response?.data?.error || copy.value.avatarUpdateError, 'error')
   } finally {
     activeAvatarPlayerId.value = null
   }
@@ -461,10 +572,10 @@ const deletePlayerAvatar = async (player) => {
   try {
     await removePlayerAvatar(player.id)
     player.avatar = null
-    showToast('Spēlētāja profila attēls noņemts.', 'success')
+    showToast(copy.value.avatarRemoved, 'success')
   } catch (error) {
     console.error('Error removing player avatar:', error)
-    showToast(error.response?.data?.error || 'Neizdevās noņemt spēlētāja profila attēlu.', 'error')
+    showToast(error.response?.data?.error || copy.value.avatarRemoveError, 'error')
   }
 }
 

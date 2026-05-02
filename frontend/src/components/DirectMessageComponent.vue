@@ -34,17 +34,30 @@
           <a
             v-if="getAttachment(message)"
             class="message-attachment"
-            :href="getAttachment(message).url"
+            :href="getAttachment(message).objectUrl || '#'"
+            :download="isImageAttachment(getAttachment(message)) ? null : getAttachment(message).name"
             target="_blank"
             rel="noopener"
+            @click="handleAttachmentClick($event, getAttachment(message))"
           >
             <img
-              v-if="isImageAttachment(getAttachment(message))"
-              :src="getAttachment(message).url"
+              v-if="isImageAttachment(getAttachment(message)) && getAttachment(message).objectUrl"
+              :src="getAttachment(message).objectUrl"
               :alt="getAttachment(message).name"
               class="attachment-image"
             />
-            <span v-else class="attachment-file-icon">📎</span>
+            <span v-else class="attachment-file-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" class="attachment-file-symbol">
+                <path
+                  d="M8.5 12.5l6.9-6.9a3.2 3.2 0 014.5 4.5l-8.4 8.4a5 5 0 01-7.1-7.1l8.8-8.8"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                />
+              </svg>
+            </span>
             <span class="attachment-meta">
               <strong>{{ getAttachment(message).name }}</strong>
               <small>{{ formatFileSize(getAttachment(message).size) }}</small>
@@ -71,12 +84,12 @@
       >
         <svg viewBox="0 0 24 24" aria-hidden="true" class="attach-icon">
           <path
-            d="M21.44 11.05l-8.49 8.49a6 6 0 11-8.49-8.49l9.19-9.19a4 4 0 115.66 5.66L9.4 17.43a2 2 0 11-2.83-2.83l8.49-8.49"
+            d="M8.5 12.5l6.9-6.9a3.2 3.2 0 014.5 4.5l-8.4 8.4a5 5 0 01-7.1-7.1l8.8-8.8"
             fill="none"
             stroke="currentColor"
             stroke-linecap="round"
             stroke-linejoin="round"
-            stroke-width="1.8"
+            stroke-width="2"
           />
         </svg>
       </button>
@@ -132,6 +145,7 @@ export default {
     const selectedFile = ref(null)
     const uploadError = ref('')
     const isUploading = ref(false)
+    const attachmentLoadErrors = ref({})
 
     const messages = computed(() => chatStore.dmMessages)
     const sortedMessages = computed(() => {
@@ -185,6 +199,7 @@ export default {
 
       return {
         url,
+        objectUrl: chatStore.getAttachmentObjectUrl(url),
         name: message.attachment_name || message.attachmentName || 'Pielikums',
         type: message.attachment_type || message.attachmentType || '',
         size: message.attachment_size || message.attachmentSize || 0
@@ -192,6 +207,43 @@ export default {
     }
 
     const isImageAttachment = (attachment) => attachment?.type?.startsWith('image/')
+
+    const loadMessageAttachments = (messageList) => {
+      const urls = [...new Set(
+        messageList
+          .map((message) => {
+            const attachment = getAttachment(message)
+            return isImageAttachment(attachment) ? attachment.url : null
+          })
+          .filter(Boolean)
+      )]
+
+      urls.forEach((url) => {
+        chatStore.loadAttachmentObjectUrl(url).catch((error) => {
+          attachmentLoadErrors.value[url] = error.message || 'NeizdevДЃs ielДЃdД“t failu'
+        })
+      })
+    }
+
+    const handleAttachmentClick = async (event, attachment) => {
+      if (!attachment || attachment.objectUrl) return
+
+      event.preventDefault()
+
+      try {
+        const objectUrl = await chatStore.loadAttachmentObjectUrl(attachment.url)
+        if (isImageAttachment(attachment)) {
+          window.open(objectUrl, '_blank', 'noopener')
+        } else {
+          const link = document.createElement('a')
+          link.href = objectUrl
+          link.download = attachment.name
+          link.click()
+        }
+      } catch (error) {
+        attachmentLoadErrors.value[attachment.url] = error.message || 'NeizdevДЃs ielДЃdД“t failu'
+      }
+    }
 
     const formatFileSize = (size) => {
       const bytes = Number(size) || 0
@@ -241,6 +293,10 @@ export default {
       chatStore.scrollToBottom()
     }, { deep: true })
 
+    watch(sortedMessages, (messageList) => {
+      loadMessageAttachments(messageList)
+    }, { immediate: true, deep: true })
+
     onMounted(async () => {
       // Open DM conversation
       await chatStore.openDM(props.userId, props.username)
@@ -263,6 +319,7 @@ export default {
       removeSelectedFile,
       getAttachment,
       isImageAttachment,
+      handleAttachmentClick,
       formatFileSize,
       getInitials,
       formatTime
@@ -437,6 +494,13 @@ export default {
   height: 38px;
   border-radius: 10px;
   background: rgba(102, 126, 234, 0.14);
+  color: currentColor;
+}
+
+.attachment-file-symbol {
+  width: 20px;
+  height: 20px;
+  display: block;
 }
 
 .attachment-meta {
@@ -469,6 +533,9 @@ export default {
 }
 
 .attach-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   width: 46px;
   height: 46px;
   border: 1px solid var(--border-color, #e2e8f0);
@@ -490,10 +557,9 @@ export default {
 }
 
 .attach-icon {
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   display: block;
-  margin: 0 auto;
 }
 
 .message-input {

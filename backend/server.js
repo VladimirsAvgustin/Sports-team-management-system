@@ -75,9 +75,6 @@ app.options('*', cors({ origin: corsOriginCheck }));
 app.use(bodyParser.json({ limit: '10mb' }));
 app.use(bodyParser.urlencoded({ limit: '10mb', extended: true }));
 
-// Serve static files for uploads
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-
 // Connecting to the database
 const dbPath = path.resolve(__dirname, 'database.sqlite');
 const db = new sqlite3.Database(dbPath, (err) => {
@@ -175,11 +172,25 @@ const db = new sqlite3.Database(dbPath, (err) => {
         attachment_name TEXT,
         attachment_type TEXT,
         attachment_size INTEGER,
+        reply_to_message_id INTEGER,
+        reply_to_username TEXT,
+        reply_to_message TEXT,
+        reply_to_attachment_name TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (room_id) REFERENCES chat_rooms(id) ON DELETE CASCADE,
-        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (reply_to_message_id) REFERENCES messages(id) ON DELETE SET NULL
       )`);
-      ['attachment_url TEXT', 'attachment_name TEXT', 'attachment_type TEXT', 'attachment_size INTEGER'].forEach((columnDefinition) => {
+      [
+        'attachment_url TEXT',
+        'attachment_name TEXT',
+        'attachment_type TEXT',
+        'attachment_size INTEGER',
+        'reply_to_message_id INTEGER',
+        'reply_to_username TEXT',
+        'reply_to_message TEXT',
+        'reply_to_attachment_name TEXT'
+      ].forEach((columnDefinition) => {
         db.run(`ALTER TABLE messages ADD COLUMN ${columnDefinition}`, (columnErr) => {
           if (columnErr && !columnErr.message.includes('duplicate column name')) {
             console.error(`Error adding ${columnDefinition} to messages table:`, columnErr.message);
@@ -331,18 +342,97 @@ io.use((socket, next) => {
   }
 });
 
+const CHAT_ATTACHMENT_API_PREFIX = '/api/chat/attachments/';
+const CHAT_ATTACHMENT_LEGACY_PREFIX = '/uploads/chat/';
+
 const normalizeChatText = (value) => (typeof value === 'string' ? value.trim() : '');
+const normalizePositiveInteger = (value) => {
+  const number = Number(value);
+  return Number.isInteger(number) && number > 0 ? number : null;
+};
+
+const normalizeRole = (role) => (typeof role === 'string' ? role.trim().toLowerCase() : '');
+
+const dbGet = (sql, params = []) => new Promise((resolve, reject) => {
+  db.get(sql, params, (err, row) => {
+    if (err) reject(err);
+    else resolve(row);
+  });
+});
+
+const dbRun = (sql, params = []) => new Promise((resolve, reject) => {
+  db.run(sql, params, function(err) {
+    if (err) reject(err);
+    else resolve(this);
+  });
+});
+
+const getRoomMembership = (roomId, userId) => dbGet(
+  `SELECT cr.id, cr.team_id, u.role
+   FROM chat_rooms cr
+   INNER JOIN users u ON u.team_id = cr.team_id
+   WHERE cr.id = ? AND u.id = ?`,
+  [roomId, userId]
+);
+
+const getReplySnapshot = async (replyToMessageId, roomId) => {
+  if (!replyToMessageId) {
+    return null;
+  }
+
+  const replyMessage = await dbGet(
+    `SELECT id, username, message, attachment_name
+     FROM messages
+     WHERE id = ? AND room_id = ?`,
+    [replyToMessageId, roomId]
+  );
+
+  if (!replyMessage) {
+    return null;
+  }
+
+  return {
+    reply_to_message_id: replyMessage.id,
+    reply_to_username: replyMessage.username,
+    reply_to_message: normalizeChatText(replyMessage.message).slice(0, 240),
+    reply_to_attachment_name: normalizeChatText(replyMessage.attachment_name).slice(0, 120)
+  };
+};
+
+const normalizeChatAttachmentUrl = (value) => {
+  const attachmentUrl = normalizeChatText(value);
+  let fileName = '';
+
+  if (attachmentUrl.startsWith(CHAT_ATTACHMENT_API_PREFIX)) {
+    fileName = attachmentUrl.slice(CHAT_ATTACHMENT_API_PREFIX.length);
+  } else if (attachmentUrl.startsWith(CHAT_ATTACHMENT_LEGACY_PREFIX)) {
+    fileName = attachmentUrl.slice(CHAT_ATTACHMENT_LEGACY_PREFIX.length);
+  }
+
+  if (!fileName || fileName.includes('/') || fileName.includes('\\')) {
+    return null;
+  }
+
+  fileName = path.basename(fileName);
+
+  if (!/^\d+-[a-f0-9]{16}\.[a-z0-9]+$/i.test(fileName)) {
+    return null;
+  }
+
+  return `${CHAT_ATTACHMENT_API_PREFIX}${fileName}`;
+};
+
 const normalizeAttachment = (attachment) => {
   if (!attachment || typeof attachment !== 'object') {
     return null;
   }
 
-  const attachmentUrl = normalizeChatText(attachment.attachmentUrl || attachment.attachment_url);
+  const attachmentUrl = normalizeChatAttachmentUrl(attachment.attachmentUrl || attachment.attachment_url);
   const attachmentName = normalizeChatText(attachment.attachmentName || attachment.attachment_name || 'Pielikums');
   const attachmentType = normalizeChatText(attachment.attachmentType || attachment.attachment_type);
   const attachmentSize = Number(attachment.attachmentSize || attachment.attachment_size || 0);
 
-  if (!attachmentUrl.startsWith('/uploads/chat/')) {
+  if (!attachmentUrl) {
     return null;
   }
 
@@ -363,7 +453,27 @@ io.on('connection', (socket) => {
   console.log(`${socket.userFullName} joined personal room user_${socket.userId}`);
 
   // Join a chat room
-  socket.on('join_room', (roomId) => {
+  socket.on('join_room', async (roomIdValue) => {
+    const roomId = normalizePositiveInteger(roomIdValue);
+
+    if (!roomId) {
+      socket.emit('message_error', { error: 'Nederīga čata istaba' });
+      return;
+    }
+
+    try {
+      const roomMembership = await getRoomMembership(roomId, socket.userId);
+
+      if (!roomMembership) {
+        socket.emit('message_error', { error: 'Piekļuve liegta' });
+        return;
+      }
+    } catch (err) {
+      console.error('Error joining room:', err);
+      socket.emit('message_error', { error: 'Neizdevās pievienoties čatam' });
+      return;
+    }
+
     socket.join(`room_${roomId}`);
     console.log(`${socket.userFullName} joined room ${roomId}`);
     
@@ -375,7 +485,10 @@ io.on('connection', (socket) => {
   });
 
   // Leave a chat room
-  socket.on('leave_room', (roomId) => {
+  socket.on('leave_room', (roomIdValue) => {
+    const roomId = normalizePositiveInteger(roomIdValue);
+    if (!roomId) return;
+
     socket.leave(`room_${roomId}`);
     console.log(`${socket.userFullName} left room ${roomId}`);
     
@@ -386,74 +499,152 @@ io.on('connection', (socket) => {
   });
 
   // Handle new message
-  socket.on('send_message', (data) => {
-    const { roomId } = data;
+  socket.on('send_message', async (data) => {
+    const roomId = normalizePositiveInteger(data?.roomId);
     const message = normalizeChatText(data?.message);
     const attachment = normalizeAttachment(data?.attachment);
+    const replyToMessageId = normalizePositiveInteger(
+      data?.replyTo?.id || data?.replyToMessageId || data?.reply_to_message_id
+    );
+
+    if (!roomId) {
+      socket.emit('message_error', { error: 'NederД«ga ДЌata istaba' });
+      return;
+    }
 
     if (!message && !attachment) {
       socket.emit('message_error', { error: 'Ziņojums ir tukšs' });
       return;
     }
-    
-    // Save message to database
-    db.run(
-      `INSERT INTO messages (
-        room_id,
-        user_id,
-        username,
-        message,
-        attachment_url,
-        attachment_name,
-        attachment_type,
-        attachment_size
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        roomId,
-        socket.userId,
-        socket.userFullName,
-        message,
-        attachment?.attachment_url || null,
-        attachment?.attachment_name || null,
-        attachment?.attachment_type || null,
-        attachment?.attachment_size || null
-      ],
-      function(err) {
-        if (err) {
-          console.error('Error saving message:', err);
-          socket.emit('message_error', { error: 'Neizdevās nosūtīt ziņojumu' });
-          return;
-        }
+    try {
+      const roomMembership = await getRoomMembership(roomId, socket.userId);
 
-        const messageData = {
-          id: this.lastID,
-          roomId,
-          userId: socket.userId,
-          username: socket.userFullName,
-          message,
-          attachment_url: attachment?.attachment_url || null,
-          attachment_name: attachment?.attachment_name || null,
-          attachment_type: attachment?.attachment_type || null,
-          attachment_size: attachment?.attachment_size || null,
-          createdAt: new Date().toISOString()
-        };
-
-        // Broadcast to all users in the room (including sender)
-        io.to(`room_${roomId}`).emit('new_message', messageData);
+      if (!roomMembership) {
+        socket.emit('message_error', { error: 'PiekДјuve liegta' });
+        return;
       }
-    );
+
+      const replySnapshot = await getReplySnapshot(replyToMessageId, roomId);
+
+      if (replyToMessageId && !replySnapshot) {
+        socket.emit('message_error', { error: 'Atbildes ziЕ†ojums nav atrasts' });
+        return;
+      }
+
+      const result = await dbRun(
+        `INSERT INTO messages (
+          room_id,
+          user_id,
+          username,
+          message,
+          attachment_url,
+          attachment_name,
+          attachment_type,
+          attachment_size,
+          reply_to_message_id,
+          reply_to_username,
+          reply_to_message,
+          reply_to_attachment_name
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          roomId,
+          socket.userId,
+          socket.userFullName,
+          message,
+          attachment?.attachment_url || null,
+          attachment?.attachment_name || null,
+          attachment?.attachment_type || null,
+          attachment?.attachment_size || null,
+          replySnapshot?.reply_to_message_id || null,
+          replySnapshot?.reply_to_username || null,
+          replySnapshot?.reply_to_message || null,
+          replySnapshot?.reply_to_attachment_name || null
+        ]
+      );
+
+      const messageData = {
+        id: result.lastID,
+        roomId,
+        userId: socket.userId,
+        user_id: socket.userId,
+        username: socket.userFullName,
+        message,
+        attachment_url: attachment?.attachment_url || null,
+        attachment_name: attachment?.attachment_name || null,
+        attachment_type: attachment?.attachment_type || null,
+        attachment_size: attachment?.attachment_size || null,
+        reply_to_message_id: replySnapshot?.reply_to_message_id || null,
+        reply_to_username: replySnapshot?.reply_to_username || null,
+        reply_to_message: replySnapshot?.reply_to_message || null,
+        reply_to_attachment_name: replySnapshot?.reply_to_attachment_name || null,
+        createdAt: new Date().toISOString()
+      };
+
+      // Broadcast to all users in the room (including sender)
+      io.to(`room_${roomId}`).emit('new_message', messageData);
+    } catch (err) {
+      console.error('Error saving message:', err);
+      socket.emit('message_error', { error: 'NeizdevДЃs nosЕ«tД«t ziЕ†ojumu' });
+    }
+  });
+
+  socket.on('delete_message', async (data) => {
+    const messageId = normalizePositiveInteger(data?.messageId || data?.id || data);
+
+    if (!messageId) {
+      socket.emit('message_error', { error: 'NederД«gs ziЕ†ojums' });
+      return;
+    }
+
+    try {
+      const message = await dbGet(
+        `SELECT m.id, m.room_id, m.user_id, u.role AS requester_role
+         FROM messages m
+         INNER JOIN chat_rooms cr ON cr.id = m.room_id
+         INNER JOIN users u ON u.team_id = cr.team_id
+         WHERE m.id = ? AND u.id = ?`,
+        [messageId, socket.userId]
+      );
+
+      if (!message) {
+        socket.emit('message_error', { error: 'ZiЕ†ojums nav atrasts' });
+        return;
+      }
+
+      const canDelete = Number(message.user_id) === Number(socket.userId)
+        || normalizeRole(message.requester_role) === 'coach';
+
+      if (!canDelete) {
+        socket.emit('message_error', { error: 'Е o ziЕ†ojumu nevar dzД“st' });
+        return;
+      }
+
+      await dbRun('DELETE FROM messages WHERE id = ?', [messageId]);
+
+      io.to(`room_${message.room_id}`).emit('message_deleted', {
+        messageId,
+        roomId: message.room_id
+      });
+    } catch (err) {
+      console.error('Error deleting message:', err);
+      socket.emit('message_error', { error: 'NeizdevДЃs dzД“st ziЕ†ojumu' });
+    }
   });
 
   // Handle typing indicator
   socket.on('typing', (data) => {
-    const { roomId } = data;
+    const roomId = normalizePositiveInteger(data?.roomId);
+    if (!roomId || !socket.rooms.has(`room_${roomId}`)) return;
+
     socket.to(`room_${roomId}`).emit('user_typing', {
       username: socket.userFullName
     });
   });
 
   socket.on('stop_typing', (data) => {
-    const { roomId } = data;
+    const roomId = normalizePositiveInteger(data?.roomId);
+    if (!roomId || !socket.rooms.has(`room_${roomId}`)) return;
+
     socket.to(`room_${roomId}`).emit('user_stop_typing', {
       username: socket.userFullName
     });

@@ -87,7 +87,7 @@ const content = {
     shareCodeText: 'Spēlētāji pēc reģistrācijas varēs pievienoties sastāvam ar šo kodu.',
     coachWorkspace: 'Trenera darba vide',
     formTitle: 'Izveidot komandas centru',
-    regenerate: 'Ģenerēt no jauna',
+    regenerate: 'Ģenerēt jauns',
     loginRequired: 'Jums jāpieslēdzas kā trenerim.'
   }
 }

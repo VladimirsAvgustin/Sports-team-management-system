@@ -11,7 +11,7 @@
     </div>
 
     <!-- Messages Container -->
-    <div class="messages-container" ref="messagesContainer">
+    <div class="messages-container" ref="messagesContainer" @click="activeMessageMenuId = null">
       <div v-if="messages.length === 0" class="empty-state">
         <p>{{ $t('chatPage.noMessages') }}</p>
       </div>
@@ -19,28 +19,74 @@
       <div
         v-for="message in sortedMessages"
         :key="message.id"
-        :class="['message', { 'own-message': (message.userId || message.user_id) === currentUserId }]"
+        :data-message-id="message.id"
+        :class="['message', { 'own-message': isOwnMessage(message) }]"
       >
         <div class="message-header">
           <span class="message-author">{{ message.username }}</span>
-          <span class="message-time">{{ formatTime(message.createdAt || message.created_at) }}</span>
+          <div class="message-header-actions">
+            <span class="message-time">{{ formatTime(message.createdAt || message.created_at) }}</span>
+            <div class="message-action-wrap">
+              <button
+                type="button"
+                class="message-action-toggle"
+                :aria-label="$t('chatPage.messageActions')"
+                @click.stop="toggleMessageMenu(message.id)"
+              >
+                ...
+              </button>
+              <div v-if="activeMessageMenuId === message.id" class="message-action-menu">
+                <button type="button" @click.stop="replyToMessage(message)">{{ $t('chatPage.reply') }}</button>
+                <button
+                  v-if="canDeleteMessage(message)"
+                  type="button"
+                  class="danger"
+                  @click.stop="deleteMessage(message)"
+                >
+                  {{ $t('chatPage.deleteMessage') }}
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
         <div class="message-content">
+          <button
+            v-if="getReply(message)"
+            type="button"
+            class="message-reply"
+            @click="scrollToMessage(getReply(message).id)"
+          >
+            <strong>{{ getReply(message).username }}</strong>
+            <span>{{ getReply(message).preview }}</span>
+          </button>
           <p v-if="message.message" class="message-text">{{ message.message }}</p>
           <a
             v-if="getAttachment(message)"
             class="message-attachment"
-            :href="getAttachment(message).url"
+            :href="getAttachment(message).objectUrl || '#'"
+            :download="isImageAttachment(getAttachment(message)) ? null : getAttachment(message).name"
             target="_blank"
             rel="noopener"
+            @click="handleAttachmentClick($event, getAttachment(message))"
           >
             <img
-              v-if="isImageAttachment(getAttachment(message))"
-              :src="getAttachment(message).url"
+              v-if="isImageAttachment(getAttachment(message)) && getAttachment(message).objectUrl"
+              :src="getAttachment(message).objectUrl"
               :alt="getAttachment(message).name"
               class="attachment-image"
             />
-            <span v-else class="attachment-file-icon">📎</span>
+            <span v-else class="attachment-file-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" class="attachment-file-symbol">
+                <path
+                  d="M8.5 12.5l6.9-6.9a3.2 3.2 0 014.5 4.5l-8.4 8.4a5 5 0 01-7.1-7.1l8.8-8.8"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                />
+              </svg>
+            </span>
             <span class="attachment-meta">
               <strong>{{ getAttachment(message).name }}</strong>
               <small>{{ formatFileSize(getAttachment(message).size) }}</small>
@@ -57,6 +103,13 @@
 
     <!-- Message Input -->
     <div class="message-input-container">
+      <div v-if="replyingTo" class="replying-preview">
+        <span>
+          <strong>{{ $t('chatPage.replyingTo') }} {{ replyingTo.username }}</strong>
+          {{ replyingTo.preview }}
+        </span>
+        <button type="button" @click="cancelReply">{{ $t('chatPage.cancelReply') }}</button>
+      </div>
       <input
         ref="fileInput"
         type="file"
@@ -72,12 +125,12 @@
       >
         <svg viewBox="0 0 24 24" aria-hidden="true" class="attach-icon">
           <path
-            d="M21.44 11.05l-8.49 8.49a6 6 0 11-8.49-8.49l9.19-9.19a4 4 0 115.66 5.66L9.4 17.43a2 2 0 11-2.83-2.83l8.49-8.49"
+            d="M8.5 12.5l6.9-6.9a3.2 3.2 0 014.5 4.5l-8.4 8.4a5 5 0 01-7.1-7.1l8.8-8.8"
             fill="none"
             stroke="currentColor"
             stroke-linecap="round"
             stroke-linejoin="round"
-            stroke-width="1.8"
+            stroke-width="2"
           />
         </svg>
       </button>
@@ -137,6 +190,9 @@ export default {
     const selectedFile = ref(null)
     const uploadError = ref('')
     const isUploading = ref(false)
+    const attachmentLoadErrors = ref({})
+    const activeMessageMenuId = ref(null)
+    const replyingTo = ref(null)
 
     const messages = computed(() => chatStore.messages)
     const sortedMessages = computed(() => chatStore.sortedMessages)
@@ -144,6 +200,8 @@ export default {
     const isConnected = computed(() => chatStore.isConnected)
     const typingUsers = computed(() => chatStore.typingUsers)
     const currentUserId = computed(() => authStore.user?.id)
+    const currentUserRole = computed(() => String(authStore.user?.role || '').toLowerCase())
+    const isCoach = computed(() => currentUserRole.value === 'coach')
 
     const sendMessage = async () => {
       const text = newMessage.value.trim()
@@ -156,8 +214,9 @@ export default {
           ? await chatStore.uploadAttachment(selectedFile.value)
           : null
 
-        chatStore.sendMessage(text, attachment)
+        chatStore.sendMessage(text, attachment, replyingTo.value)
         newMessage.value = ''
+        cancelReply()
         removeSelectedFile()
       } catch (error) {
         uploadError.value = error.message || 'Neizdevās augšupielādēt failu'
@@ -188,6 +247,7 @@ export default {
 
       return {
         url,
+        objectUrl: chatStore.getAttachmentObjectUrl(url),
         name: message.attachment_name || message.attachmentName || 'Pielikums',
         type: message.attachment_type || message.attachmentType || '',
         size: message.attachment_size || message.attachmentSize || 0
@@ -195,6 +255,116 @@ export default {
     }
 
     const isImageAttachment = (attachment) => attachment?.type?.startsWith('image/')
+
+    const getMessageUserId = (message) => message?.userId || message?.user_id
+
+    const isOwnMessage = (message) => Number(getMessageUserId(message)) === Number(currentUserId.value)
+
+    const canDeleteMessage = (message) => isOwnMessage(message) || isCoach.value
+
+    const getMessagePreview = (message) => {
+      const text = String(message?.message || '').trim()
+      if (text) return text.length > 140 ? `${text.slice(0, 140)}...` : text
+
+      const attachmentName = message?.attachment_name || message?.attachmentName
+      return attachmentName || 'Attachment'
+    }
+
+    const getReply = (message) => {
+      const replyId = message?.reply_to_message_id || message?.replyToMessageId
+      if (!replyId) return null
+
+      const preview = String(
+        message?.reply_to_message
+        || message?.replyToMessage
+        || message?.reply_to_attachment_name
+        || message?.replyToAttachmentName
+        || 'Attachment'
+      ).trim()
+
+      return {
+        id: replyId,
+        username: message?.reply_to_username || message?.replyToUsername || 'Message',
+        preview: preview.length > 140 ? `${preview.slice(0, 140)}...` : preview
+      }
+    }
+
+    const toggleMessageMenu = (messageId) => {
+      activeMessageMenuId.value = activeMessageMenuId.value === messageId ? null : messageId
+    }
+
+    const replyToMessage = (message) => {
+      replyingTo.value = {
+        id: message.id,
+        username: message.username || 'Message',
+        preview: getMessagePreview(message)
+      }
+      activeMessageMenuId.value = null
+    }
+
+    const cancelReply = () => {
+      replyingTo.value = null
+    }
+
+    const deleteMessage = (message) => {
+      activeMessageMenuId.value = null
+
+      if (!canDeleteMessage(message)) {
+        return
+      }
+
+      if (replyingTo.value?.id === message.id) {
+        cancelReply()
+      }
+
+      chatStore.deleteMessage(message.id)
+    }
+
+    const scrollToMessage = (messageId) => {
+      const target = messagesContainer.value?.querySelector(`[data-message-id="${messageId}"]`)
+      if (!target) return
+
+      target.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      target.classList.add('message-highlight')
+      window.setTimeout(() => target.classList.remove('message-highlight'), 1100)
+    }
+
+    const loadMessageAttachments = (messageList) => {
+      const urls = [...new Set(
+        messageList
+          .map((message) => {
+            const attachment = getAttachment(message)
+            return isImageAttachment(attachment) ? attachment.url : null
+          })
+          .filter(Boolean)
+      )]
+
+      urls.forEach((url) => {
+        chatStore.loadAttachmentObjectUrl(url).catch((error) => {
+          attachmentLoadErrors.value[url] = error.message || 'NeizdevДЃs ielДЃdД“t failu'
+        })
+      })
+    }
+
+    const handleAttachmentClick = async (event, attachment) => {
+      if (!attachment || attachment.objectUrl) return
+
+      event.preventDefault()
+
+      try {
+        const objectUrl = await chatStore.loadAttachmentObjectUrl(attachment.url)
+        if (isImageAttachment(attachment)) {
+          window.open(objectUrl, '_blank', 'noopener')
+        } else {
+          const link = document.createElement('a')
+          link.href = objectUrl
+          link.download = attachment.name
+          link.click()
+        }
+      } catch (error) {
+        attachmentLoadErrors.value[attachment.url] = error.message || 'NeizdevДЃs ielДЃdД“t failu'
+      }
+    }
 
     const formatFileSize = (size) => {
       const bytes = Number(size) || 0
@@ -263,6 +433,10 @@ export default {
       chatStore.scrollToBottom()
     }, { deep: true })
 
+    watch(sortedMessages, (messageList) => {
+      loadMessageAttachments(messageList)
+    }, { immediate: true, deep: true })
+
     onMounted(async () => {
       console.log('ChatComponent mounted with roomId:', props.roomId)
       // Connect to socket if not already connected
@@ -290,6 +464,8 @@ export default {
       selectedFile,
       uploadError,
       isUploading,
+      activeMessageMenuId,
+      replyingTo,
       messages,
       sortedMessages,
       currentRoom,
@@ -302,6 +478,15 @@ export default {
       removeSelectedFile,
       getAttachment,
       isImageAttachment,
+      isOwnMessage,
+      canDeleteMessage,
+      getReply,
+      toggleMessageMenu,
+      replyToMessage,
+      cancelReply,
+      deleteMessage,
+      scrollToMessage,
+      handleAttachmentClick,
       formatFileSize,
       handleTyping,
       handleStopTyping,
@@ -401,6 +586,7 @@ export default {
 }
 
 .message {
+  position: relative;
   margin-bottom: 1rem;
   padding: 0.75rem 1rem;
   background: var(--card-bg, #fff);
@@ -421,6 +607,7 @@ export default {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 0.75rem;
   margin-bottom: 0.5rem;
   font-size: 0.875rem;
 }
@@ -438,9 +625,141 @@ export default {
   font-size: 0.75rem;
 }
 
+.message-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-left: auto;
+}
+
+.message-action-wrap {
+  position: relative;
+}
+
+.message-action-toggle {
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(15, 23, 42, 0.08);
+  color: inherit;
+  cursor: pointer;
+  font-weight: 700;
+  line-height: 1;
+  opacity: 0;
+  transition: opacity 0.2s, background 0.2s;
+}
+
+.message:hover .message-action-toggle,
+.message:focus-within .message-action-toggle,
+.message-action-toggle:focus {
+  opacity: 1;
+}
+
+.own-message .message-action-toggle {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.message-action-toggle:hover,
+.message-action-toggle:focus {
+  background: rgba(15, 23, 42, 0.14);
+  outline: none;
+}
+
+.own-message .message-action-toggle:hover,
+.own-message .message-action-toggle:focus {
+  background: rgba(255, 255, 255, 0.28);
+}
+
+.message-action-menu {
+  position: absolute;
+  top: calc(100% + 0.35rem);
+  right: 0;
+  z-index: 5;
+  min-width: 132px;
+  padding: 0.35rem;
+  border-radius: 10px;
+  background: var(--card-bg, #fff);
+  border: 1px solid var(--border-color, #e2e8f0);
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.16);
+  color: var(--text-color, #0f172a);
+}
+
+.message-action-menu button {
+  display: block;
+  width: 100%;
+  padding: 0.5rem 0.65rem;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
+.message-action-menu button:hover,
+.message-action-menu button:focus {
+  background: rgba(102, 126, 234, 0.12);
+  outline: none;
+}
+
+.message-action-menu .danger {
+  color: #dc2626;
+}
+
 .message-content {
   word-wrap: break-word;
   line-height: 1.5;
+}
+
+.message-reply {
+  display: block;
+  width: 100%;
+  margin: 0 0 0.55rem;
+  padding: 0.55rem 0.65rem;
+  border: none;
+  border-left: 3px solid #667eea;
+  border-radius: 8px;
+  background: rgba(102, 126, 234, 0.12);
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.own-message .message-reply {
+  border-left-color: rgba(255, 255, 255, 0.78);
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.message-reply strong,
+.message-reply span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.message-reply strong {
+  font-size: 0.78rem;
+}
+
+.message-reply span {
+  opacity: 0.78;
+  font-size: 0.82rem;
+}
+
+.message-highlight {
+  animation: message-highlight 1.1s ease;
+}
+
+@keyframes message-highlight {
+  0%, 100% {
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  }
+  35% {
+    box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.28);
+  }
 }
 
 .message-text {
@@ -478,6 +797,13 @@ export default {
   height: 38px;
   border-radius: 10px;
   background: rgba(102, 126, 234, 0.14);
+  color: currentColor;
+}
+
+.attachment-file-symbol {
+  width: 20px;
+  height: 20px;
+  display: block;
 }
 
 .attachment-meta {
@@ -512,11 +838,47 @@ export default {
   border-top: 1px solid var(--border-color, #e2e8f0);
 }
 
+.replying-preview {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0.65rem 0.75rem;
+  border-left: 3px solid #667eea;
+  border-radius: 10px;
+  background: rgba(102, 126, 234, 0.1);
+  color: var(--text-color);
+  font-size: 0.9rem;
+}
+
+.replying-preview span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.replying-preview strong {
+  margin-right: 0.35rem;
+}
+
+.replying-preview button {
+  border: none;
+  background: transparent;
+  color: #667eea;
+  cursor: pointer;
+  font-weight: 700;
+}
+
 .file-input {
   display: none;
 }
 
 .attach-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   width: 46px;
   height: 46px;
   border: 1px solid var(--border-color, #e2e8f0);
@@ -538,10 +900,9 @@ export default {
 }
 
 .attach-icon {
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   display: block;
-  margin: 0 auto;
 }
 
 .message-input {
@@ -692,6 +1053,22 @@ html.dark-mode .attach-btn {
 
 html.dark-mode .message-attachment {
   background: rgba(255, 255, 255, 0.08);
+}
+
+html.dark-mode .message-action-menu {
+  background: #242424;
+  border-color: #3a3a3a;
+  color: #e0e0e0;
+}
+
+html.dark-mode .message-action-menu button:hover,
+html.dark-mode .message-action-menu button:focus {
+  background: rgba(102, 126, 234, 0.2);
+}
+
+html.dark-mode .message-reply,
+html.dark-mode .replying-preview {
+  background: rgba(102, 126, 234, 0.18);
 }
 
 html.dark-mode .attachment-preview {

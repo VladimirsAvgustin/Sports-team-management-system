@@ -20,7 +20,21 @@
 
         <div class="form-group">
           <label for="password">{{ $t('auth.password') }}:</label>
-          <input v-model="form.password" type="password" id="password" required />
+          <input
+            v-model="form.password"
+            type="password"
+            id="password"
+            autocomplete="new-password"
+            :aria-describedby="form.password && !isPasswordLongEnough ? 'password-error' : 'password-hint'"
+            :aria-invalid="form.password && !isPasswordLongEnough ? 'true' : 'false'"
+            required
+          />
+          <small id="password-hint" class="field-hint">
+            {{ copy.passwordHint }}
+          </small>
+          <p v-if="form.password && !isPasswordLongEnough" id="password-error" class="field-error">
+            {{ copy.passwordTooShort }}
+          </p>
         </div>
 
         <div class="form-group">
@@ -58,6 +72,7 @@ import { useI18n } from 'vue-i18n'
 
 const router = useRouter()
 const { locale } = useI18n()
+const MIN_PASSWORD_LENGTH = 8
 
 const content = {
   en: {
@@ -66,6 +81,8 @@ const content = {
     chooseRole: 'Choose a role',
     player: 'Player',
     coach: 'Coach',
+    passwordHint: `Minimum ${MIN_PASSWORD_LENGTH} characters`,
+    passwordTooShort: `Password must be at least ${MIN_PASSWORD_LENGTH} characters long.`,
     registerError: 'Registration error'
   },
   lv: {
@@ -74,6 +91,8 @@ const content = {
     chooseRole: 'Izvēlieties lomu',
     player: 'Spēlētājs',
     coach: 'Treneris',
+    passwordHint: `Vismaz ${MIN_PASSWORD_LENGTH} rakstz\u012bmes`,
+    passwordTooShort: `Parolei j\u0101b\u016bt vismaz ${MIN_PASSWORD_LENGTH} rakstz\u012bmes garai.`,
     registerError: 'Kļūda reģistrācijas laikā'
   }
 }
@@ -92,6 +111,7 @@ const form = ref({
 const message = ref('')
 const success = ref(false)
 const isCoachRole = computed(() => String(form.value.role || '').toLowerCase() === 'coach')
+const isPasswordLongEnough = computed(() => form.value.password.length >= MIN_PASSWORD_LENGTH)
 
 watch(isCoachRole, (nextValue) => {
   if (nextValue) {
@@ -100,6 +120,14 @@ watch(isCoachRole, (nextValue) => {
 })
 
 const registerUser = async () => {
+  message.value = ''
+  success.value = false
+
+  if (!isPasswordLongEnough.value) {
+    message.value = copy.value.passwordTooShort
+    return
+  }
+
   try {
     const response = await axios.post('/api/auth/register', form.value)
     message.value = response.data.message
@@ -299,6 +327,13 @@ button:hover {
   margin-top: 0.5rem;
   color: var(--register-muted);
   font-size: 0.9rem;
+}
+
+.field-error {
+  margin: 0.45rem 0 0;
+  color: var(--register-error-text);
+  font-size: 0.9rem;
+  font-weight: 700;
 }
 
 :global(html.dark-mode) .register-page,

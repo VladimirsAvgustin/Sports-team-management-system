@@ -13,6 +13,7 @@ const certFile = path.join(certDir, 'cert.pem')
 
 export default defineConfig(({ mode }) => {
   const useHttps = mode === 'https'
+  const apiProxyTarget = process.env.VITE_API_PROXY_TARGET || 'http://127.0.0.1:3000'
   let https = false
 
   if (useHttps) {
@@ -53,12 +54,7 @@ export default defineConfig(({ mode }) => {
       },
       proxy: {
         '/api': {
-          target: 'http://127.0.0.1:3000',
-          changeOrigin: true,
-          secure: false
-        },
-        '/uploads': {
-          target: 'http://127.0.0.1:3000',
+          target: apiProxyTarget,
           changeOrigin: true,
           secure: false
         }

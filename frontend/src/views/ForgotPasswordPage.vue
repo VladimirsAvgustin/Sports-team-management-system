@@ -1,47 +1,117 @@
 <template>
-  <div class="forgot-page">
-    <div class="card">
-      <h1>{{ $t('password.forgot') }}</h1>
-      <p class="subtitle">{{ $t('password.forgotDescription') }}</p>
+  <div class="forgot-password-page">
+    <main class="forgot-card">
+      <header class="forgot-heading">
+        <p class="forgot-kicker">{{ copy.eyebrow }}</p>
+        <h1>{{ $t('password.forgot') }}</h1>
+        <p>{{ copy.description }}</p>
+      </header>
 
-      <form @submit.prevent="sendResetLink">
-        <label for="email">{{ $t('auth.email') }}</label>
-        <input id="email" v-model="email" type="email" :placeholder="$t('auth.enterEmail')" required />
+      <form class="forgot-form" novalidate @submit.prevent="sendResetLink">
+        <label class="field-group" for="email">
+          <span>{{ $t('auth.email') }}</span>
+          <div class="input-shell" :class="{ invalid: emailTouched && !isEmailValid }">
+            <input
+              id="email"
+              v-model.trim="email"
+              type="email"
+              autocomplete="email"
+              :placeholder="copy.emailPlaceholder"
+              :disabled="loading"
+              required
+              @blur="emailTouched = true"
+            />
+          </div>
+        </label>
 
-        <button type="submit" :disabled="loading">
-          {{ loading ? 'Sūta...' : $t('password.sendReset') }}
-        </button>
+        <p v-if="emailTouched && !isEmailValid" class="field-error">
+          {{ copy.invalidEmail }}
+        </p>
+
+        <div v-if="message" class="status-box success" role="status">
+          {{ message }}
+        </div>
+        <div v-if="error" class="status-box error" role="alert">
+          {{ error }}
+        </div>
+
+        <div class="form-actions">
+          <button type="submit" class="primary-action" :disabled="!canSubmit">
+            <span v-if="loading" class="spinner" aria-hidden="true"></span>
+            {{ loading ? copy.sending : $t('password.sendReset') }}
+          </button>
+          <router-link to="/" class="secondary-action">
+            {{ $t('auth.backToHome') }}
+          </router-link>
+        </div>
       </form>
-
-      <p v-if="message" class="message">{{ message }}</p>
-      <p v-if="error" class="error">{{ error }}</p>
-
-      <router-link to="/" class="back-link">{{ $t('auth.backToHome') }}</router-link>
-    </div>
+    </main>
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import axios from 'axios'
 
+const { locale } = useI18n()
+
 const email = ref('')
+const emailTouched = ref(false)
 const loading = ref(false)
 const message = ref('')
 const error = ref('')
 
+const content = {
+  en: {
+    eyebrow: 'Password recovery',
+    description: 'Enter the email connected to your TeamFlow account and we will send a password reset link.',
+    emailPlaceholder: 'Enter your email',
+    invalidEmail: 'Enter a valid email address.',
+    sending: 'Sending...',
+    successMessage: 'Password reset email has been sent. It may take up to 5 minutes to arrive.',
+    notFound: 'No account was found with this email address.',
+    requestError: 'Could not request a password reset. Try again in a moment.'
+  },
+  lv: {
+    eyebrow: 'Paroles atjauno\u0161ana',
+    description: 'Ievadiet e-pastu, kas piesaist\u012bts j\u016bsu TeamFlow kontam, un m\u0113s nos\u016bt\u012bsim paroles atiestat\u012b\u0161anas saiti.',
+    emailPlaceholder: 'Ievadiet e-pastu',
+    invalidEmail: 'Ievadiet der\u012bgu e-pasta adresi.',
+    sending: 'S\u016bta...',
+    successMessage: 'Paroles atiestat\u012b\u0161anas e-pasts ir nos\u016bt\u012bts. Tas var pien\u0101kt l\u012bdz 5 min\u016b\u0161u laik\u0101.',
+    notFound: 'Konts ar \u0161o e-pasta adresi nav atrasts.',
+    requestError: 'Neizdev\u0101s piepras\u012bt paroles atiestat\u012b\u0161anu. M\u0113\u0123iniet v\u0113lreiz p\u0113c br\u012b\u017ea.'
+  }
+}
+
+const copy = computed(() => content[locale.value === 'en' ? 'en' : 'lv'])
+const normalizedEmail = computed(() => email.value.trim())
+const isEmailValid = computed(() => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail.value))
+const canSubmit = computed(() => isEmailValid.value && !loading.value)
+
 async function sendResetLink() {
-  loading.value = true
+  emailTouched.value = true
   error.value = ''
   message.value = ''
 
+  if (!isEmailValid.value) {
+    error.value = copy.value.invalidEmail
+    return
+  }
+
+  loading.value = true
+
   try {
-    const response = await axios.post('/api/auth/forgot-password', {
-      email: email.value
+    await axios.post('/api/auth/forgot-password', {
+      email: normalizedEmail.value
     })
-    message.value = response.data.message || 'Paroles atiestatīšanas e-pasts ir nosūtīts. Tas var pienākt līdz 5 minūšu laikā.'
+
+    message.value = copy.value.successMessage
   } catch (err) {
-    error.value = err.response?.data?.error || 'Neizdevās pieprasīt paroles atiestatīšanu'
+    error.value = err.response?.status === 404
+      ? copy.value.notFound
+      : copy.value.requestError
   } finally {
     loading.value = false
   }
@@ -49,170 +119,255 @@ async function sendResetLink() {
 </script>
 
 <style scoped>
-.forgot-page {
-  width: 100%;
+.forgot-password-page {
+  --forgot-bg: #f6f7fb;
+  --forgot-card: #ffffff;
+  --forgot-muted-card: #f8fafc;
+  --forgot-border: #dbe3ef;
+  --forgot-text: #0f172a;
+  --forgot-muted: #5f6c7c;
+  --forgot-blue: #0b72e7;
+  --forgot-blue-strong: #0857b8;
+  --forgot-green: #047857;
+  --forgot-red: #b91c1c;
   min-height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 24px;
-  background: var(--background-color);
-  color: var(--text-color);
+  padding: 32px 20px;
+  background: var(--forgot-bg);
+  color: var(--forgot-text);
 }
 
-.card {
-  width: 100%;
-  max-width: 420px;
-  background: #fff;
-  border-radius: 12px;
-  padding: 24px;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.08);
+.forgot-card {
+  width: min(100%, 480px);
+  padding: 30px;
+  border: 1px solid var(--forgot-border);
+  border-radius: 8px;
+  background: var(--forgot-card);
+  box-shadow: 0 18px 50px rgba(15, 23, 42, 0.08);
 }
 
-.subtitle {
-  color: #4b5563;
-  margin-bottom: 16px;
+.forgot-heading {
+  margin-bottom: 24px;
 }
 
-h1,
-label {
-  color: #111827;
+.forgot-kicker {
+  margin: 0 0 8px;
+  color: var(--forgot-blue);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
 }
 
-label {
-  display: block;
-  margin-bottom: 6px;
-  font-weight: 600;
+h1 {
+  margin: 0;
+  color: var(--forgot-text);
+  font-size: clamp(2rem, 5vw, 2.8rem);
+  line-height: 1.1;
+}
+
+.forgot-heading p {
+  margin: 10px 0 0;
+  color: var(--forgot-muted);
+  line-height: 1.65;
+}
+
+.forgot-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  color: var(--forgot-text);
+  font-size: 0.86rem;
+  font-weight: 800;
+}
+
+.field-group > span {
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.input-shell {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: center;
+  border: 1px solid var(--forgot-border);
+  border-radius: 8px;
+  background: #ffffff;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.input-shell:focus-within {
+  border-color: var(--forgot-blue);
+  box-shadow: 0 0 0 4px rgba(11, 114, 231, 0.12);
+}
+
+.input-shell.invalid {
+  border-color: rgba(185, 28, 28, 0.62);
+  box-shadow: 0 0 0 4px rgba(185, 28, 28, 0.08);
 }
 
 input {
   width: 100%;
-  padding: 10px 12px;
-  border: 2px solid #9ca3af;
-  border-radius: 8px;
-  margin-bottom: 14px;
-  background: #ffffff;
-  color: #111827;
+  min-height: 50px;
+  min-width: 0;
+  border: 0;
+  padding: 0 14px;
+  background: transparent;
+  color: var(--forgot-text);
+  font: inherit;
+  font-weight: 700;
 }
 
 input:focus {
-  outline: 2px solid #93c5fd;
-  outline-offset: 1px;
+  outline: none;
 }
 
-button {
-  width: 100%;
-  padding: 10px 12px;
-  border: 0;
-  border-radius: 8px;
-  background: #111827;
-  color: #fff;
-  cursor: pointer;
-  transition: background-color 0.2s ease;
-}
-
-button:hover {
-  background: #1f2937;
-  transform: none;
-}
-
-button:disabled {
-  opacity: 0.6;
-  cursor: default;
-}
-
-.message {
-  margin-top: 12px;
-  padding: 10px 12px;
-  border: 1px solid rgba(16, 185, 129, 0.2);
-  border-radius: 8px;
-  background: rgba(16, 185, 129, 0.1);
-  color: #374151;
-  font-weight: 500;
-  text-align: center;
-}
-
-.error {
-  margin-top: 12px;
-  padding: 10px 12px;
-  border: 1px solid rgba(239, 68, 68, 0.18);
-  border-radius: 8px;
-  background: rgba(239, 68, 68, 0.1);
-  color: #b91c1c;
+input::placeholder {
+  color: #94a3b8;
   font-weight: 600;
+}
+
+.field-error {
+  margin: -6px 0 0;
+  color: var(--forgot-red);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.status-box {
+  padding: 12px 14px;
+  border-radius: 8px;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+.status-box.success {
+  border: 1px solid rgba(5, 150, 105, 0.22);
+  background: rgba(5, 150, 105, 0.1);
+  color: var(--forgot-green);
+}
+
+.status-box.error {
+  border: 1px solid rgba(185, 28, 28, 0.18);
+  background: rgba(185, 28, 28, 0.08);
+  color: var(--forgot-red);
+}
+
+.form-actions {
+  display: grid;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.primary-action,
+.secondary-action {
+  min-height: 50px;
+  border-radius: 8px;
+  font-weight: 800;
   text-align: center;
 }
 
-.back-link {
-  display: inline-block;
-  margin-top: 16px;
-  color: #1d4ed8;
+.primary-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 0;
+  background: var(--forgot-blue);
+  color: #ffffff;
+  cursor: pointer;
+  box-shadow: 0 14px 28px rgba(11, 114, 231, 0.22);
+}
+
+.primary-action:hover:not(:disabled) {
+  background: var(--forgot-blue-strong);
+}
+
+.primary-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+  box-shadow: none;
+}
+
+.secondary-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--forgot-border);
+  color: var(--forgot-blue-strong);
   text-decoration: none;
 }
 
-.back-link:hover {
-  text-decoration: underline;
+.secondary-action:hover {
+  background: var(--forgot-muted-card);
 }
 
-:global(.dark-mode) .card {
-  background: #111827;
-  color: #f9fafb;
-  border: none;
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
+.spinner {
+  width: 1rem;
+  height: 1rem;
+  border: 2px solid rgba(255, 255, 255, 0.42);
+  border-top-color: #ffffff;
+  border-radius: 999px;
+  animation: spin 0.75s linear infinite;
 }
 
-:global(.dark-mode) .subtitle {
-  color: #d1d5db;
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
-:global(.dark-mode) h1,
-:global(.dark-mode) label {
-  color: #f9fafb;
+html.dark-mode .forgot-password-page,
+body.dark-mode .forgot-password-page {
+  --forgot-bg: #0f172a;
+  --forgot-card: #111827;
+  --forgot-muted-card: #1f2937;
+  --forgot-border: rgba(148, 163, 184, 0.24);
+  --forgot-text: #f8fafc;
+  --forgot-muted: #cbd5e1;
+  --forgot-blue: #60a5fa;
+  --forgot-blue-strong: #93c5fd;
+  --forgot-green: #86efac;
+  --forgot-red: #fca5a5;
 }
 
-:global(.dark-mode) input {
-  background: #1f2937;
-  color: #f9fafb;
-  border: none;
-  box-shadow: inset 0 0 0 1px rgba(100, 116, 139, 0.05);
+html.dark-mode .forgot-password-page .input-shell,
+body.dark-mode .forgot-password-page .input-shell {
+  background: rgba(15, 23, 42, 0.72);
 }
 
-:global(.dark-mode) input:focus {
-  outline: none;
-  box-shadow: inset 0 0 0 1px rgba(96, 165, 250, 0.15);
+html.dark-mode .forgot-password-page input,
+body.dark-mode .forgot-password-page input {
+  color: var(--forgot-text);
 }
 
-:global(.dark-mode) input::placeholder {
-  color: #9ca3af;
+html.dark-mode .forgot-password-page .status-box.success,
+body.dark-mode .forgot-password-page .status-box.success {
+  background: rgba(74, 222, 128, 0.12);
+  color: #86efac;
 }
 
-:global(.dark-mode) button {
-  background: #2563eb;
-}
-
-:global(.dark-mode) button:hover {
-  background: #1d4ed8;
-  transform: none;
-}
-
-:global(.dark-mode) .back-link {
-  color: #93c5fd;
-}
-
-:global(.dark-mode .forgot-page .message),
-:global(html.dark-mode .forgot-page .message),
-:global(body.dark-mode .forgot-page .message) {
-  border-color: rgba(110, 231, 183, 0.22);
-  background: rgba(16, 185, 129, 0.16);
-  color: #111827;
-}
-
-:global(.dark-mode .forgot-page .error),
-:global(html.dark-mode .forgot-page .error),
-:global(body.dark-mode .forgot-page .error) {
-  border-color: rgba(252, 165, 165, 0.24);
-  background: rgba(239, 68, 68, 0.16);
+html.dark-mode .forgot-password-page .status-box.error,
+body.dark-mode .forgot-password-page .status-box.error {
+  background: rgba(248, 113, 113, 0.12);
   color: #fca5a5;
 }
 
+@media (max-width: 520px) {
+  .forgot-password-page {
+    padding: 18px 14px;
+  }
+
+  .forgot-card {
+    padding: 22px;
+  }
+}
 </style>

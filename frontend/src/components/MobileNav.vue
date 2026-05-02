@@ -63,28 +63,6 @@
           </button>
         </div>
 
-        <!-- Team navigation for team pages -->
-        <div v-if="isOnTeamPage" class="nav-section team-pages-nav">
-          <h4 class="section-title">{{ t('nav.teamPages') }}</h4>
-          <router-link 
-            :to="`/team/${currentTeamId}/players`" 
-            class="nav-item team-nav-link"
-            :class="{ active: isOnPage('players') }"
-            @click="showMenu = false"
-          >
-            {{ t('teamPage.players') }}
-          </router-link>
-          <router-link 
-            v-if="isCoach"
-            :to="`/team/${currentTeamId}/statistics`" 
-            class="nav-item team-nav-link"
-            :class="{ active: isOnPage('statistics') }"
-            @click="showMenu = false"
-          >
-            {{ t('teamPage.statistics') }}
-          </router-link>
-        </div>
-
         <!-- Menu utilities -->
         <div class="nav-section nav-utils-in-menu">
           <button 
@@ -147,7 +125,7 @@
         </div>
 
         <!-- Team buttons -->
-        <div v-if="hasTeam || showCreateTeam || showJoinTeam" class="nav-section team-section">
+        <div v-if="hasTeam || showCreateTeam || showJoinTeam || isOnTeamPage" class="nav-section team-section">
           <button 
             v-if="showCreateTeam" 
             @click="() => { goToCreateTeam(); showMenu = false }"
@@ -162,6 +140,26 @@
           >
             {{ userTeam?.name }}
           </button>
+          <div v-if="isOnTeamPage" class="team-pages-nav">
+            <h4 class="section-title">{{ t('nav.teamPages') }}</h4>
+            <router-link
+              :to="`/team/${currentTeamId}/players`"
+              class="nav-item team-nav-link"
+              :class="{ active: isOnPage('players') }"
+              @click="showMenu = false"
+            >
+              {{ t('teamPage.players') }}
+            </router-link>
+            <router-link
+              v-if="isCoach"
+              :to="`/team/${currentTeamId}/statistics`"
+              class="nav-item team-nav-link"
+              :class="{ active: isOnPage('statistics') }"
+              @click="showMenu = false"
+            >
+              {{ t('teamPage.statistics') }}
+            </router-link>
+          </div>
           <button 
             v-if="hasTeam" 
             @click="() => { goToSchedule(); showMenu = false }"
@@ -1008,6 +1006,10 @@ html.dark-mode .team-nav-btn.active {
 
 /* Team Pages Navigation */
 .team-pages-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
   padding: 12px !important;
   border-bottom: 2px solid #0073e6 !important;
 }
@@ -1069,6 +1071,9 @@ html.dark-mode .team-nav-link.active {
 /* Desktop: Team Pages Navigation adjustments */
 @media (min-width: 1024px) {
   .team-pages-nav {
+    flex-direction: row;
+    align-items: center;
+    width: auto;
     padding: 0 !important;
     border: none !important;
     gap: 4px;

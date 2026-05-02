@@ -34,9 +34,14 @@ db.serialize(() => {
       attachment_name TEXT,
       attachment_type TEXT,
       attachment_size INTEGER,
+      reply_to_message_id INTEGER,
+      reply_to_username TEXT,
+      reply_to_message TEXT,
+      reply_to_attachment_name TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (room_id) REFERENCES chat_rooms(id) ON DELETE CASCADE,
-      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY (reply_to_message_id) REFERENCES messages(id) ON DELETE SET NULL
     )
   `, (err) => {
     if (err) {
@@ -46,7 +51,16 @@ db.serialize(() => {
     }
   });
 
-  ['attachment_url TEXT', 'attachment_name TEXT', 'attachment_type TEXT', 'attachment_size INTEGER'].forEach((columnDefinition) => {
+  [
+    'attachment_url TEXT',
+    'attachment_name TEXT',
+    'attachment_type TEXT',
+    'attachment_size INTEGER',
+    'reply_to_message_id INTEGER',
+    'reply_to_username TEXT',
+    'reply_to_message TEXT',
+    'reply_to_attachment_name TEXT'
+  ].forEach((columnDefinition) => {
     db.run(`ALTER TABLE messages ADD COLUMN ${columnDefinition}`, (err) => {
       if (err && !err.message.includes('duplicate column name')) {
         console.error(`Error adding ${columnDefinition} to messages table:`, err.message);

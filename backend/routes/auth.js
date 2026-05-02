@@ -7,6 +7,8 @@ const JWT_SECRET = 'your_jwt_secret';
 const emailUser = process.env.EMAIL_USER || 'vladimiravgustin123@gmail.com';
 const emailPass = (process.env.EMAIL_PASS || '').replace(/\s+/g, '');
 const MAX_IMAGE_DATA_LENGTH = 3_200_000;
+const MIN_PASSWORD_LENGTH = 8;
+const PASSWORD_MIN_LENGTH_ERROR = `Parolei j\u0101b\u016bt vismaz ${MIN_PASSWORD_LENGTH} rakstz\u012bmes garai`;
 
 const mailTransporter = nodemailer.createTransport({
   service: 'gmail',
@@ -47,7 +49,7 @@ const authenticateToken = (req, res, next) => {
   const authHeader = req.headers.authorization;
   
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ error: 'Autorizācijas marķieris nav norādīts' });
+    return res.status(401).json({ error: 'Autorizācijas tokens nav norādīts' });
   }
 
   const token = authHeader.split(' ')[1];
@@ -59,7 +61,7 @@ const authenticateToken = (req, res, next) => {
     next();
   } catch (err) {
     console.error('JWT verification failed:', err.message);
-    return res.status(403).json({ error: 'Nederīgs autorizācijas marķieris' });
+    return res.status(403).json({ error: 'Nederīgs autorizācijas tokens' });
   }
 };
 
@@ -221,6 +223,10 @@ module.exports = (db) => {
           return res.status(400).json({ error: 'Lūdzu, aizpildiet visus laukus.' });
         }
       
+        if (String(password).length < MIN_PASSWORD_LENGTH) {
+          return res.status(400).json({ error: PASSWORD_MIN_LENGTH_ERROR });
+        }
+
         const userRole = role || 'user';
       
         db.get('SELECT * FROM users WHERE email = ?', [email], async (err, row) => {
@@ -470,11 +476,11 @@ module.exports = (db) => {
     const { token, password } = req.body;
 
     if (!token || !password) {
-      return res.status(400).json({ error: 'Nepieciešams atiestatīšanas marķieris un jaunā parole' });
+      return res.status(400).json({ error: 'Nepieciešams atiestatīšanas tokens un jaunā parole' });
     }
 
-    if (String(password).length < 6) {
-      return res.status(400).json({ error: 'Parolei jābūt vismaz 6 rakstzīmes garai' });
+    if (String(password).length < MIN_PASSWORD_LENGTH) {
+      return res.status(400).json({ error: PASSWORD_MIN_LENGTH_ERROR });
     }
 
     const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
@@ -493,7 +499,7 @@ module.exports = (db) => {
         }
 
         if (!resetRow) {
-          return res.status(400).json({ error: 'Atiestatīšanas marķieris nav derīgs vai ir beidzies' });
+          return res.status(400).json({ error: 'Atiestatīšanas tokens nav derīgs vai ir beidzies' });
         }
 
         try {
@@ -534,7 +540,7 @@ module.exports = (db) => {
         const authHeader = req.headers.authorization;
 
         if (!authHeader || !authHeader.startsWith('Bearer ')) {
-            return res.status(401).json({ error: 'Autorizācijas marķieris nav norādīts' });
+            return res.status(401).json({ error: 'Autorizācijas tokens nav norādīts' });
         }
 
         const token = authHeader.split(' ')[1];
@@ -564,7 +570,7 @@ module.exports = (db) => {
             });
         } catch (error) {
             console.error(error.message);
-            res.status(401).json({ error: 'Nederīgs autorizācijas marķieris' });
+            res.status(401).json({ error: 'Nederīgs autorizācijas tokens' });
         }
     });
 

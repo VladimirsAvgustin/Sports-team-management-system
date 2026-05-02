@@ -4,41 +4,41 @@
       <section class="statistics-hero">
         <div class="hero-main">
           <div class="hero-copy">
-            <p class="eyebrow">Snieguma analītika</p>
-            <h1>{{ team.name || 'Komandas statistika' }}</h1>
+            <p class="eyebrow">{{ copy.eyebrow }}</p>
+            <h1>{{ team.name || copy.teamFallback }}</h1>
            
 
             <div class="hero-pills">
-              <span class="hero-pill">{{ summary.totalGoals }} vārti</span>
-              <span class="hero-pill">{{ summary.totalAssists }} piespēles</span>
-              <span class="hero-pill">{{ summary.totalMatches }} spēles</span>
-              <span class="hero-pill accent">{{ summary.avgAttendance }}% apmeklējums</span>
+              <span class="hero-pill">{{ summary.totalGoals }} {{ copy.goalsLower }}</span>
+              <span class="hero-pill">{{ summary.totalAssists }} {{ copy.assistsLower }}</span>
+              <span class="hero-pill">{{ summary.totalMatches }} {{ copy.matchesLower }}</span>
+              <span class="hero-pill accent">{{ summary.avgAttendance }}% {{ copy.attendanceLower }}</span>
             </div>
           </div>
 
           <div class="hero-nav">
             <router-link :to="`/team/${teamId}/players`" class="nav-chip">
-              Spēlētāji
+              {{ copy.navPlayers }}
             </router-link>
             <router-link :to="`/team/${teamId}/statistics`" class="nav-chip" active-class="active">
-              Statistika
+              {{ copy.navStatistics }}
             </router-link>
             <router-link :to="`/team-schedule/${teamId}`" class="nav-chip">
-              Grafiks
+              {{ copy.navSchedule }}
             </router-link>
           </div>
         </div>
 
         <div class="hero-side">
           <div class="summary-card">
-            <span class="summary-label">Labākais vārtu guvējs</span>
-            <strong>{{ topScorer ? fullName(topScorer) : 'Datu vēl nav' }}</strong>
-            <p>{{ topScorer ? `${topScorer.goals ?? topScorer.stats?.goals ?? 0} vārti šajā ciklā` : 'Vārtu dati parādīsies šeit.' }}</p>
+            <span class="summary-label">{{ copy.topScorer }}</span>
+            <strong>{{ topScorer ? fullName(topScorer) : copy.noData }}</strong>
+            <p>{{ topScorer ? copy.topScorerNote(topScorer.goals ?? topScorer.stats?.goals ?? 0) : copy.topScorerEmpty }}</p>
           </div>
           <div class="summary-card soft">
-            <span class="summary-label">Labākais piespēlētājs</span>
-            <strong>{{ topCreator ? fullName(topCreator) : 'Datu vēl nav' }}</strong>
-            <p>{{ topCreator ? `${topCreator.assists ?? topCreator.stats?.assists ?? 0} rezultatīvas piespēles` : 'Piespēļu tendences parādīsies šeit.' }}</p>
+            <span class="summary-label">{{ copy.topCreator }}</span>
+            <strong>{{ topCreator ? fullName(topCreator) : copy.noData }}</strong>
+            <p>{{ topCreator ? copy.topCreatorNote(topCreator.assists ?? topCreator.stats?.assists ?? 0) : copy.topCreatorEmpty }}</p>
           </div>
         </div>
       </section>
@@ -56,28 +56,23 @@
           <article class="chart-panel">
             <div class="panel-head">
               <div>
-                <p class="panel-kicker">Ieguldījuma sadalījums</p>
-                <h2>Vārti un piespēles</h2>
+                <p class="panel-kicker">{{ copy.contributionKicker }}</p>
+                <h2>{{ copy.goalsAndAssists }}</h2>
               </div>
             </div>
 
             <div v-if="contributionBreakdown.length" class="chart-stack">
               <div class="chart-summary-strip">
                 <div class="chart-summary-card">
-                  <span class="chart-summary-label">Lielākais ieguldījums</span>
+                  <span class="chart-summary-label">{{ copy.biggestContribution }}</span>
                   <strong>{{ contributionBreakdown[0].total }}</strong>
                   <small>{{ fullName(contributionBreakdown[0].player) }}</small>
                 </div>
                 <div class="chart-summary-card">
-                  <span class="chart-summary-label">Uzskaitītās darbības</span>
+                  <span class="chart-summary-label">{{ copy.trackedActions }}</span>
                   <strong>{{ totalDirectActions }}</strong>
-                  <small>Vārti un piespēles no līderu grupas</small>
+                  <small>{{ copy.actionsFromLeaders }}</small>
                 </div>
-              </div>
-
-              <div class="chart-legend">
-                <span class="legend-chip goals">Vārti</span>
-                <span class="legend-chip assists">Piespēles</span>
               </div>
 
               <div class="split-list">
@@ -90,7 +85,7 @@
                     </div>
                     <div class="chart-player-copy">
                       <strong>{{ fullName(entry.player) }}</strong>
-                      <small>{{ formatPercent(entry.teamShare) }} no tiešajām darbībām</small>
+                      <small>{{ copy.teamShareText(formatPercent(entry.teamShare)) }}</small>
                     </div>
                   </div>
 
@@ -100,42 +95,42 @@
                       <span class="split-segment assists" :style="{ width: `${entry.assistShare}%` }"></span>
                     </div>
                     <div class="split-meta">
-                      <span>{{ entry.goals }} vārti</span>
-                      <span>{{ entry.assists }} piespēles</span>
+                      <span>{{ entry.goals }} {{ copy.goalsLower }}</span>
+                      <span>{{ entry.assists }} {{ copy.assistsLower }}</span>
                     </div>
                   </div>
 
                   <div class="split-total">
                     <strong>{{ entry.total }}</strong>
-                    <small>kopā</small>
+                    <small>{{ copy.total }}</small>
                   </div>
                 </article>
               </div>
             </div>
             <div v-else class="empty-card">
-              Pievienojiet spēlētāju statistiku, lai atvērtu ieguldījuma ieskatus.
+              {{ copy.contributionEmpty }}
             </div>
           </article>
 
           <article class="chart-panel">
             <div class="panel-head">
               <div>
-                <p class="panel-kicker">Slodze</p>
-                <h2>Aizvadītās spēles</h2>
+                <p class="panel-kicker">{{ copy.workload }}</p>
+                <h2>{{ copy.matchesPlayed }}</h2>
               </div>
             </div>
 
             <div v-if="workloadBreakdown.length" class="chart-stack">
               <div class="chart-summary-strip">
                 <div class="chart-summary-card">
-                  <span class="chart-summary-label">Lielākā slodze</span>
+                  <span class="chart-summary-label">{{ copy.biggestWorkload }}</span>
                   <strong>{{ maxMatchesTracked }}</strong>
-                  <small>Lielākais spēļu skaits sastāvā</small>
+                  <small>{{ copy.biggestMatchCount }}</small>
                 </div>
                 <div class="chart-summary-card">
-                  <span class="chart-summary-label">Komandas vidējais</span>
+                  <span class="chart-summary-label">{{ copy.teamAverage }}</span>
                   <strong>{{ averageMatches() }}</strong>
-                  <small>Spēles uz uzskaitīto spēlētāju</small>
+                  <small>{{ copy.matchesPerTrackedPlayer }}</small>
                 </div>
               </div>
 
@@ -160,13 +155,13 @@
 
                   <div class="usage-total">
                     <strong>{{ entry.matches }}</strong>
-                    <small>spēles</small>
+                    <small>{{ copy.matchesLower }}</small>
                   </div>
                 </article>
               </div>
             </div>
             <div v-else class="empty-card">
-              Pievienojiet spēlētāju dalību spēlēs, lai atvērtu slodzes ieskatus.
+              {{ copy.workloadEmpty }}
             </div>
           </article>
         </section>
@@ -175,8 +170,8 @@
           <article class="panel">
             <div class="panel-head">
               <div>
-                <p class="panel-kicker">Detalizēta tabula</p>
-                <h2>Pilna spēlētāju statistika</h2>
+                <p class="panel-kicker">{{ copy.detailedTable }}</p>
+                <h2>{{ copy.fullPlayerStats }}</h2>
               </div>
               <div class="panel-actions">
                 <button
@@ -185,7 +180,7 @@
                   :disabled="!rankedPlayers.length"
                   @click="exportStatisticsCsv"
                 >
-                  Eksportēt CSV
+                  {{ copy.exportCsv }}
                 </button>
                 <button
                   type="button"
@@ -193,9 +188,9 @@
                   :disabled="!rankedPlayers.length"
                   @click="exportStatisticsExcel"
                 >
-                  Eksportēt Excel
+                  {{ copy.exportExcel }}
                 </button>
-                <span class="panel-chip">{{ rankedPlayers.length }} rindas</span>
+                <span class="panel-chip">{{ copy.rowsCount(rankedPlayers.length) }}</span>
               </div>
             </div>
 
@@ -204,12 +199,12 @@
                 <thead>
                   <tr>
                     <th>#</th>
-                    <th>Spēlētājs</th>
-                    <th>Spēles</th>
-                    <th>Vārti</th>
-                    <th>Piespēles</th>
-                    <th>Dzeltenās</th>
-                    <th>Sarkanās</th>
+                    <th>{{ copy.player }}</th>
+                    <th>{{ copy.matches }}</th>
+                    <th>{{ copy.goals }}</th>
+                    <th>{{ copy.assists }}</th>
+                    <th>{{ copy.yellowShort }}</th>
+                    <th>{{ copy.redShort }}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -237,17 +232,17 @@
               </table>
             </div>
             <div v-else class="empty-card">
-              Pievienojiet spēlētāju statistiku, lai atvērtu tabulas skatu.
+              {{ copy.tableEmpty }}
             </div>
           </article>
         </section>
       </div>
 
       <section v-else class="access-panel">
-        <h2>Nepieciešama trenera piekļuve</h2>
-        <p>Analītikas darba vidi var atvērt tikai šīs komandas treneri.</p>
+        <h2>{{ copy.coachAccessTitle }}</h2>
+        <p>{{ copy.coachAccessText }}</p>
         <router-link :to="`/team/${teamId}/players`" class="access-link">
-          Atvērt spēlētāju lapu
+          {{ copy.openPlayersPage }}
         </router-link>
       </section>
 
@@ -267,7 +262,124 @@ import { useAuthStore } from '../stores/auth'
 import { canManageTeam } from '../utils/teamAccess'
 import { fetchTeamBundle, fetchTeamSummary } from '../services/teamApi'
 
-const { t } = useI18n()
+const STATS_COPY = {
+  en: {
+    eyebrow: 'Performance analytics',
+    teamFallback: 'Team statistics',
+    goals: 'Goals',
+    assists: 'Assists',
+    matches: 'Matches',
+    attendance: 'Attendance',
+    goalsLower: 'goals',
+    assistsLower: 'assists',
+    matchesLower: 'matches',
+    attendanceLower: 'attendance',
+    navPlayers: 'Players',
+    navStatistics: 'Statistics',
+    navSchedule: 'Schedule',
+    topScorer: 'Top scorer',
+    topCreator: 'Top creator',
+    noData: 'No data yet',
+    topScorerNote: (goals) => `${goals} goals this cycle`,
+    topScorerEmpty: 'Goal data will appear here.',
+    topCreatorNote: (assists) => `${assists} assists`,
+    topCreatorEmpty: 'Assist trends will appear here.',
+    contributionKicker: 'Contribution breakdown',
+    goalsAndAssists: 'Goals and assists',
+    biggestContribution: 'Biggest contribution',
+    trackedActions: 'Tracked actions',
+    actionsFromLeaders: 'Goals and assists from the leader group',
+    teamShareText: (percent) => `${percent} of direct actions`,
+    total: 'total',
+    contributionEmpty: 'Add player statistics to unlock contribution insights.',
+    workload: 'Workload',
+    matchesPlayed: 'Matches played',
+    biggestWorkload: 'Biggest workload',
+    biggestMatchCount: 'Highest match count in the roster',
+    teamAverage: 'Team average',
+    matchesPerTrackedPlayer: 'Matches per tracked player',
+    workloadEmpty: 'Add player match participation to unlock workload insights.',
+    detailedTable: 'Detailed table',
+    fullPlayerStats: 'Full player statistics',
+    exportCsv: 'Export CSV',
+    exportExcel: 'Export Excel',
+    rowsCount: (count) => `${count} ${count === 1 ? 'row' : 'rows'}`,
+    player: 'Player',
+    yellowShort: 'Yellow',
+    redShort: 'Red',
+    tableEmpty: 'Add player statistics to unlock the table view.',
+    coachAccessTitle: 'Coach access required',
+    coachAccessText: 'Only this team’s coaches can open the analytics workspace.',
+    openPlayersPage: 'Open players page',
+    perPlayer: 'per player',
+    completedMatches: 'Completed matches from the schedule',
+    noCompletedMatches: 'No completed matches in the schedule yet',
+    practiceAttendance: 'Practice attendance',
+    contributionText: (player) => `${player.stats.matches} matches, ${player.stats.goals} goals, ${player.stats.assists} assists`,
+    exportHeaders: ['Rank', 'Player', 'Email', 'Matches', 'Goals', 'Assists', 'Yellow cards', 'Red cards'],
+    worksheetName: 'Statistics',
+    filenameFallback: 'team'
+  },
+  lv: {
+    eyebrow: 'Snieguma analītika',
+    teamFallback: 'Komandas statistika',
+    goals: 'Vārti',
+    assists: 'Piespēles',
+    matches: 'Spēles',
+    attendance: 'Apmeklējums',
+    goalsLower: 'vārti',
+    assistsLower: 'piespēles',
+    matchesLower: 'spēles',
+    attendanceLower: 'apmeklējums',
+    navPlayers: 'Spēlētāji',
+    navStatistics: 'Statistika',
+    navSchedule: 'Grafiks',
+    topScorer: 'Labākais vārtu guvējs',
+    topCreator: 'Labākais piespēlētājs',
+    noData: 'Datu vēl nav',
+    topScorerNote: (goals) => `${goals} vārti šajā ciklā`,
+    topScorerEmpty: 'Vārtu dati parādīsies šeit.',
+    topCreatorNote: (assists) => `${assists} rezultatīvas piespēles`,
+    topCreatorEmpty: 'Piespēļu tendences parādīsies šeit.',
+    contributionKicker: 'Ieguldījuma sadalījums',
+    goalsAndAssists: 'Vārti un piespēles',
+    biggestContribution: 'Lielākais ieguldījums',
+    trackedActions: 'Uzskaitītās darbības',
+    actionsFromLeaders: 'Vārti un piespēles no līderu grupas',
+    teamShareText: (percent) => `${percent} no tiešajām darbībām`,
+    total: 'kopā',
+    contributionEmpty: 'Pievienojiet spēlētāju statistiku, lai atvērtu ieguldījuma ieskatus.',
+    workload: 'Slodze',
+    matchesPlayed: 'Aizvadītās spēles',
+    biggestWorkload: 'Lielākā slodze',
+    biggestMatchCount: 'Lielākais spēļu skaits sastāvā',
+    teamAverage: 'Komandas vidējais',
+    matchesPerTrackedPlayer: 'Spēles uz uzskaitīto spēlētāju',
+    workloadEmpty: 'Pievienojiet spēlētāju dalību spēlēs, lai atvērtu slodzes ieskatus.',
+    detailedTable: 'Detalizēta tabula',
+    fullPlayerStats: 'Pilna spēlētāju statistika',
+    exportCsv: 'Eksportēt CSV',
+    exportExcel: 'Eksportēt Excel',
+    rowsCount: (count) => `${count} rindas`,
+    player: 'Spēlētājs',
+    yellowShort: 'Dzeltenās',
+    redShort: 'Sarkanās',
+    tableEmpty: 'Pievienojiet spēlētāju statistiku, lai atvērtu tabulas skatu.',
+    coachAccessTitle: 'Nepieciešama trenera piekļuve',
+    coachAccessText: 'Analītikas darba vidi var atvērt tikai šīs komandas treneri.',
+    openPlayersPage: 'Atvērt spēlētāju lapu',
+    perPlayer: 'uz spēlētāju',
+    completedMatches: 'Pabeigtās spēles no grafika',
+    noCompletedMatches: 'Grafikā vēl nav aizvadītu spēļu',
+    practiceAttendance: 'Treniņu apmeklējums',
+    contributionText: (player) => `${player.stats.matches} spēles, ${player.stats.goals} vārti, ${player.stats.assists} piespēles`,
+    exportHeaders: ['Vieta', 'Spēlētājs', 'E-pasts', 'Spēles', 'Vārti', 'Piespēles', 'Dzeltenās kartītes', 'Sarkanās kartītes'],
+    worksheetName: 'Statistika',
+    filenameFallback: 'komanda'
+  }
+}
+
+const { t, locale } = useI18n()
 const route = useRoute()
 const authStore = useAuthStore()
 
@@ -286,6 +398,8 @@ const summary = ref({
   topAssists: []
 })
 const loading = ref(false)
+const localeKey = computed(() => (locale.value === 'en' ? 'en' : 'lv'))
+const copy = computed(() => STATS_COPY[localeKey.value])
 
 const currentUser = computed(() => authStore.user)
 const isCoach = canManageTeam({
@@ -389,26 +503,26 @@ const workloadBreakdown = computed(() => {
 
 const headlineMetrics = computed(() => [
   {
-    label: 'Vārti',
+    label: copy.value.goals,
     value: summary.value.totalGoals,
-    note: `${perPlayer(summary.value.totalGoals)} uz spēlētāju`
+    note: `${perPlayer(summary.value.totalGoals)} ${copy.value.perPlayer}`
   },
   {
-    label: 'Piespēles',
+    label: copy.value.assists,
     value: summary.value.totalAssists,
-    note: `${perPlayer(summary.value.totalAssists)} uz spēlētāju`
+    note: `${perPlayer(summary.value.totalAssists)} ${copy.value.perPlayer}`
   },
   {
-    label: 'Spēles',
+    label: copy.value.matches,
     value: summary.value.totalMatches,
     note: summary.value.totalMatches
-      ? 'Pabeigtās spēles no grafika'
-      : 'Grafikā vēl nav aizvadītu spēļu'
+      ? copy.value.completedMatches
+      : copy.value.noCompletedMatches
   },
   {
-    label: 'Apmeklējums',
+    label: copy.value.attendance,
     value: `${summary.value.avgAttendance}%`,
-    note: 'Treniņu apmeklējums'
+    note: copy.value.practiceAttendance
   }
 ])
 
@@ -472,7 +586,7 @@ const formatPercent = (value) => {
 }
 
 const contributionText = (player) => {
-  return `${player.stats.matches} spēles, ${player.stats.goals} vārti, ${player.stats.assists} piespēles`
+  return copy.value.contributionText(player)
 }
 
 const escapeCsvValue = (value) => {
@@ -491,12 +605,12 @@ const escapeXmlValue = (value) => String(value ?? '')
   .replace(/'/g, '&apos;')
 
 const createFilename = (extension) => {
-  const safeTeamName = (team.value?.name || 'komanda')
+  const safeTeamName = (team.value?.name || copy.value.filenameFallback)
     .toLowerCase()
     .replace(/[^a-z0-9]+/gi, '-')
-    .replace(/^-+|-+$/g, '') || 'komanda'
+    .replace(/^-+|-+$/g, '') || copy.value.filenameFallback
 
-  return `${safeTeamName}-statistika.${extension}`
+  return `${safeTeamName}-${copy.value.worksheetName.toLowerCase()}.${extension}`
 }
 
 const downloadBlob = (content, mimeType, filename) => {
@@ -513,7 +627,7 @@ const downloadBlob = (content, mimeType, filename) => {
 
 const exportStatisticsCsv = () => {
   const delimiter = ';'
-  const headers = ['Vieta', 'Spēlētājs', 'E-pasts', 'Spēles', 'Vārti', 'Piespēles', 'Dzeltenās kartītes', 'Sarkanās kartītes']
+  const headers = copy.value.exportHeaders
   const lines = [
     `sep=${delimiter}`,
     headers.join(delimiter),
@@ -552,17 +666,10 @@ const exportStatisticsExcel = () => {
       xmlns:x="urn:schemas-microsoft-com:office:excel"
       xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"
       xmlns:html="http://www.w3.org/TR/REC-html40">
-      <Worksheet ss:Name="Statistika">
+      <Worksheet ss:Name="${escapeXmlValue(copy.value.worksheetName)}">
         <Table>
           <Row>
-            <Cell><Data ss:Type="String">Vieta</Data></Cell>
-            <Cell><Data ss:Type="String">Spēlētājs</Data></Cell>
-            <Cell><Data ss:Type="String">E-pasts</Data></Cell>
-            <Cell><Data ss:Type="String">Spēles</Data></Cell>
-            <Cell><Data ss:Type="String">Vārti</Data></Cell>
-            <Cell><Data ss:Type="String">Piespēles</Data></Cell>
-            <Cell><Data ss:Type="String">Dzeltenās kartītes</Data></Cell>
-            <Cell><Data ss:Type="String">Sarkanās kartītes</Data></Cell>
+            ${copy.value.exportHeaders.map((header) => `<Cell><Data ss:Type="String">${escapeXmlValue(header)}</Data></Cell>`).join('')}
           </Row>
           ${rowsXml}
         </Table>
@@ -795,40 +902,6 @@ html.dark-mode .statistics-page {
   display: block;
   margin-top: 0.35rem;
   color: var(--page-muted);
-}
-
-.chart-legend {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.65rem;
-}
-
-.legend-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
-  padding: 0.5rem 0.8rem;
-  border-radius: 999px;
-  font-weight: 700;
-  font-size: 0.82rem;
-}
-
-.legend-chip::before {
-  content: '';
-  width: 10px;
-  height: 10px;
-  border-radius: 999px;
-  background: currentColor;
-}
-
-.legend-chip.goals {
-  background: rgba(11, 114, 231, 0.12);
-  color: #0b72e7;
-}
-
-.legend-chip.assists {
-  background: rgba(130, 183, 255, 0.18);
-  color: #5f94de;
 }
 
 .panel-head {

@@ -30,7 +30,7 @@
               <p class="panel-kicker">{{ $t('contact.sendMessage') }}</p>
               <h2>{{ $t('contact.sendMessage') }}</h2>
             </div>
-            <span class="panel-chip">{{ locale.value === 'lv' ? 'Mēs izlasām visu' : 'We read every message' }}</span>
+            <span class="panel-chip">{{ $t('contact.readEveryMessage') }}</span>
           </div>
 
           <form @submit.prevent="submitForm" class="contact-form">
@@ -93,7 +93,7 @@
             >
               <button type="button" class="faq-question" @click="toggleFaq(i)">
                 <span>{{ item.q }}</span>
-                <span class="faq-toggle">{{ openFaq === i ? '−' : '+' }}</span>
+                <span class="faq-toggle">{{ openFaq === i ? '-' : '+' }}</span>
               </button>
               <div v-show="openFaq === i" class="faq-answer">
                 {{ item.a }}
@@ -152,7 +152,7 @@ const submitForm = async () => {
 
     if (!res.ok) {
       const data = await res.json()
-      throw new Error(data.error || (locale.value === 'lv' ? 'Neizdevās nosūtīt' : 'Failed to send'))
+      throw new Error(data.error || (locale.value === 'lv' ? 'Neizdevas nosutit' : 'Failed to send'))
     }
 
     sent.value = true
@@ -163,7 +163,7 @@ const submitForm = async () => {
   } catch (err) {
     console.error('Error sending message:', err)
     errorMsg.value = err.message || (locale.value === 'lv'
-      ? 'Kaut kas nogāja greizi. Lūdzu, mēģiniet vēlreiz.'
+      ? 'Kaut kas nogaja greizi. Ludzu, meginiet velreiz.'
       : 'Something went wrong. Please try again.')
     setTimeout(() => {
       errorMsg.value = ''

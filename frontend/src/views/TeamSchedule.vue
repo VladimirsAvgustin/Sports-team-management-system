@@ -5,7 +5,7 @@
         <div class="hero-main">
           <div class="schedule-header">
             <div class="header-left">
-              <p class="header-eyebrow">Komandas kalendārs</p>
+              <p class="header-eyebrow">{{ scheduleCopy.teamCalendar }}</p>
               <h1>{{ $t('schedule.title') }}</h1>
               <p class="header-subtitle">{{ upcomingCount }} {{ upcomingCount !== 1 ? $t('schedule.upcomingEvents') : $t('schedule.upcomingEvent') }}</p>
             </div>
@@ -174,8 +174,33 @@
                   {{ getEventIcon(event.event_type) }} {{ getEventTypeLabel(event.event_type) }}
                 </div>
                 <div v-if="isCoach" class="list-event-actions">
-                  <button @click.stop="startEdit(event)" class="action-icon">✏️</button>
-                  <button @click.stop="deleteEvent(event)" class="action-icon delete">🗑️</button>
+                  <button
+                    @click.stop="startEdit(event)"
+                    class="action-icon"
+                    type="button"
+                    :aria-label="$t('buttons.edit')"
+                    :title="$t('buttons.edit')"
+                  >
+                    <svg class="action-svg" viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M12 20h9" />
+                      <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                    </svg>
+                  </button>
+                  <button
+                    @click.stop="deleteEvent(event)"
+                    class="action-icon delete"
+                    type="button"
+                    :aria-label="$t('buttons.delete')"
+                    :title="$t('buttons.delete')"
+                  >
+                    <svg class="action-svg" viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M3 6h18" />
+                      <path d="M8 6V4h8v2" />
+                      <path d="M19 6l-1 14H6L5 6" />
+                      <path d="M10 11v5" />
+                      <path d="M14 11v5" />
+                    </svg>
+                  </button>
                 </div>
               </div>
             </template>
@@ -356,7 +381,10 @@
           
           <div class="attendees-grid">
             <div v-for="player in sortedEventAttendanceList" :key="player.user_id" class="attendee-card" :class="player.status || 'unmarked'">
-              <div class="attendee-avatar">{{ getInitials(player.username) }}</div>
+              <div class="attendee-avatar">
+                <img v-if="player.avatar" :src="player.avatar" :alt="player.username" class="person-avatar-image">
+                <template v-else>{{ getInitials(player.username) }}</template>
+              </div>
               <div class="attendee-details">
                 <div class="attendee-name">{{ player.username }}</div>
                 <div class="attendee-status">{{ getStatusDisplayText(player.status) }}</div>
@@ -453,6 +481,7 @@
                 <th>{{ $t('schedule.player') }}</th>
                 <th>{{ $t('schedule.attended') }}</th>
                 <th>{{ $t('schedule.missed') }}</th>
+                <th>{{ $t('schedule.noResponse') }}</th>
                 <th>{{ $t('schedule.rate') }}</th>
               </tr>
             </thead>
@@ -460,7 +489,10 @@
               <tr v-for="stat in filteredAttendanceStats" :key="stat.user_id">
                 <td>
                   <div class="player-cell">
-                    <div class="player-avatar-sm">{{ getInitials(stat.username) }}</div>
+                    <div class="player-avatar-sm">
+                      <img v-if="stat.avatar" :src="stat.avatar" :alt="stat.username" class="person-avatar-image">
+                      <template v-else>{{ getInitials(stat.username) }}</template>
+                    </div>
                     <div class="player-copy">
                       <span class="player-name">{{ stat.username }}</span>
                       <small class="player-meta">
@@ -471,6 +503,7 @@
                 </td>
                 <td class="stats-number stat-present">{{ stat.present_count }}</td>
                 <td class="stats-number stat-absent">{{ stat.absent_count }}</td>
+                <td class="stats-number stat-unmarked">{{ getUnmarkedStatsCount(stat) }}</td>
                 <td>
                   <div class="rate-bar">
                     <div class="rate-track">
@@ -502,11 +535,10 @@ import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
 import axios from 'axios'
 import dayjs from 'dayjs'
+import 'dayjs/locale/en'
 import 'dayjs/locale/lv'
 import { useAuthStore } from '../stores/auth'
 import { normalizeRole } from '../utils/teamAccess'
-
-dayjs.locale('lv')
 
 const { t, locale } = useI18n()
 const auth = useAuthStore()
@@ -522,6 +554,65 @@ const currentWeek = ref(dayjs())
 const showDatePicker = ref(false)
 const datePickerMonth = ref(currentWeek.value.startOf('month'))
 const datePickerRef = ref(null)
+const scheduleCopy = computed(() => (
+  locale.value === 'lv'
+    ? {
+        teamCalendar: 'Komandas kalendārs',
+        noUpcoming: 'Nav gaidāmu notikumu',
+        calendarEmpty: 'Kalendārs pašlaik ir tukšs.',
+        weekPlanner: 'Nedēļas plānotājs',
+        eventList: 'Notikumu saraksts',
+        loadingDataError: 'Neizdevās ielādēt datus',
+        timeConflict: 'Šajā datumā un laikā jau ir notikums',
+        addError: 'Kļūda, pievienojot notikumu',
+        editError: 'Kļūda, rediģējot notikumu',
+        deleteConfirm: 'Vai tiešām vēlaties dzēst šo notikumu?',
+        deleteError: 'Kļūda, dzēšot notikumu',
+        defaultLocation: 'Sporta zāle',
+        confirmed: 'apstiprināts',
+        notConfirmed: 'nav apstiprināts',
+        declined: 'atteikts',
+        day: (count) => count === 1 ? 'diena' : 'dienas',
+        hour: (count) => count === 1 ? 'stunda' : 'stundas',
+        minute: (count) => count === 1 ? 'minūte' : 'minūtes',
+        eventTypes: {
+          practice: 'Treniņš',
+          game: 'Spēle',
+          meeting: 'Sapulce',
+          other: 'Notikums'
+        }
+      }
+    : {
+        teamCalendar: 'Team calendar',
+        noUpcoming: 'No upcoming events',
+        calendarEmpty: 'The calendar is currently empty.',
+        weekPlanner: 'Week planner',
+        eventList: 'Event list',
+        loadingDataError: 'Could not load data',
+        timeConflict: 'There is already an event at this date and time',
+        addError: 'Error adding event',
+        editError: 'Error editing event',
+        deleteConfirm: 'Delete this event?',
+        deleteError: 'Error deleting event',
+        defaultLocation: 'Sports hall',
+        confirmed: 'confirmed',
+        notConfirmed: 'not confirmed',
+        declined: 'declined',
+        day: (count) => count === 1 ? 'day' : 'days',
+        hour: (count) => count === 1 ? 'hour' : 'hours',
+        minute: (count) => count === 1 ? 'minute' : 'minutes',
+        eventTypes: {
+          practice: 'Practice',
+          game: 'Game',
+          meeting: 'Meeting',
+          other: 'Event'
+        }
+      }
+))
+
+watch(locale, (value) => {
+  dayjs.locale(value === 'lv' ? 'lv' : 'en')
+}, { immediate: true })
 
 const calendarLocale = computed(() => (locale.value === 'lv' ? 'lv-LV' : 'en-US'))
 const weekdayLabels = computed(() => (
@@ -581,16 +672,18 @@ const nextEvent = computed(() => {
     .sort((a, b) => dayjs(`${a.event_date} ${a.event_time}`).valueOf() - dayjs(`${b.event_date} ${b.event_time}`).valueOf())[0] || null
 })
 
-const nextEventTitle = computed(() => nextEvent.value?.event_name || 'Nav gaidāmu notikumu')
+const nextEventTitle = computed(() => nextEvent.value?.event_name || scheduleCopy.value.noUpcoming)
 const nextEventMeta = computed(() => {
   if (!nextEvent.value) {
-    return 'Kalendārs pašlaik ir tukšs.'
+    return scheduleCopy.value.calendarEmpty
   }
 
-  return `${dayjs(nextEvent.value.event_date).format('D MMM YYYY')} plkst. ${formatTime(nextEvent.value.event_time)}`
+  const dateText = formatLocalizedDate(nextEvent.value.event_date, { day: 'numeric', month: 'short', year: 'numeric' })
+  const timePrefix = locale.value === 'lv' ? 'plkst.' : 'at'
+  return `${dateText} ${timePrefix} ${formatTime(nextEvent.value.event_time)}`
 })
 
-const currentViewLabel = computed(() => viewMode.value === 'week' ? 'Nedēļas plānotājs' : 'Notikumu saraksts')
+const currentViewLabel = computed(() => viewMode.value === 'week' ? scheduleCopy.value.weekPlanner : scheduleCopy.value.eventList)
 
 // Format time (e.g. "18:00" -> "6:00 PM" or keep 24h)
 const formatTime = (time) => {
@@ -607,7 +700,12 @@ const compareScheduleEvents = (a, b) =>
 const groupedEvents = computed(() => {
   const groups = {}
   for (const event of filteredEvents.value) {
-    const label = dayjs(event.event_date).format('dddd, D MMMM YYYY')
+    const label = formatLocalizedDate(event.event_date, {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric'
+    })
     if (!groups[label]) groups[label] = []
     groups[label].push(event)
   }
@@ -646,7 +744,7 @@ const fetchData = async () => {
     teamPlayers.value = playersRes.data
   } catch (err) {
     console.error('Error loading data:', err)
-    error.value = 'Neizdevās ielādēt datus'
+    error.value = scheduleCopy.value.loadingDataError
   }
 }
 
@@ -795,7 +893,7 @@ const hasTimeConflict = (date, time, excludeId = null) => {
 
 const addEvent = async () => {
   if (hasTimeConflict(currentEvent.value.event_date, currentEvent.value.event_time)) {
-    error.value = 'Šajā datumā un laikā jau ir notikums'
+    error.value = scheduleCopy.value.timeConflict
     return
   }
   try {
@@ -809,7 +907,7 @@ const addEvent = async () => {
     if (err.response?.data?.error) {
       error.value = err.response.data.error
     } else {
-      error.value = 'Kļūda, pievienojot notikumu'
+      error.value = scheduleCopy.value.addError
     }
   }
 }
@@ -824,7 +922,7 @@ const startEdit = (event) => {
 
 const saveEdit = async () => {
   if (hasTimeConflict(currentEvent.value.event_date, currentEvent.value.event_time, currentEvent.value.id)) {
-    error.value = 'Šajā datumā un laikā jau ir notikums'
+    error.value = scheduleCopy.value.timeConflict
     return
   }
   try {
@@ -843,13 +941,13 @@ const saveEdit = async () => {
     if (err.response?.data?.error) {
       error.value = err.response.data.error
     } else {
-      error.value = 'Kļūda, rediģējot notikumu'
+      error.value = scheduleCopy.value.editError
     }
   }
 }
 
 const deleteEvent = async (event) => {
-  if (!confirm('Vai tiešām vēlaties dzēst šo notikumu?')) return
+  if (!confirm(scheduleCopy.value.deleteConfirm)) return
   
   try {
     await axios.delete(`/api/teams/${teamId.value}/schedule/${event.id}`)
@@ -859,7 +957,7 @@ const deleteEvent = async (event) => {
     }
   } catch (err) {
     console.error(err)
-    error.value = 'Kļūda, dzēšot notikumu'
+    error.value = scheduleCopy.value.deleteError
   }
 }
 
@@ -871,7 +969,7 @@ const parseAndAddEvent = () => {
     event_date: dayjs().format('YYYY-MM-DD'), // Noklusējums - šodien
     event_time: '18:00', // Noklusējums
     event_type: text.includes('game') ? 'game' : 'practice',
-    location: 'Sporta zāle',
+    location: scheduleCopy.value.defaultLocation,
     description: ''
   }
 
@@ -894,7 +992,7 @@ const parseAndAddEvent = () => {
 
 // Attendance status (placeholder)
 const getAttendanceStatus = (playerId) => {
-  const statuses = ['apstiprināts', 'nav apstiprināts', 'atteikts']
+  const statuses = [scheduleCopy.value.confirmed, scheduleCopy.value.notConfirmed, scheduleCopy.value.declined]
   return statuses[Math.floor(Math.random() * statuses.length)]
 }
 
@@ -944,10 +1042,10 @@ const getEventIcon = (type) => {
 // Get event type label
 const getEventTypeLabel = (type) => {
   const labels = {
-    practice: 'Treniņš',
-    game: 'Spēle',
-    meeting: 'Sapulce',
-    other: 'Notikums'
+    practice: scheduleCopy.value.eventTypes.practice,
+    game: scheduleCopy.value.eventTypes.game,
+    meeting: scheduleCopy.value.eventTypes.meeting,
+    other: scheduleCopy.value.eventTypes.other
   }
   return labels[type] || labels.other
 }
@@ -962,12 +1060,12 @@ const getTimeUntilEvent = (event) => {
   const diffHours = eventDateTime.diff(now, 'hour') % 24
   
   if (diffDays > 0) {
-    return `${diffDays} ${diffDays === 1 ? 'diena' : 'dienas'}`
+    return `${diffDays} ${scheduleCopy.value.day(diffDays)}`
   } else if (diffHours > 0) {
-    return `${diffHours} ${diffHours === 1 ? 'stunda' : 'stundas'}`
+    return `${diffHours} ${scheduleCopy.value.hour(diffHours)}`
   } else {
     const diffMinutes = eventDateTime.diff(now, 'minute')
-    return `${diffMinutes} ${diffMinutes === 1 ? 'minūte' : 'minūtes'}`
+    return `${diffMinutes} ${scheduleCopy.value.minute(diffMinutes)}`
   }
 }
 
@@ -1185,6 +1283,21 @@ const filteredAttendanceStats = computed(() => {
     String(stat.username || '').toLowerCase().includes(query)
   )
 })
+
+const getUnmarkedStatsCount = (stat) => {
+  if (stat.unmarked_count !== undefined && stat.unmarked_count !== null) {
+    return Number(stat.unmarked_count) || 0
+  }
+
+  const total = Number(stat.total_practices) || 0
+  const marked = (
+    (Number(stat.present_count) || 0) +
+    (Number(stat.absent_count) || 0) +
+    (Number(stat.late_count) || 0)
+  )
+
+  return Math.max(total - marked, 0)
+}
 
 const averageAttendanceRate = computed(() => {
   if (!attendanceStats.value.length) {
@@ -1999,7 +2112,7 @@ onBeforeUnmount(() => {
 
 .list-event-actions {
   display: flex;
-  gap: 4px;
+  gap: 6px;
   opacity: 0;
   transition: opacity 0.2s;
 }
@@ -2011,23 +2124,43 @@ onBeforeUnmount(() => {
 .action-icon {
   width: 32px;
   height: 32px;
-  border: none;
-  background: #f3f4f6;
+  border: 1px solid #d8dee8;
+  background: #ffffff;
   border-radius: 8px;
+  color: #475569;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 14px;
-  transition: all 0.2s;
+  padding: 0;
+  transition: background 0.2s, border-color 0.2s, color 0.2s, transform 0.2s;
 }
 
 .action-icon:hover {
-  background: #e5e7eb;
+  background: #eef4ff;
+  border-color: #b8c8e3;
+  color: #0b72e7;
+  transform: translateY(-1px);
+}
+
+.action-icon.delete {
+  color: #b91c1c;
 }
 
 .action-icon.delete:hover {
-  background: #fee2e2;
+  background: #fff1f2;
+  border-color: #fecdd3;
+  color: #dc2626;
+}
+
+.action-svg {
+  width: 17px;
+  height: 17px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 /* ==================== ADD/EDIT MODAL ==================== */
@@ -2529,6 +2662,7 @@ onBeforeUnmount(() => {
   width: 36px;
   height: 36px;
   border-radius: 50%;
+  overflow: hidden;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
   display: flex;
@@ -2811,7 +2945,7 @@ onBeforeUnmount(() => {
 
 .stats-table {
   width: 100%;
-  min-width: 680px;
+  min-width: 780px;
   margin: 0;
   border-collapse: separate;
   border-spacing: 0;
@@ -2840,20 +2974,22 @@ onBeforeUnmount(() => {
 
 .stats-table th:nth-child(1),
 .stats-table td:nth-child(1) {
-  width: 44%;
+  width: 40%;
 }
 
 .stats-table th:nth-child(2),
 .stats-table th:nth-child(3),
+.stats-table th:nth-child(4),
 .stats-table td:nth-child(2),
-.stats-table td:nth-child(3) {
-  width: 14%;
+.stats-table td:nth-child(3),
+.stats-table td:nth-child(4) {
+  width: 12%;
   text-align: center;
 }
 
-.stats-table th:nth-child(4),
-.stats-table td:nth-child(4) {
-  width: 28%;
+.stats-table th:nth-child(5),
+.stats-table td:nth-child(5) {
+  width: 24%;
 }
 
 .stats-table tbody tr:hover td {
@@ -2871,6 +3007,7 @@ onBeforeUnmount(() => {
   width: 34px;
   height: 34px;
   border-radius: 50%;
+  overflow: hidden;
   background: linear-gradient(135deg, #667eea, #764ba2);
   color: white;
   display: flex;
@@ -2878,6 +3015,13 @@ onBeforeUnmount(() => {
   justify-content: center;
   font-weight: 600;
   font-size: 11px;
+}
+
+.person-avatar-image {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
 }
 
 .player-copy {
@@ -2908,6 +3052,7 @@ onBeforeUnmount(() => {
 
 .stat-present { color: #059669; }
 .stat-absent { color: #dc2626; }
+.stat-unmarked { color: var(--page-muted); }
 
 .rate-bar {
   display: flex;
@@ -3083,11 +3228,25 @@ onBeforeUnmount(() => {
 .dark-mode .list-event-badge.other { background: rgba(139,92,246,0.15); color: #c4b5fd; }
 
 .dark-mode .action-icon {
-  background: #2d2d2d;
+  background: rgba(148, 163, 184, 0.1);
+  border-color: rgba(148, 163, 184, 0.18);
+  color: #cbd5e1;
 }
 
 .dark-mode .action-icon:hover {
-  background: #3d3d3d;
+  background: rgba(96, 165, 250, 0.16);
+  border-color: rgba(147, 197, 253, 0.34);
+  color: #93c5fd;
+}
+
+.dark-mode .action-icon.delete {
+  color: #fca5a5;
+}
+
+.dark-mode .action-icon.delete:hover {
+  background: rgba(248, 113, 113, 0.16);
+  border-color: rgba(252, 165, 165, 0.34);
+  color: #fecaca;
 }
 
 .dark-mode .modal-content {

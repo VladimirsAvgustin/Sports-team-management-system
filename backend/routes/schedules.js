@@ -152,6 +152,7 @@ module.exports = (db) => {
         u.name, u.surname,
         (u.name || ' ' || u.surname) as username,
         u.email,
+        u.avatar,
         COALESCE(a.status, 'unmarked') as status,
         a.checked_at,
         a.notes
@@ -360,6 +361,7 @@ module.exports = (db) => {
         SELECT 
           u.id as user_id,
           (u.name || ' ' || u.surname) as username,
+          u.avatar,
           COUNT(a.id) as total_marked,
           SUM(CASE WHEN a.status = 'present' THEN 1 ELSE 0 END) as present_count,
           SUM(CASE WHEN a.status = 'absent' OR a.status = 'excused' THEN 1 ELSE 0 END) as absent_count,
@@ -378,13 +380,21 @@ module.exports = (db) => {
         }
         
         // Calculate attendance rate for each player based on total practices
-        const stats = rows.map(row => ({
-          ...row,
-          total_practices: totalPractices,
-          attendance_rate: totalPractices > 0 
-            ? Math.round((row.present_count / totalPractices) * 100) 
-            : 0
-        }));
+        const stats = rows.map(row => {
+          const presentCount = Number(row.present_count) || 0;
+          const absentCount = Number(row.absent_count) || 0;
+          const lateCount = Number(row.late_count) || 0;
+          const markedCount = presentCount + absentCount + lateCount;
+
+          return {
+            ...row,
+            total_practices: totalPractices,
+            unmarked_count: Math.max(totalPractices - markedCount, 0),
+            attendance_rate: totalPractices > 0
+              ? Math.round((presentCount / totalPractices) * 100)
+              : 0
+          };
+        });
         
         res.json(stats);
       });
