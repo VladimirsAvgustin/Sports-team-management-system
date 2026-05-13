@@ -6,7 +6,10 @@ const router = express.Router();
 const { authenticateToken } = require('../middleware/auth');
 
 const MAX_CHAT_UPLOAD_BYTES = 6 * 1024 * 1024;
-const CHAT_UPLOAD_DIR = path.join(__dirname, '..', 'uploads', 'chat');
+const CHAT_UPLOAD_ROOT = process.env.UPLOADS_DIR
+  ? path.resolve(process.env.UPLOADS_DIR)
+  : path.join(__dirname, '..', 'uploads');
+const CHAT_UPLOAD_DIR = path.join(CHAT_UPLOAD_ROOT, 'chat');
 const CHAT_ATTACHMENT_API_PREFIX = '/api/chat/attachments/';
 const CHAT_ATTACHMENT_LEGACY_PREFIX = '/uploads/chat/';
 const MIME_EXTENSIONS = {

@@ -13,13 +13,17 @@ const app = express();
 const server = http.createServer(app);
 const PORT = 3000;
 const HOST = '0.0.0.0'; // Listen on all interfaces
+const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret';
 
 // Create uploads directory if it doesn't exist
-const uploadsDir = path.join(__dirname, 'uploads', 'logos');
+const uploadsRoot = process.env.UPLOADS_DIR
+  ? path.resolve(process.env.UPLOADS_DIR)
+  : path.join(__dirname, 'uploads');
+const uploadsDir = path.join(uploadsRoot, 'logos');
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
-const chatUploadsDir = path.join(__dirname, 'uploads', 'chat');
+const chatUploadsDir = path.join(uploadsRoot, 'chat');
 if (!fs.existsSync(chatUploadsDir)) {
   fs.mkdirSync(chatUploadsDir, { recursive: true });
 }
@@ -27,6 +31,11 @@ if (!fs.existsSync(chatUploadsDir)) {
 // Dynamic CORS origin configuration for development
 // Allows localhost, 127.0.0.1, and any local network IPs (192.168.x.x, etc)
 const corsOriginCheck = (origin, callback) => {
+  const configuredOrigins = (process.env.FRONTEND_URL || '')
+    .split(',')
+    .map((value) => value.trim().replace(/\/+$/, ''))
+    .filter(Boolean);
+
   // Allow development origins (both HTTP and HTTPS)
   const allowedOrigins = [
     'http://localhost:5173',
@@ -41,8 +50,16 @@ const corsOriginCheck = (origin, callback) => {
   
   // Allow any local network IPs (192.168.x.x, 10.x.x.x, 172.x.x.x) for both HTTP and HTTPS
   const isLocalNetworkIP = /^https?:\/\/(192\.168\.|10\.|172\.(1[6-9]|2[0-9]|3[01])|127\.)/;
+  const normalizedOrigin = typeof origin === 'string' ? origin.replace(/\/+$/, '') : origin;
+  const allowAnyProductionOrigin = process.env.NODE_ENV === 'production' && configuredOrigins.length === 0;
   
-  if (!origin || allowedOrigins.includes(origin) || isLocalNetworkIP.test(origin)) {
+  if (
+    !origin ||
+    allowAnyProductionOrigin ||
+    allowedOrigins.includes(normalizedOrigin) ||
+    configuredOrigins.includes(normalizedOrigin) ||
+    isLocalNetworkIP.test(normalizedOrigin)
+  ) {
     callback(null, true);
   } else {
     console.log('CORS blocked:', origin);
@@ -76,7 +93,10 @@ app.use(bodyParser.json({ limit: '10mb' }));
 app.use(bodyParser.urlencoded({ limit: '10mb', extended: true }));
 
 // Connecting to the database
-const dbPath = path.resolve(__dirname, 'database.sqlite');
+const dbPath = process.env.DATABASE_PATH
+  ? path.resolve(process.env.DATABASE_PATH)
+  : path.resolve(__dirname, 'database.sqlite');
+fs.mkdirSync(path.dirname(dbPath), { recursive: true });
 const db = new sqlite3.Database(dbPath, (err) => {
   if (err) {
     console.error('Database connection error:', err.message);
@@ -332,7 +352,7 @@ io.use((socket, next) => {
   }
 
   try {
-    const decoded = jwt.verify(token, 'your_jwt_secret');
+    const decoded = jwt.verify(token, JWT_SECRET);
     socket.userId = decoded.id;
     socket.userFullName = (decoded.name || '') + ' ' + (decoded.surname || '');
     socket.userFullName = socket.userFullName.trim();

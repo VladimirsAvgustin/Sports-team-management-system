@@ -4,15 +4,19 @@ import { useAuthStore } from './auth'
 
 // Determine API base URL dynamically based on hostname
 const getApiBaseUrl = () => {
+  const configuredUrl = import.meta.env.VITE_API_BASE_URL
+  if (configuredUrl) {
+    return configuredUrl.replace(/\/+$/, '')
+  }
+
   const hostname = window.location.hostname
-  const port = 3000
+  const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1'
   
-  if (hostname === 'localhost' || hostname === '127.0.0.1') {
-    return `http://localhost:${port}`
+  if (import.meta.env.DEV && isLocalhost) {
+    return 'http://localhost:3000'
   }
   
-  // For network access (e.g., 192.168.x.x, device IP)
-  return `http://${hostname}:${port}`
+  return window.location.origin
 }
 
 const API_BASE_URL = getApiBaseUrl()
