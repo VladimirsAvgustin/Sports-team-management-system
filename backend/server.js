@@ -15,6 +15,18 @@ const PORT = 3000;
 const HOST = '0.0.0.0'; // Listen on all interfaces
 const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret';
 
+app.use((req, res, next) => {
+  if (!req.url.startsWith('/api')) {
+    return next();
+  }
+
+  const startedAt = Date.now();
+  res.on('finish', () => {
+    console.log(`${req.method} ${req.originalUrl} -> ${res.statusCode} (${Date.now() - startedAt}ms)`);
+  });
+  next();
+});
+
 // Create uploads directory if it doesn't exist
 const uploadsRoot = process.env.UPLOADS_DIR
   ? path.resolve(process.env.UPLOADS_DIR)
@@ -51,11 +63,11 @@ const corsOriginCheck = (origin, callback) => {
   // Allow any local network IPs (192.168.x.x, 10.x.x.x, 172.x.x.x) for both HTTP and HTTPS
   const isLocalNetworkIP = /^https?:\/\/(192\.168\.|10\.|172\.(1[6-9]|2[0-9]|3[01])|127\.)/;
   const normalizedOrigin = typeof origin === 'string' ? origin.replace(/\/+$/, '') : origin;
-  const allowAnyProductionOrigin = process.env.NODE_ENV === 'production' && configuredOrigins.length === 0;
+  const allowProductionOrigin = process.env.NODE_ENV === 'production';
   
   if (
     !origin ||
-    allowAnyProductionOrigin ||
+    allowProductionOrigin ||
     allowedOrigins.includes(normalizedOrigin) ||
     configuredOrigins.includes(normalizedOrigin) ||
     isLocalNetworkIP.test(normalizedOrigin)
@@ -97,6 +109,8 @@ const dbPath = process.env.DATABASE_PATH
   ? path.resolve(process.env.DATABASE_PATH)
   : path.resolve(__dirname, 'database.sqlite');
 fs.mkdirSync(path.dirname(dbPath), { recursive: true });
+console.log(`Using SQLite database at: ${dbPath}`);
+console.log(`Using uploads directory at: ${uploadsRoot}`);
 const db = new sqlite3.Database(dbPath, (err) => {
   if (err) {
     console.error('Database connection error:', err.message);
@@ -339,7 +353,7 @@ app.use((req, res, next) => {
 
 // Central error handling
 app.use((err, req, res, next) => {
-  console.error(err.stack);
+  console.error('Unhandled request error:', err.stack || err.message || err);
   res.status(500).json({ error: 'Iekšēja servera kļūda' });
 });
 

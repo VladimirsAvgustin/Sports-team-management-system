@@ -3,20 +3,20 @@
     <div class="admin-shell">
       <section class="admin-hero">
         <div class="admin-hero-copy">
-          <p class="admin-eyebrow">Pārvaldības centrs</p>
-          <h1>Administratora darba vide</h1>
+          <p class="admin-eyebrow">{{ $t('admin.managementCenter') }}</p>
+          <h1>{{ $t('admin.workspaceTitle') }}</h1>
           <div class="admin-pill-row">
-            <span class="admin-pill">{{ users.length }} lietotāji</span>
-            <span class="admin-pill">{{ teams.length }} komandas</span>
-            <span class="admin-pill">{{ assignedUsersCount }} piesaistīti komandai</span>
-            <span class="admin-pill accent">{{ totalDirtyCount }} nesaglabātas izmaiņas</span>
+            <span class="admin-pill">{{ $t('admin.usersCount', { count: users.length }) }}</span>
+            <span class="admin-pill">{{ $t('admin.teamsCount', { count: teams.length }) }}</span>
+            <span class="admin-pill">{{ $t('admin.assignedUsersCount', { count: assignedUsersCount }) }}</span>
+            <span class="admin-pill accent">{{ $t('admin.unsavedChangesCount', { count: totalDirtyCount }) }}</span>
           </div>
         </div>
 
         <div class="admin-side-card">
-          <span class="side-label">Pieslēdzies kā</span>
+          <span class="side-label">{{ $t('admin.signedInAs') }}</span>
           <strong>{{ adminName }}</strong>
-          <p>Šo darba vidi var atvērt tikai lietotāji ar <span>administratora</span> lomu.</p>
+          <p>{{ $t('admin.adminOnlyNoticeStart') }} <span>{{ $t('admin.adminRoleName') }}</span> {{ $t('admin.adminOnlyNoticeEnd') }}</p>
         </div>
       </section>
 
@@ -31,25 +31,25 @@
       <section class="workspace-card">
         <div class="workspace-head">
           <div>
-            <p class="workspace-kicker">Pārvaldības tabulas</p>
+            <p class="workspace-kicker">{{ $t('admin.managementTables') }}</p>
             <h2>{{ activeSectionTitle }}</h2>
           </div>
 
           <div class="workspace-actions">
-            <div class="view-switch" role="tablist" aria-label="Administratora tabulas">
+            <div class="view-switch" role="tablist" :aria-label="$t('admin.adminTables')">
               <button
                 type="button"
                 :class="{ active: activeSection === 'users' }"
                 @click="activeSection = 'users'"
               >
-                Lietotāji
+                {{ $t('admin.usersTab') }}
               </button>
               <button
                 type="button"
                 :class="{ active: activeSection === 'teams' }"
                 @click="activeSection = 'teams'"
               >
-                Komandas
+                {{ $t('admin.teamsTab') }}
               </button>
             </div>
 
@@ -59,7 +59,7 @@
               :disabled="activeRefreshPending"
               @click="refreshActiveSection"
             >
-              {{ activeRefreshPending ? 'Atjauno...' : 'Atjaunot' }}
+              {{ activeRefreshPending ? $t('admin.refreshing') : $t('admin.refresh') }}
             </button>
           </div>
         </div>
@@ -87,11 +87,11 @@
 
         <div v-else class="toolbar-grid toolbar-grid--single">
           <label class="field-control field-control--wide">
-            <span>Komandas nosaukums / komandas kods</span>
+            <span>{{ $t('admin.teamSearchLabel') }}</span>
             <input
               v-model="teamSearchQuery"
               type="text"
-              placeholder="Meklēt pēc komandas nosaukuma, koda vai trenera..."
+              :placeholder="$t('admin.teamSearchPlaceholder')"
             />
           </label>
         </div>
@@ -120,21 +120,21 @@
 
           <div v-else-if="!filteredUsers.length" class="state-card empty">
             <strong>{{ $t('admin.noUsers') }}</strong>
-            <p>Mēģiniet citu meklēšanu vai atiestatiet lomas filtru.</p>
+            <p>{{ $t('admin.tryDifferentUserSearch') }}</p>
           </div>
 
           <div v-else class="table-shell">
             <table class="admin-table admin-table--users">
               <thead>
                 <tr>
-                  <th>Lietotājs</th>
+                  <th>{{ $t('admin.user') }}</th>
                   <th>{{ $t('admin.name') }}</th>
                   <th>{{ $t('admin.surname') }}</th>
                   <th>{{ $t('admin.email') }}</th>
                   <th>{{ $t('admin.role') }}</th>
                   <th>{{ $t('admin.teamId') }}</th>
-                  <th>Statuss</th>
-                  <th class="actions-col">Darbības</th>
+                  <th>{{ $t('admin.status') }}</th>
+                  <th class="actions-col">{{ $t('admin.actions') }}</th>
                 </tr>
               </thead>
 
@@ -157,7 +157,7 @@
                     </div>
 
                     <div v-if="isCurrentUser(user)" class="table-badges">
-                      <span class="self-badge">Pašreizējais administrators</span>
+                      <span class="self-badge">{{ $t('admin.currentAdmin') }}</span>
                     </div>
                   </td>
 
@@ -207,13 +207,13 @@
                       type="number"
                       min="1"
                       inputmode="numeric"
-                      placeholder="Nav obligāts"
+                      :placeholder="$t('admin.optional')"
                     />
                   </td>
 
                   <td>
                     <span class="status-chip" :class="hasChanges(user) ? 'dirty' : 'clean'">
-                      {{ hasChanges(user) ? 'Jāsaglabā' : 'Atjaunināts' }}
+                      {{ hasChanges(user) ? $t('admin.mustSave') : $t('admin.saved') }}
                     </span>
                   </td>
 
@@ -225,7 +225,7 @@
                         :disabled="savingUserId === user.id || deletingUserId === user.id || !hasChanges(user)"
                         @click="resetUser(user)"
                       >
-                        Atiestatīt
+                        {{ $t('admin.reset') }}
                       </button>
 
                       <button
@@ -234,7 +234,7 @@
                         :disabled="savingUserId === user.id || deletingUserId === user.id || !hasChanges(user)"
                         @click="updateUser(user)"
                       >
-                        {{ savingUserId === user.id ? 'Saglabā...' : 'Saglabāt' }}
+                        {{ savingUserId === user.id ? $t('admin.saving') : $t('buttons.save') }}
                       </button>
 
                       <button
@@ -243,7 +243,7 @@
                         :disabled="savingUserId === user.id || deletingUserId === user.id || isCurrentUser(user)"
                         @click="deleteUser(user)"
                       >
-                        {{ deletingUserId === user.id ? 'Dzēš...' : $t('admin.delete') }}
+                        {{ deletingUserId === user.id ? $t('admin.deleting') : $t('admin.delete') }}
                       </button>
                     </div>
                   </td>
@@ -255,15 +255,15 @@
           <div v-if="filteredUsers.length" class="pagination-bar">
             <div class="pagination-summary">
               <strong>{{ userPageStart }}-{{ userPageEnd }}</strong>
-              <span>no {{ filteredUsers.length }} lietotājiem</span>
-              <small>{{ USERS_PER_PAGE }} lapā</small>
+              <span>{{ $t('admin.ofUsers', { count: filteredUsers.length }) }}</span>
+              <small>{{ $t('admin.perPage', { count: USERS_PER_PAGE }) }}</small>
             </div>
 
             <div
               v-if="userPageCount > 1"
               class="pagination-controls"
               role="navigation"
-              aria-label="Lietotāju lapošana"
+              :aria-label="$t('admin.usersPagination')"
             >
               <button
                 type="button"
@@ -271,7 +271,7 @@
                 :disabled="userPage === 1"
                 @click="setUserPage(userPage - 1)"
               >
-                Iepriekšējā
+                {{ $t('admin.previous') }}
               </button>
 
               <button
@@ -291,7 +291,7 @@
                 :disabled="userPage === userPageCount"
                 @click="setUserPage(userPage + 1)"
               >
-                Nākamā
+                {{ $t('admin.next') }}
               </button>
             </div>
           </div>
@@ -304,22 +304,22 @@
           </div>
 
           <div v-else-if="!filteredTeams.length" class="state-card empty">
-            <strong>Komandas nav atrastas</strong>
-            <p>Mēģiniet citu meklēšanas vaicājumu vai atjaunojiet komandu sarakstu.</p>
+            <strong>{{ $t('admin.noTeams') }}</strong>
+            <p>{{ $t('admin.tryDifferentTeamSearch') }}</p>
           </div>
 
           <div v-else class="table-shell">
             <table class="admin-table admin-table--teams">
               <thead>
                 <tr>
-                  <th>Komanda</th>
-                  <th>Komandas nosaukums</th>
-                  <th>Komandas kods</th>
-                  <th>Galvenais treneris</th>
-                  <th>Dalībnieki</th>
-                  <th>Spēlētāji</th>
-                  <th>Statuss</th>
-                  <th class="actions-col">Darbības</th>
+                  <th>{{ $t('admin.team') }}</th>
+                  <th>{{ $t('admin.teamName') }}</th>
+                  <th>{{ $t('admin.teamCode') }}</th>
+                  <th>{{ $t('admin.headCoach') }}</th>
+                  <th>{{ $t('admin.members') }}</th>
+                  <th>{{ $t('admin.players') }}</th>
+                  <th>{{ $t('admin.status') }}</th>
+                  <th class="actions-col">{{ $t('admin.actions') }}</th>
                 </tr>
               </thead>
 
@@ -358,7 +358,7 @@
                       type="text"
                       autocomplete="off"
                       spellcheck="false"
-                      placeholder="Obligāts"
+                      :placeholder="$t('admin.required')"
                     />
                   </td>
 
@@ -376,7 +376,7 @@
 
                   <td>
                     <span class="status-chip" :class="hasTeamChanges(team) ? 'dirty' : 'clean'">
-                      {{ hasTeamChanges(team) ? 'Jāsaglabā' : 'Atjaunināts' }}
+                      {{ hasTeamChanges(team) ? $t('admin.mustSave') : $t('admin.saved') }}
                     </span>
                   </td>
 
@@ -388,7 +388,7 @@
                         :disabled="savingTeamId === team.id || !hasTeamChanges(team)"
                         @click="resetTeam(team)"
                       >
-                        Atiestatīt
+                        {{ $t('admin.reset') }}
                       </button>
 
                       <button
@@ -397,7 +397,7 @@
                         :disabled="savingTeamId === team.id || !hasTeamChanges(team)"
                         @click="updateTeam(team)"
                       >
-                        {{ savingTeamId === team.id ? 'Saglabā...' : 'Saglabāt' }}
+                        {{ savingTeamId === team.id ? $t('admin.saving') : $t('buttons.save') }}
                       </button>
                     </div>
                   </td>
@@ -456,11 +456,11 @@ const isAdmin = computed(() => (authStore.user?.role || '').toLowerCase() === 'a
 
 const adminName = computed(() => {
   const fullName = `${authStore.user?.name || ''} ${authStore.user?.surname || ''}`.trim()
-  return fullName || authStore.user?.email || 'Administrators'
+  return fullName || authStore.user?.email || t('admin.admin')
 })
 
 const activeSectionTitle = computed(() => {
-  return activeSection.value === 'users' ? 'Lietotāju tabula' : 'Komandu tabula'
+  return activeSection.value === 'users' ? t('admin.usersTableTitle') : t('admin.teamsTableTitle')
 })
 
 const activeRefreshPending = computed(() => {
@@ -564,7 +564,7 @@ const fetchUsers = async ({ silent = false } = {}) => {
     console.error('Error loading users:', error)
     userStatus.value = {
       type: 'error',
-      message: 'Pašlaik neizdevās ielādēt lietotājus.'
+      message: t('admin.failedToLoadUsers')
     }
   } finally {
     usersLoading.value = false
@@ -588,7 +588,7 @@ const fetchTeams = async ({ silent = false } = {}) => {
     console.error('Error loading teams:', error)
     teamStatus.value = {
       type: 'error',
-      message: 'Pašlaik neizdevās ielādēt komandas.'
+      message: t('admin.failedToLoadTeams')
     }
   } finally {
     teamsLoading.value = false
@@ -693,29 +693,29 @@ const filteredTeams = computed(() => {
 
 const summaryCards = computed(() => [
   {
-    label: 'Kopā konti',
+    label: t('admin.totalAccounts'),
     value: users.value.length,
-    note: 'Visi reģistrētie lietotāji'
+    note: t('admin.allRegisteredUsers')
   },
   {
-    label: 'Komandas',
+    label: t('admin.teamsTab'),
     value: teams.value.length,
-    note: 'Reģistrētie klubi un komandas'
+    note: t('admin.registeredTeams')
   },
   {
-    label: 'Administratori',
+    label: t('admin.admin'),
     value: users.value.filter((user) => (user.role || '').toLowerCase() === 'admin').length,
-    note: 'Lietotāji ar pilnu piekļuvi'
+    note: t('admin.fullAccessUsers')
   },
   {
-    label: 'Treneri',
+    label: t('admin.coaches'),
     value: users.value.filter((user) => (user.role || '').toLowerCase() === 'coach').length,
-    note: 'Komandu vadītāji un personāls'
+    note: t('admin.teamLeadersAndStaff')
   },
   {
-    label: 'Spēlētāji',
+    label: t('admin.players'),
     value: users.value.filter((user) => (user.role || '').toLowerCase() === 'player').length,
-    note: 'Sastāva dalībnieki'
+    note: t('admin.rosterMembers')
   }
 ])
 
@@ -735,7 +735,7 @@ const totalDirtyCount = computed(() => dirtyUsersCount.value + dirtyTeamsCount.v
 
 const displayName = (user) => {
   const fullName = `${user.name || ''} ${user.surname || ''}`.trim()
-  return fullName || user.email || 'Lietotājs bez vārda'
+  return fullName || user.email || t('admin.anonymousUser')
 }
 
 const getInitials = (user) => {
@@ -792,7 +792,7 @@ const updateUser = async (user) => {
   if (!payload.email) {
     userStatus.value = {
       type: 'error',
-      message: 'Pirms saglabāšanas jānorāda e-pasts.'
+      message: t('admin.emailRequired')
     }
     return
   }
@@ -820,7 +820,7 @@ const updateUser = async (user) => {
 
     userStatus.value = {
       type: 'success',
-      message: `${displayName(user)} veiksmīgi atjaunināts.`
+      message: t('admin.userUpdatedNamed', { name: displayName(user) })
     }
   } catch (error) {
     console.error('Error updating user:', error)
@@ -838,7 +838,7 @@ const deleteUser = async (user) => {
     return
   }
 
-  if (!window.confirm(`Dzēst lietotāju ${displayName(user)}?`)) {
+  if (!window.confirm(t('admin.deleteUserConfirmNamed', { name: displayName(user) }))) {
     return
   }
 
@@ -858,7 +858,7 @@ const deleteUser = async (user) => {
 
     userStatus.value = {
       type: 'success',
-      message: `${displayName(user)} veiksmīgi dzēsts.`
+      message: t('admin.userDeletedNamed', { name: displayName(user) })
     }
   } catch (error) {
     console.error('Error deleting user:', error)
@@ -872,7 +872,7 @@ const deleteUser = async (user) => {
 }
 
 const teamDisplayName = (team) => {
-  return (team.name || '').trim() || 'Komanda bez nosaukuma'
+  return (team.name || '').trim() || t('admin.unnamedTeam')
 }
 
 const getTeamInitials = (team) => {
@@ -888,7 +888,7 @@ const getTeamInitials = (team) => {
 }
 
 const teamCoachLabel = (team) => {
-  return team.coach_name || 'Treneris nav piesaistīts'
+  return team.coach_name || t('admin.coachUnassigned')
 }
 
 const hasTeamChanges = (team) => {
@@ -915,7 +915,7 @@ const updateTeam = async (team) => {
   if (!payload.name) {
     teamStatus.value = {
       type: 'error',
-      message: 'Pirms saglabāšanas jānorāda komandas nosaukums.'
+      message: t('admin.teamNameRequired')
     }
     return
   }
@@ -923,7 +923,7 @@ const updateTeam = async (team) => {
   if (!payload.team_code) {
     teamStatus.value = {
       type: 'error',
-      message: 'Pirms saglabāšanas jānorāda komandas kods.'
+      message: t('admin.teamCodeRequired')
     }
     return
   }
@@ -943,13 +943,13 @@ const updateTeam = async (team) => {
 
     teamStatus.value = {
       type: 'success',
-      message: `${teamDisplayName(team)} veiksmīgi atjaunināta.`
+      message: t('admin.teamUpdatedNamed', { name: teamDisplayName(team) })
     }
   } catch (error) {
     console.error('Error updating team:', error)
     teamStatus.value = {
       type: 'error',
-      message: error.response?.data?.error || 'Pašlaik neizdevās atjaunināt komandu.'
+      message: error.response?.data?.error || t('admin.errorUpdatingTeam')
     }
   } finally {
     savingTeamId.value = null

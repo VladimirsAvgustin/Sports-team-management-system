@@ -2,7 +2,6 @@
 import { ref, onMounted, onBeforeUnmount, computed, watch } from 'vue'
 import { useAuthStore } from './stores/auth'
 import LoginModal from './components/LoginModal.vue'
-// import PWAInstallPrompt from './components/PWAInstallPrompt.vue' // DISABLED for now
 import MobileNav from './components/MobileNav.vue'
 import axios from 'axios'
 import { useRouter, useRoute } from 'vue-router'
@@ -248,9 +247,6 @@ onBeforeUnmount(() => {
 
 <template>
   <div id="app">
-    <!-- PWA Install Prompt - DISABLED for now -->
-    <!-- <PWAInstallPrompt /> -->
-
     <!-- Mobile Navigation Component -->
     <MobileNav 
       :is-logged-in="isLoggedIn"

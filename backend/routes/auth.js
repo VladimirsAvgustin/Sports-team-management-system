@@ -373,17 +373,24 @@ module.exports = (db) => {
   
     db.get('SELECT * FROM users WHERE email = ?', [email], async (err, user) => {
       if (err) {
-        console.error(err.message);
+        console.error('Login database error:', err.stack || err.message || err);
         return res.status(500).json({ error: 'Servera kļūda' });
       }
   
       if (!user) {
+        console.log('Login user not found:', email);
         return res.status(400).json({ error: 'Lietotājs nav atrasts' });
       }
   
       try {
+        if (!user.password) {
+          console.error('Login user has no password hash:', email);
+          return res.status(500).json({ error: 'Paroles pārbaudes kļūda' });
+        }
+
         const isPasswordValid = await bcrypt.compare(password, user.password);
         if (!isPasswordValid) {
+          console.log('Login invalid password:', email);
           return res.status(400).json({ error: 'Nepareiza parole' });
         }
   
@@ -401,7 +408,7 @@ module.exports = (db) => {
         });
   
       } catch (compareError) {
-        console.error(compareError.message);
+        console.error('Login password check error:', compareError.stack || compareError.message || compareError);
         res.status(500).json({ error: 'Paroles pārbaudes kļūda' });
       }
     });

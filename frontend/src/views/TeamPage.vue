@@ -182,13 +182,6 @@
             <span class="visually-hidden">{{ $t('teamPage.listView') }}</span>
           </button>
         </div>
-        <!-- <button 
-          v-if="isCoach" 
-          @click="exportStats" 
-          class="export-btn"
-        >
-          Export CSV
-        </button> -->
       </div>
     </div>
 

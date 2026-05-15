@@ -86,12 +86,12 @@
 
         <!-- Coach Tools -->
         <div class="settings-group danger-zone">
-          <h3>Trenera rīki</h3>
+          <h3>{{ $t('teamPage.coachTools') }}</h3>
           <p class="description">
-            Šeit var atjaunināt logotipu. Komandas dzēšana vai nodošana šajā lapā vēl nav pieejama.
+            {{ $t('teamPage.coachToolsDescription') }}
           </p>
           <router-link :to="`/team/${teamId}/overview`" class="btn btn-secondary">
-            Atgriezties pārskatā
+            {{ $t('teamPage.backToOverview') }}
           </router-link>
         </div>
       </div>
@@ -99,12 +99,12 @@
 
     <div v-else class="settings-content">
       <div class="settings-section access-card">
-        <h2>Nepieciešama trenera piekļuve</h2>
+        <h2>{{ $t('teamPage.coachAccessRequired') }}</h2>
         <p class="description">
-          Komandas iestatījumi ir pieejami tikai šīs komandas aktīvajam trenerim.
+          {{ $t('teamPage.coachAccessDescription') }}
         </p>
         <router-link :to="`/team/${teamId}/overview`" class="btn btn-secondary">
-          Atgriezties pārskatā
+          {{ $t('teamPage.backToOverview') }}
         </router-link>
       </div>
     </div>
