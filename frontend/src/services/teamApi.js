@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { getLocalizedFallback } from '@/utils/apiLocale'
 import { normalizeRole } from '../utils/teamAccess'
 
 const buildPlayerStats = (stats = {}) => ({
@@ -12,7 +13,7 @@ const buildPlayerStats = (stats = {}) => ({
 const fileToDataUrl = (file) => new Promise((resolve, reject) => {
   const reader = new FileReader()
   reader.onload = (event) => resolve(event.target?.result || '')
-  reader.onerror = () => reject(new Error('Neizdevās nolasīt attēla failu'))
+  reader.onerror = () => reject(new Error(getLocalizedFallback('Failed to read image file', 'Neizdevās nolasīt attēla failu')))
   reader.readAsDataURL(file)
 })
 

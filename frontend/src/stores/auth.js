@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import axios from 'axios'
+import { getLocalizedFallback, withLocaleHeaders } from '../utils/apiLocale'
 
 // Helper to set/remove axios auth header
 const setAxiosAuthHeader = (token) => {
@@ -25,14 +26,14 @@ export const useAuthStore = defineStore('auth', {
       try {
         const res = await fetch('/api/auth/login', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: withLocaleHeaders({ 'Content-Type': 'application/json' }),
           body: JSON.stringify({ email, password })
         });
 
         const data = await res.json();
 
         if (!res.ok) {
-          throw new Error(data.error || 'Pieslēgšanās kļūda');
+          throw new Error(data.error || getLocalizedFallback('Login error', 'Pieslēgšanās kļūda'));
         }
 
         this.token = data.token;
@@ -58,9 +59,9 @@ export const useAuthStore = defineStore('auth', {
 
       try {
         const res = await fetch('/api/auth/me', {
-          headers: {
+          headers: withLocaleHeaders({
             Authorization: `Bearer ${this.token}`,
-          },
+          }),
         });
 
         if (!res.ok) {
@@ -70,7 +71,7 @@ export const useAuthStore = defineStore('auth', {
             this.logout();
             return;
           }
-          throw new Error('Neizdevās ielādēt lietotāju');
+          throw new Error(getLocalizedFallback('Failed to load user', 'Neizdevās ielādēt lietotāju'));
         }
 
         const data = await res.json();

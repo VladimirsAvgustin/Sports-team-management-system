@@ -77,6 +77,7 @@
     "playerRemoved": "Player removed successfully",
     "updateSuccess": "Updated successfully",
     "loginError": "Login error",
+    "invalidEmailOrPassword": "Incorrect email or password",
     "failedToJoinTeam": "Failed to join team",
     "somethingWentWrong": "Something went wrong"
   },

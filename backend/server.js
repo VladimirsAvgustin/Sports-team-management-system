@@ -8,6 +8,12 @@ const { Server } = require('socket.io');
 const http = require('http');
 const jwt = require('jsonwebtoken');
 const fs = require('fs');
+const {
+  getLocaleFromRequest,
+  localizeResponseBody,
+  normalizeLocale,
+  translateApiMessage
+} = require('./utils/i18n');
 
 const app = express();
 const server = http.createServer(app);
@@ -103,6 +109,16 @@ app.options('*', cors({ origin: corsOriginCheck }));
 
 app.use(bodyParser.json({ limit: '10mb' }));
 app.use(bodyParser.urlencoded({ limit: '10mb', extended: true }));
+
+app.use((req, res, next) => {
+  const originalJson = res.json.bind(res);
+
+  res.json = (body) => {
+    return originalJson(localizeResponseBody(body, getLocaleFromRequest(req)));
+  };
+
+  next();
+});
 
 // Connecting to the database
 const dbPath = process.env.DATABASE_PATH
@@ -359,10 +375,15 @@ app.use((err, req, res, next) => {
 
 // Socket.io authentication middleware
 io.use((socket, next) => {
-  const token = socket.handshake.auth.token;
+  const handshakeAuth = socket.handshake.auth || {};
+  const token = handshakeAuth.token;
+  socket.locale = normalizeLocale(
+    handshakeAuth.locale ||
+    socket.handshake.headers['accept-language']
+  );
   
   if (!token) {
-    return next(new Error('Autentifikācijas kļūda'));
+    return next(new Error(translateApiMessage('Autentifikācijas kļūda', socket.locale)));
   }
 
   try {
@@ -372,7 +393,7 @@ io.use((socket, next) => {
     socket.userFullName = socket.userFullName.trim();
     next();
   } catch (err) {
-    next(new Error('Autentifikācijas kļūda'));
+    next(new Error(translateApiMessage('Autentifikācijas kļūda', socket.locale)));
   }
 });
 
@@ -482,6 +503,23 @@ const normalizeAttachment = (attachment) => {
 io.on('connection', (socket) => {
   console.log(`User connected: ${socket.userFullName} (ID: ${socket.userId})`);
 
+  const originalEmit = socket.emit.bind(socket);
+  socket.emit = (eventName, payload, ...args) => {
+    if (
+      (eventName === 'message_error' || eventName === 'dm_error') &&
+      payload &&
+      typeof payload === 'object'
+    ) {
+      return originalEmit(eventName, localizeResponseBody(payload, socket.locale), ...args);
+    }
+
+    return originalEmit(eventName, payload, ...args);
+  };
+
+  socket.on('set_locale', (locale) => {
+    socket.locale = normalizeLocale(locale);
+  });
+
   // Join user's personal room for DMs immediately on connection
   socket.join(`user_${socket.userId}`);
   console.log(`${socket.userFullName} joined personal room user_${socket.userId}`);
@@ -542,7 +580,7 @@ io.on('connection', (socket) => {
     );
 
     if (!roomId) {
-      socket.emit('message_error', { error: 'NederД«ga ДЌata istaba' });
+      socket.emit('message_error', { error: 'Nederīga čata istaba' });
       return;
     }
 
@@ -554,14 +592,14 @@ io.on('connection', (socket) => {
       const roomMembership = await getRoomMembership(roomId, socket.userId);
 
       if (!roomMembership) {
-        socket.emit('message_error', { error: 'PiekДјuve liegta' });
+        socket.emit('message_error', { error: 'Piekļuve liegta' });
         return;
       }
 
       const replySnapshot = await getReplySnapshot(replyToMessageId, roomId);
 
       if (replyToMessageId && !replySnapshot) {
-        socket.emit('message_error', { error: 'Atbildes ziЕ†ojums nav atrasts' });
+        socket.emit('message_error', { error: 'Atbildes ziņojums nav atrasts' });
         return;
       }
 
@@ -618,7 +656,7 @@ io.on('connection', (socket) => {
       io.to(`room_${roomId}`).emit('new_message', messageData);
     } catch (err) {
       console.error('Error saving message:', err);
-      socket.emit('message_error', { error: 'NeizdevДЃs nosЕ«tД«t ziЕ†ojumu' });
+      socket.emit('message_error', { error: 'Neizdevās nosūtīt ziņojumu' });
     }
   });
 
@@ -626,7 +664,7 @@ io.on('connection', (socket) => {
     const messageId = normalizePositiveInteger(data?.messageId || data?.id || data);
 
     if (!messageId) {
-      socket.emit('message_error', { error: 'NederД«gs ziЕ†ojums' });
+      socket.emit('message_error', { error: 'Nederīgs ziņojums' });
       return;
     }
 
@@ -641,7 +679,7 @@ io.on('connection', (socket) => {
       );
 
       if (!message) {
-        socket.emit('message_error', { error: 'ZiЕ†ojums nav atrasts' });
+        socket.emit('message_error', { error: 'Ziņojums nav atrasts' });
         return;
       }
 
@@ -649,7 +687,7 @@ io.on('connection', (socket) => {
         || normalizeRole(message.requester_role) === 'coach';
 
       if (!canDelete) {
-        socket.emit('message_error', { error: 'Е o ziЕ†ojumu nevar dzД“st' });
+        socket.emit('message_error', { error: 'Šo ziņojumu nevar dzēst' });
         return;
       }
 
@@ -661,7 +699,7 @@ io.on('connection', (socket) => {
       });
     } catch (err) {
       console.error('Error deleting message:', err);
-      socket.emit('message_error', { error: 'NeizdevДЃs dzД“st ziЕ†ojumu' });
+      socket.emit('message_error', { error: 'Neizdevās dzēst ziņojumu' });
     }
   });
 

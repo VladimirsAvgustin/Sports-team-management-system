@@ -5,6 +5,7 @@ import { createPinia } from 'pinia'
 import axios from 'axios'
 import { useAuthStore } from './stores/auth'
 import i18n from './i18n'
+import { setupApiLocale } from './utils/apiLocale'
 
 import '@/assets/styles/global.css'
 
@@ -68,6 +69,8 @@ const pinia = createPinia()
 app.use(pinia)
 app.use(router)
 app.use(i18n)
+
+setupApiLocale(axios)
 
 // Initialize auth store after pinia is set up
 const authStore = useAuthStore()

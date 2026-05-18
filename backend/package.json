@@ -5,6 +5,7 @@
     "main": "server.js",
     "scripts": {
         "start": "node server.js",
+        "seed": "node scripts/seed-users.js",
         "dev": "nodemon server.js",
         "dev:docker": "nodemon --legacy-watch server.js"
     },

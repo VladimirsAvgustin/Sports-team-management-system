@@ -12,9 +12,14 @@ services:
       EMAIL_PASS: ${EMAIL_PASS:-}
       DATABASE_PATH: /app/data/database.sqlite
       UPLOADS_DIR: /app/uploads
+      SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-}
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-}
+      SEED_ADMIN_NAME: ${SEED_ADMIN_NAME:-Admin}
+      SEED_ADMIN_SURNAME: ${SEED_ADMIN_SURNAME:-User}
     volumes:
-      - backend_data:/app/data
-      - backend_uploads:/app/uploads
+      - ./backend/data:/app/data
+      - ./backend/uploads:/app/uploads
+    command: sh -c "npm run seed && npm start"
     restart: unless-stopped
 
   frontend:
@@ -25,7 +30,3 @@ services:
     depends_on:
       - backend
     restart: unless-stopped
-
-volumes:
-  backend_data:
-  backend_uploads:

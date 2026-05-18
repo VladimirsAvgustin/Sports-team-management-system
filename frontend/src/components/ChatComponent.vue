@@ -163,6 +163,7 @@
 
 <script>
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useChatStore } from '../stores/chat'
 import { useAuthStore } from '../stores/auth'
 
@@ -182,6 +183,7 @@ export default {
   setup(props) {
     const chatStore = useChatStore()
     const authStore = useAuthStore()
+    const { locale } = useI18n()
     
     const newMessage = ref('')
     const messagesContainer = ref(null)
@@ -202,6 +204,19 @@ export default {
     const currentUserId = computed(() => authStore.user?.id)
     const currentUserRole = computed(() => String(authStore.user?.role || '').toLowerCase())
     const isCoach = computed(() => currentUserRole.value === 'coach')
+    const copy = computed(() => locale.value === 'en'
+      ? {
+          attachment: 'Attachment',
+          message: 'Message',
+          uploadFileError: 'Failed to upload file',
+          loadFileError: 'Failed to load file'
+        }
+      : {
+          attachment: 'Pielikums',
+          message: 'Ziņojums',
+          uploadFileError: 'Neizdevās augšupielādēt failu',
+          loadFileError: 'Neizdevās ielādēt failu'
+        })
 
     const sendMessage = async () => {
       const text = newMessage.value.trim()
@@ -219,7 +234,7 @@ export default {
         cancelReply()
         removeSelectedFile()
       } catch (error) {
-        uploadError.value = error.message || 'Neizdevās augšupielādēt failu'
+        uploadError.value = error.message || copy.value.uploadFileError
       } finally {
         isUploading.value = false
       }
@@ -248,7 +263,7 @@ export default {
       return {
         url,
         objectUrl: chatStore.getAttachmentObjectUrl(url),
-        name: message.attachment_name || message.attachmentName || 'Pielikums',
+        name: message.attachment_name || message.attachmentName || copy.value.attachment,
         type: message.attachment_type || message.attachmentType || '',
         size: message.attachment_size || message.attachmentSize || 0
       }
@@ -267,7 +282,7 @@ export default {
       if (text) return text.length > 140 ? `${text.slice(0, 140)}...` : text
 
       const attachmentName = message?.attachment_name || message?.attachmentName
-      return attachmentName || 'Attachment'
+      return attachmentName || copy.value.attachment
     }
 
     const getReply = (message) => {
@@ -279,12 +294,12 @@ export default {
         || message?.replyToMessage
         || message?.reply_to_attachment_name
         || message?.replyToAttachmentName
-        || 'Attachment'
+        || copy.value.attachment
       ).trim()
 
       return {
         id: replyId,
-        username: message?.reply_to_username || message?.replyToUsername || 'Message',
+        username: message?.reply_to_username || message?.replyToUsername || copy.value.message,
         preview: preview.length > 140 ? `${preview.slice(0, 140)}...` : preview
       }
     }
@@ -296,7 +311,7 @@ export default {
     const replyToMessage = (message) => {
       replyingTo.value = {
         id: message.id,
-        username: message.username || 'Message',
+        username: message.username || copy.value.message,
         preview: getMessagePreview(message)
       }
       activeMessageMenuId.value = null
@@ -341,7 +356,7 @@ export default {
 
       urls.forEach((url) => {
         chatStore.loadAttachmentObjectUrl(url).catch((error) => {
-          attachmentLoadErrors.value[url] = error.message || 'NeizdevДЃs ielДЃdД“t failu'
+          attachmentLoadErrors.value[url] = error.message || copy.value.loadFileError
         })
       })
     }
@@ -362,7 +377,7 @@ export default {
           link.click()
         }
       } catch (error) {
-        attachmentLoadErrors.value[attachment.url] = error.message || 'NeizdevДЃs ielДЃdД“t failu'
+        attachmentLoadErrors.value[attachment.url] = error.message || copy.value.loadFileError
       }
     }
 

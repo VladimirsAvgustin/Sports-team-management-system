@@ -181,7 +181,7 @@ export default {
     DirectMessageComponent
   },
   setup() {
-    const { t } = useI18n()
+    const { t, locale } = useI18n()
     const chatStore = useChatStore()
     const authStore = useAuthStore()
     
@@ -211,6 +211,8 @@ export default {
     })
 
     const isMobile = computed(() => window.innerWidth <= 768)
+    const unknownUserLabel = computed(() => locale.value === 'en' ? 'Unknown user' : 'Nezināms lietotājs')
+    const dateLocale = computed(() => (locale.value === 'en' ? 'en-US' : 'lv-LV'))
 
     const selectRoom = async (roomId) => {
       selectedRoomId.value = roomId
@@ -248,11 +250,11 @@ export default {
     }
 
     const convFullName = (conv) => {
-      return ((conv.name || '') + ' ' + (conv.surname || '')).trim() || conv.username || 'Nezināms lietotājs'
+      return ((conv.name || '') + ' ' + (conv.surname || '')).trim() || conv.username || unknownUserLabel.value
     }
 
     const userFullName = (user) => {
-      return ((user.name || '') + ' ' + (user.surname || '')).trim() || user.username || 'Nezināms lietotājs'
+      return ((user.name || '') + ' ' + (user.surname || '')).trim() || user.username || unknownUserLabel.value
     }
 
     const getInitials = (name) => {
@@ -278,14 +280,14 @@ export default {
       if (diffInHours < 1) {
         return t('chatPage.justNow')
       } else if (diffInHours < 24) {
-        return date.toLocaleTimeString('lv-LV', {
+        return date.toLocaleTimeString(dateLocale.value, {
           hour: '2-digit',
           minute: '2-digit'
         })
       } else if (diffInHours < 168) { // 7 days
-        return date.toLocaleDateString('lv-LV', { weekday: 'short' })
+        return date.toLocaleDateString(dateLocale.value, { weekday: 'short' })
       } else {
-        return date.toLocaleDateString('lv-LV', {
+        return date.toLocaleDateString(dateLocale.value, {
           month: 'short',
           day: 'numeric'
         })

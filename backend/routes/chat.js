@@ -142,7 +142,7 @@ module.exports = (db) => {
     const storedName = getSafeStoredName(req.params.fileName);
 
     if (!storedName) {
-      return res.status(400).json({ error: 'NederД«gs faila nosaukums' });
+      return res.status(400).json({ error: 'Nederīgs faila nosaukums' });
     }
 
     try {
@@ -156,7 +156,7 @@ module.exports = (db) => {
       const storedPath = path.resolve(uploadRoot, storedName);
 
       if (!storedPath.startsWith(`${uploadRoot}${path.sep}`)) {
-        return res.status(400).json({ error: 'NederД«gs faila ceДјЕЎ' });
+        return res.status(400).json({ error: 'Nederīgs faila ceļš' });
       }
 
       try {
@@ -172,7 +172,7 @@ module.exports = (db) => {
       return res.sendFile(storedPath);
     } catch (error) {
       console.error('Attachment download error:', error);
-      return res.status(500).json({ error: 'NeizdevДЃs ielДЃdД“t failu' });
+      return res.status(500).json({ error: 'Neizdevās ielādēt failu' });
     }
   });
 

@@ -898,7 +898,7 @@ const handleLogin = async (email, password) => {
     await loadMemberHome()
   } catch (error) {
     console.error('Login error:', error)
-    alert(`${t('messages.loginError')}: ${error.message || 'Nezināma kļūda'}`)
+    alert(`${t('messages.loginError')}: ${error.message || t('messages.somethingWentWrong')}`)
   }
 }
 

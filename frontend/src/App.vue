@@ -1,6 +1,7 @@
 <script setup>
 import { ref, onMounted, onBeforeUnmount, computed, watch } from 'vue'
 import { useAuthStore } from './stores/auth'
+import { useChatStore } from './stores/chat'
 import LoginModal from './components/LoginModal.vue'
 import MobileNav from './components/MobileNav.vue'
 import axios from 'axios'
@@ -11,6 +12,7 @@ import { hasCoachRole } from './utils/teamAccess'
 
 // Authentication store
 const auth = useAuthStore()
+const chat = useChatStore()
 const router = useRouter()
 const route = useRoute()
 const { locale, t } = useI18n()
@@ -180,6 +182,7 @@ function toggleDarkMode() {
 function toggleLanguage() {
   locale.value = locale.value === 'en' ? 'lv' : 'en'
   localStorage.setItem('locale', locale.value)
+  chat.socket?.emit('set_locale', locale.value)
 }
 
 // Navigation

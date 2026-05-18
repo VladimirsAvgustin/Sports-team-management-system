@@ -77,6 +77,7 @@
     "playerRemoved": "Spēlētājs veiksmīgi noņemts",
     "updateSuccess": "Veiksmīgi atjaunināts",
     "loginError": "Pierakstīšanās kļūda",
+    "invalidEmailOrPassword": "Nepareizs e-pasts vai parole",
     "failedToJoinTeam": "Neizdevās pievienoties komandai",
     "somethingWentWrong": "Kaut kas nogāja greizi"
   },

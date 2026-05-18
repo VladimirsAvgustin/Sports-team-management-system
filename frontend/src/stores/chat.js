@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { io } from 'socket.io-client'
 import { useAuthStore } from './auth'
+import { getCurrentLocale, getLocalizedFallback, withLocaleHeaders } from '../utils/apiLocale'
 
 // Determine API base URL dynamically based on hostname
 const getApiBaseUrl = () => {
@@ -20,21 +21,22 @@ const getApiBaseUrl = () => {
 }
 
 const API_BASE_URL = getApiBaseUrl()
-const ATTACHMENT_LABEL = 'Pielikums'
 const CHAT_ATTACHMENT_API_PREFIX = '/api/chat/attachments/'
 const CHAT_ATTACHMENT_LEGACY_PREFIX = '/uploads/chat/'
 const attachmentObjectUrlPromises = new Map()
 
+const getAttachmentLabel = () => getLocalizedFallback('Attachment', 'Pielikums')
+
 const fileToDataUrl = (file) => new Promise((resolve, reject) => {
   const reader = new FileReader()
   reader.onload = () => resolve(reader.result)
-  reader.onerror = () => reject(reader.error || new Error('Neizdevās nolasīt failu'))
+  reader.onerror = () => reject(reader.error || new Error(getLocalizedFallback('Failed to read file', 'Neizdevās nolasīt failu')))
   reader.readAsDataURL(file)
 })
 
 const getMessagePreview = (message) => {
   if (message?.message) return message.message
-  return message?.attachment_name || message?.attachmentName || ATTACHMENT_LABEL
+  return message?.attachment_name || message?.attachmentName || getAttachmentLabel()
 }
 
 const toApiUrl = (pathOrUrl) => {
@@ -99,7 +101,8 @@ export const useChatStore = defineStore('chat', {
 
       this.socket = io(API_BASE_URL, {
         auth: {
-          token: authStore.token
+          token: authStore.token,
+          locale: getCurrentLocale()
         },
         transports: ['websocket', 'polling']
       })
@@ -108,6 +111,7 @@ export const useChatStore = defineStore('chat', {
       this.socket.on('connect', () => {
         console.log('Socket.io connected')
         this.isConnected = true
+        this.socket.emit('set_locale', getCurrentLocale())
       })
 
       this.socket.on('disconnect', () => {
@@ -172,7 +176,7 @@ export const useChatStore = defineStore('chat', {
 
       this.socket.on('message_error', (error) => {
         console.error('Message error:', error)
-        alert('Neizdevās nosūtīt ziņojumu')
+        alert(error?.error || getLocalizedFallback('Failed to send message', 'Neizdevās nosūtīt ziņojumu'))
       })
 
       // Direct Message event handlers
@@ -222,7 +226,7 @@ export const useChatStore = defineStore('chat', {
 
       this.socket.on('dm_error', (error) => {
         console.error('DM error:', error)
-        alert('Neizdevās nosūtīt tiešo ziņojumu')
+        alert(error?.error || getLocalizedFallback('Failed to send direct message', 'Neizdevās nosūtīt tiešo ziņojumu'))
       })
     },
 
@@ -247,13 +251,13 @@ export const useChatStore = defineStore('chat', {
       try {
         // Fetch room details
         const response = await fetch(`${API_BASE_URL}/api/chat/room/${roomId}/messages`, {
-          headers: {
+          headers: withLocaleHeaders({
             'Authorization': `Bearer ${useAuthStore().token}`
-          }
+          })
         })
 
         if (!response.ok) {
-          throw new Error('Neizdevās ielādēt ziņojumus')
+          throw new Error(getLocalizedFallback('Failed to load messages', 'Neizdevās ielādēt ziņojumus'))
         }
 
         const messages = await response.json()
@@ -262,7 +266,10 @@ export const useChatStore = defineStore('chat', {
         
         // If currentRoom is not found, create a temporary room object
         if (!this.currentRoom) {
-          this.currentRoom = { id: roomId, name: `Istaba ${roomId}` }
+          this.currentRoom = {
+            id: roomId,
+            name: `${getLocalizedFallback('Room', 'Istaba')} ${roomId}`
+          }
         }
         
         console.log(`Joining room ${roomId}, loaded ${messages.length} messages`)
@@ -317,10 +324,10 @@ export const useChatStore = defineStore('chat', {
       const data = await fileToDataUrl(file)
       const response = await fetch('/api/chat/upload', {
         method: 'POST',
-        headers: {
+        headers: withLocaleHeaders({
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${useAuthStore().token}`
-        },
+        }),
         body: JSON.stringify({
           fileName: file.name,
           mimeType: file.type,
@@ -331,7 +338,7 @@ export const useChatStore = defineStore('chat', {
       const payload = await response.json().catch(() => ({}))
 
       if (!response.ok) {
-        throw new Error(payload.error || 'Neizdevās augšupielādēt failu')
+        throw new Error(payload.error || getLocalizedFallback('Failed to upload file', 'Neizdevās augšupielādēt failu'))
       }
 
       return payload
@@ -356,13 +363,13 @@ export const useChatStore = defineStore('chat', {
 
       const promise = (async () => {
         const response = await fetch(toApiUrl(attachmentPath), {
-          headers: {
+          headers: withLocaleHeaders({
             'Authorization': `Bearer ${useAuthStore().token}`
-          }
+          })
         })
 
         if (!response.ok) {
-          throw new Error('NeizdevДЃs ielДЃdД“t failu')
+          throw new Error(getLocalizedFallback('Failed to load file', 'Neizdevās ielādēt failu'))
         }
 
         const objectUrl = URL.createObjectURL(await response.blob())
@@ -395,13 +402,13 @@ export const useChatStore = defineStore('chat', {
     async fetchRooms() {
       try {
         const response = await fetch(`${API_BASE_URL}/api/chat/rooms`, {
-          headers: {
+          headers: withLocaleHeaders({
             'Authorization': `Bearer ${useAuthStore().token}`
-          }
+          })
         })
 
         if (!response.ok) {
-          throw new Error('Neizdevās ielādēt čatus')
+          throw new Error(getLocalizedFallback('Failed to load chats', 'Neizdevās ielādēt čatus'))
         }
 
         this.rooms = await response.json()
@@ -415,13 +422,13 @@ export const useChatStore = defineStore('chat', {
     async getTeamRoom(teamId) {
       try {
         const response = await fetch(`${API_BASE_URL}/api/chat/team/${teamId}/room`, {
-          headers: {
+          headers: withLocaleHeaders({
             'Authorization': `Bearer ${useAuthStore().token}`
-          }
+          })
         })
 
         if (!response.ok) {
-          throw new Error('Neizdevās atvērt komandas čatu')
+          throw new Error(getLocalizedFallback('Failed to open team chat', 'Neizdevās atvērt komandas čatu'))
         }
 
         const room = await response.json()
@@ -454,13 +461,13 @@ export const useChatStore = defineStore('chat', {
     async fetchAllUsers() {
       try {
         const response = await fetch(`${API_BASE_URL}/api/chat/team-members`, {
-          headers: {
+          headers: withLocaleHeaders({
             'Authorization': `Bearer ${useAuthStore().token}`
-          }
+          })
         })
 
         if (!response.ok) {
-          throw new Error('Neizdevās ielādēt komandas dalībniekus')
+          throw new Error(getLocalizedFallback('Failed to load team members', 'Neizdevās ielādēt komandas dalībniekus'))
         }
 
         this.allUsers = await response.json()
@@ -474,13 +481,13 @@ export const useChatStore = defineStore('chat', {
     async fetchDMConversations() {
       try {
         const response = await fetch(`${API_BASE_URL}/api/chat/dm-conversations`, {
-          headers: {
+          headers: withLocaleHeaders({
             'Authorization': `Bearer ${useAuthStore().token}`
-          }
+          })
         })
 
         if (!response.ok) {
-          throw new Error('Neizdevās ielādēt tiešās sarunas')
+          throw new Error(getLocalizedFallback('Failed to load direct conversations', 'Neizdevās ielādēt tiešās sarunas'))
         }
 
         this.dmConversations = await response.json()
@@ -494,13 +501,13 @@ export const useChatStore = defineStore('chat', {
     async openDM(userId, username) {
       try {
         const response = await fetch(`${API_BASE_URL}/api/chat/dm/${userId}`, {
-          headers: {
+          headers: withLocaleHeaders({
             'Authorization': `Bearer ${useAuthStore().token}`
-          }
+          })
         })
 
         if (!response.ok) {
-          throw new Error('Neizdevās ielādēt tiešos ziņojumus')
+          throw new Error(getLocalizedFallback('Failed to load direct messages', 'Neizdevās ielādēt tiešos ziņojumus'))
         }
 
         this.dmMessages = await response.json()
@@ -543,9 +550,9 @@ export const useChatStore = defineStore('chat', {
       try {
         await fetch(`${API_BASE_URL}/api/chat/dm/mark-read/${userId}`, {
           method: 'POST',
-          headers: {
+          headers: withLocaleHeaders({
             'Authorization': `Bearer ${useAuthStore().token}`
-          }
+          })
         })
         
         // Update local conversation unread count

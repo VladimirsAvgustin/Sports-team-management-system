@@ -25,7 +25,7 @@
       >
         <div class="message-header">
           <span class="message-author">
-            {{ message.sender_id === currentUserId ? 'Jūs' : username }}
+            {{ message.sender_id === currentUserId ? currentUserLabel : username }}
           </span>
           <span class="message-time">{{ formatTime(message.created_at) }}</span>
         </div>
@@ -120,6 +120,7 @@
 
 <script>
 import { ref, computed, watch, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useChatStore } from '../stores/chat'
 import { useAuthStore } from '../stores/auth'
 
@@ -138,6 +139,7 @@ export default {
   setup(props) {
     const chatStore = useChatStore()
     const authStore = useAuthStore()
+    const { locale } = useI18n()
     
     const newMessage = ref('')
     const messagesContainer = ref(null)
@@ -155,6 +157,21 @@ export default {
     })
     const isConnected = computed(() => chatStore.isConnected)
     const currentUserId = computed(() => authStore.user?.id)
+    const copy = computed(() => locale.value === 'en'
+      ? {
+          attachment: 'Attachment',
+          currentUser: 'You',
+          uploadFileError: 'Failed to upload file',
+          loadFileError: 'Failed to load file'
+        }
+      : {
+          attachment: 'Pielikums',
+          currentUser: 'Jūs',
+          uploadFileError: 'Neizdevās augšupielādēt failu',
+          loadFileError: 'Neizdevās ielādēt failu'
+        })
+    const currentUserLabel = computed(() => copy.value.currentUser)
+    const dateLocale = computed(() => (locale.value === 'en' ? 'en-US' : 'lv-LV'))
 
     const sendMessage = async () => {
       const text = newMessage.value.trim()
@@ -171,7 +188,7 @@ export default {
         newMessage.value = ''
         removeSelectedFile()
       } catch (error) {
-        uploadError.value = error.message || 'Neizdevās augšupielādēt failu'
+        uploadError.value = error.message || copy.value.uploadFileError
       } finally {
         isUploading.value = false
       }
@@ -200,7 +217,7 @@ export default {
       return {
         url,
         objectUrl: chatStore.getAttachmentObjectUrl(url),
-        name: message.attachment_name || message.attachmentName || 'Pielikums',
+        name: message.attachment_name || message.attachmentName || copy.value.attachment,
         type: message.attachment_type || message.attachmentType || '',
         size: message.attachment_size || message.attachmentSize || 0
       }
@@ -220,7 +237,7 @@ export default {
 
       urls.forEach((url) => {
         chatStore.loadAttachmentObjectUrl(url).catch((error) => {
-          attachmentLoadErrors.value[url] = error.message || 'NeizdevДЃs ielДЃdД“t failu'
+          attachmentLoadErrors.value[url] = error.message || copy.value.loadFileError
         })
       })
     }
@@ -241,7 +258,7 @@ export default {
           link.click()
         }
       } catch (error) {
-        attachmentLoadErrors.value[attachment.url] = error.message || 'NeizdevДЃs ielДЃdД“t failu'
+        attachmentLoadErrors.value[attachment.url] = error.message || copy.value.loadFileError
       }
     }
 
@@ -268,18 +285,18 @@ export default {
       const diffInHours = (now - date) / (1000 * 60 * 60)
 
       if (diffInHours < 24) {
-        return date.toLocaleTimeString('lv-LV', {
+        return date.toLocaleTimeString(dateLocale.value, {
           hour: '2-digit',
           minute: '2-digit'
         })
       } else if (diffInHours < 168) { // 7 days
-        return date.toLocaleDateString('lv-LV', {
+        return date.toLocaleDateString(dateLocale.value, {
           weekday: 'short',
           hour: '2-digit',
           minute: '2-digit'
         })
       } else {
-        return date.toLocaleDateString('lv-LV', {
+        return date.toLocaleDateString(dateLocale.value, {
           month: 'short',
           day: 'numeric',
           hour: '2-digit',
@@ -313,6 +330,7 @@ export default {
       sortedMessages,
       isConnected,
       currentUserId,
+      currentUserLabel,
       sendMessage,
       openFilePicker,
       handleFileChange,

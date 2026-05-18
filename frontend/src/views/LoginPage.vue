@@ -34,7 +34,7 @@ export default {
         localStorage.setItem('user', JSON.stringify(response.data.user))
         this.$router.push('/')
       } catch (err) {
-        this.error = 'Nepareizs e-pasts vai parole'
+        this.error = err.response?.data?.error || this.$t('messages.invalidEmailOrPassword')
       }
     }
   }

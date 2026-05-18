@@ -152,7 +152,7 @@ const submitForm = async () => {
 
     if (!res.ok) {
       const data = await res.json()
-      throw new Error(data.error || (locale.value === 'lv' ? 'Neizdevas nosutit' : 'Failed to send'))
+      throw new Error(data.error || (locale.value === 'lv' ? 'Neizdevās nosūtīt' : 'Failed to send'))
     }
 
     sent.value = true
@@ -163,7 +163,7 @@ const submitForm = async () => {
   } catch (err) {
     console.error('Error sending message:', err)
     errorMsg.value = err.message || (locale.value === 'lv'
-      ? 'Kaut kas nogaja greizi. Ludzu, meginiet velreiz.'
+      ? 'Kaut kas nogāja greizi. Lūdzu, mēģiniet vēlreiz.'
       : 'Something went wrong. Please try again.')
     setTimeout(() => {
       errorMsg.value = ''
